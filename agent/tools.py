@@ -101,6 +101,17 @@ ALLOWED_VIDEO_ROOTS = tuple(
     )
 )
 
+ALLOWED_APPLICATION_ROOTS = tuple(
+    path.resolve()
+    for path in (
+        APP_ROOT,
+        Path(r"D:\AI-Video-Localizer"),
+        Path(r"D:\OneDrive\Desktop"),
+        Path.home() / "Desktop",
+        Path.home() / "Downloads",
+    )
+)
+
 
 @dataclass(frozen=True)
 class ToolSpec:
@@ -523,6 +534,27 @@ class LocalToolRegistry:
                         "additionalProperties": False,
                     },
                     handler=self._ui_press_key,
+                ),
+                ToolSpec(
+                    name="launch_application",
+                    description=(
+                        "Mở một ứng dụng Windows .exe trong các thư mục được phép, "
+                        "không dùng shell và không thực thi chuỗi lệnh tùy ý."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "Đường dẫn tuyệt đối tới file .exe."},
+                            "args": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Tham số dạng danh sách, không qua shell.",
+                            },
+                        },
+                        "required": ["path"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._launch_application,
                 ),
                 ToolSpec(
                     name="ai_video_localizer_status",
@@ -1492,6 +1524,21 @@ class LocalToolRegistry:
         from adapters.ai_video_localizer import AIVideoLocalizerTarget
 
         return AIVideoLocalizerTarget.from_environment().launch()
+
+    def _launch_application(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        path = _safe_application_path(arguments.get("path"))
+        args = arguments.get("args", [])
+        if not isinstance(args, list) or len(args) > 20:
+            raise ValueError("args phải là danh sách tối đa 20 phần tử.")
+        process = subprocess.Popen(
+            [str(path), *(str(value) for value in args)],
+            cwd=str(path.parent),
+            close_fds=True,
+        )
+        return {"started": True, "pid": process.pid, "path": str(path)}
 
     def _read_code_file(
         self,
@@ -2463,6 +2510,24 @@ def _workspace_cwd(value: Any) -> Path:
         raise ValueError("cwd phải nằm trong workspace.")
     if not resolved.is_dir():
         raise NotADirectoryError(f"Không tìm thấy cwd: {resolved}")
+    return resolved
+
+
+def _safe_application_path(value: Any) -> Path:
+    raw = _required_text(value, "path")
+    candidate = Path(raw).expanduser()
+    if not candidate.is_absolute():
+        candidate = APP_ROOT / candidate
+    resolved = candidate.resolve()
+    if resolved.suffix.lower() != ".exe":
+        raise ValueError("Chỉ được mở file .exe.")
+    if not resolved.is_file():
+        raise FileNotFoundError(f"Không tìm thấy ứng dụng: {resolved}")
+    if not any(
+        resolved == root or root in resolved.parents
+        for root in ALLOWED_APPLICATION_ROOTS
+    ):
+        raise ValueError("Ứng dụng nằm ngoài các thư mục được phép.")
     return resolved
 
 

@@ -145,7 +145,7 @@ Khi người dùng yêu cầu lập trình, hãy đọc/tìm kiếm code liên q
 
 Khi cần cài đặt, build, test hoặc chạy script trong repo, dùng run_workspace_command với argv allowlist; không dùng shell operators. Sau mỗi thao tác ghi/cài/chạy, đọc output và thực hiện bước xác minh tiếp theo.
 
-Khi người dùng yêu cầu thao tác web, dùng browser_open rồi browser_snapshot/extract để xác định nội dung, sau đó click/type bằng selector hoặc text. Khi người dùng yêu cầu thao tác ứng dụng Windows, dùng ui_list_windows và ui_snapshot trước, rồi định vị control bằng title hoặc automation_id; không đoán tọa độ màn hình.
+Khi người dùng yêu cầu thao tác web, dùng browser_open rồi browser_snapshot/extract để xác định nội dung, sau đó click/type bằng selector hoặc text. Khi người dùng yêu cầu thao tác ứng dụng Windows, nếu ứng dụng chưa mở thì dùng launch_application với file .exe được phép, sau đó dùng ui_list_windows và ui_snapshot trước, rồi định vị control bằng title hoặc automation_id; không đoán tọa độ màn hình.
 
 Khi cần thông tin bên ngoài, ưu tiên web_search rồi web_open hoặc search_github_repositories. Đánh giá nguồn và ngày cập nhật; không tin tuyệt đối vào repo/package do người dùng trích dẫn nếu chưa inspect.
 
@@ -856,6 +856,7 @@ Nếu tool trả lỗi, giải thích ngắn gọn nguyên nhân và đề xuấ
                 "ui_click",
                 "ui_type",
                 "ui_press_key",
+                "launch_application",
                 "bilibili_search",
                 "youtube_search",
                 "web_open",
