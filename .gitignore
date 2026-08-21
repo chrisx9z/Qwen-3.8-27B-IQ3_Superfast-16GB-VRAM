@@ -1,0 +1,10 @@
+.venv/
+build/
+dist/
+work/
+external/
+models/
+llm/models/
+__pycache__/
+*.py[cod]
+*.log

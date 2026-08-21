@@ -1,0 +1,160 @@
+from __future__ import annotations
+
+import json
+import os
+import subprocess
+import threading
+from datetime import datetime
+from pathlib import Path
+from typing import Any
+
+import psutil
+
+from core.project import APP_ROOT
+
+
+RESOURCE_STATE_PATH = APP_ROOT / "work" / "auto_pilot" / "resource_state.json"
+_LOCK = threading.RLock()
+
+
+class GPUResourceManager:
+    def claim_agent(
+        self,
+        *,
+        profile: str,
+        port: int,
+        model_path: str,
+    ) -> dict[str, Any]:
+        with _LOCK:
+            state = _load_state()
+            active = state.get("active_agent")
+            if active and _pid_alive(active.get("owner_pid")):
+                owner_pid = int(active["owner_pid"])
+                if owner_pid != os.getpid():
+                    raise RuntimeError(
+                        "Một Auto Pilot process khác đang giữ resource model "
+                        f"{active.get('profile', '')} trên port {active.get('port', '')}."
+                    )
+            state["active_agent"] = {
+                "owner_pid": os.getpid(),
+                "profile": profile,
+                "port": port,
+                "model_path": model_path,
+                "updated_at": datetime.now().isoformat(timespec="seconds"),
+            }
+            _save_state(state)
+            return self.status()
+
+    def status(self) -> dict[str, Any]:
+        with _LOCK:
+            state = _load_state()
+            active = state.get("active_agent")
+            if active and not _pid_alive(active.get("owner_pid")):
+                state.pop("active_agent", None)
+                _save_state(state)
+                active = None
+            servers = _llama_servers()
+            gpu = _gpu_status()
+            warnings: list[str] = []
+            ports = {server["port"] for server in servers if server.get("port")}
+            if 8080 in ports and 8090 in ports:
+                warnings.append(
+                    "Pipeline 8080 và Auto Pilot 8090 đang cùng chạy; "
+                    "hai model lớn có thể tranh VRAM."
+                )
+            if gpu.get("available") and gpu.get("free_bytes", 0) < 2 * 1024**3:
+                warnings.append("VRAM trống dưới 2 GB.")
+            return {
+                "policy": "exclusive_agent_model",
+                "active_agent": active,
+                "llama_servers": servers,
+                "gpu": gpu,
+                "warnings": warnings,
+            }
+
+
+def _load_state() -> dict[str, Any]:
+    try:
+        value = json.loads(RESOURCE_STATE_PATH.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return {}
+    return value if isinstance(value, dict) else {}
+
+
+def _save_state(state: dict[str, Any]) -> None:
+    RESOURCE_STATE_PATH.parent.mkdir(parents=True, exist_ok=True)
+    RESOURCE_STATE_PATH.write_text(
+        json.dumps(state, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
+def _pid_alive(value: Any) -> bool:
+    try:
+        return bool(value) and psutil.pid_exists(int(value))
+    except (TypeError, ValueError, psutil.Error):
+        return False
+
+
+def _llama_servers() -> list[dict[str, Any]]:
+    ports_by_pid: dict[int, list[int]] = {}
+    try:
+        for connection in psutil.net_connections(kind="tcp"):
+            if connection.status != psutil.CONN_LISTEN or not connection.pid:
+                continue
+            if not connection.laddr:
+                continue
+            ports_by_pid.setdefault(connection.pid, []).append(connection.laddr.port)
+    except psutil.Error:
+        return []
+    servers: list[dict[str, Any]] = []
+    for pid, ports in ports_by_pid.items():
+        try:
+            process = psutil.Process(pid)
+            if process.name().lower() != "llama-server.exe":
+                continue
+            servers.append({
+                "pid": pid,
+                "ports": sorted(set(ports)),
+                "port": min(ports),
+                "cmdline": process.cmdline()[-12:],
+            })
+        except (psutil.Error, OSError):
+            continue
+    return sorted(servers, key=lambda item: item["port"])
+
+
+def _gpu_status() -> dict[str, Any]:
+    command = [
+        "nvidia-smi",
+        "--query-gpu=memory.total,memory.used,memory.free,utilization.gpu",
+        "--format=csv,noheader,nounits",
+    ]
+    try:
+        completed = subprocess.run(
+            command,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=3,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return {"available": False, "reason": "nvidia-smi không khả dụng"}
+    if completed.returncode != 0 or not completed.stdout.strip():
+        return {"available": False, "reason": "nvidia-smi không trả dữ liệu"}
+    values = [value.strip() for value in completed.stdout.splitlines()[0].split(",")]
+    if len(values) < 4:
+        return {"available": False, "reason": "Không đọc được trạng thái VRAM"}
+    try:
+        total_mb, used_mb, free_mb, utilization = (float(value) for value in values[:4])
+    except ValueError:
+        return {"available": False, "reason": "Dữ liệu nvidia-smi không hợp lệ"}
+    return {
+        "available": True,
+        "total_bytes": int(total_mb * 1024 * 1024),
+        "used_bytes": int(used_mb * 1024 * 1024),
+        "free_bytes": int(free_mb * 1024 * 1024),
+        "utilization_percent": utilization,
+    }
