@@ -17,6 +17,7 @@ M Auto Pilot is the controller. AI Video Localizer is an external target applica
 - Business Plan handoff is saved in `docs/BUSINESS_PLAN_HANDOFF.md`.
 - Browser open/snapshot/close, coding compile/checkpoint, and controlled application-launch smoke tests passed.
 - M Auto Pilot now has its own Git repository with a baseline commit; AI Video Localizer remains a separate clean worktree.
+- Development is paused for low-VRAM stability. Desktop cleanup kept only the latest build as `M Auto Pilot.exe`; older Desktop builds are outside Desktop in `archive/desktop-old`.
 - Standalone executable built at D:\M-Auto-Pilot\dist\M Auto Pilot.exe; the previous Desktop executable is still running, so the verified copy is D:\OneDrive\Desktop\M Auto Pilot Standalone.exe.
 - Do not build the final executable from D:\AI-Video-Localizer.
 

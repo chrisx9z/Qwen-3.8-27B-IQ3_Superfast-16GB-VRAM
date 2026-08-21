@@ -3,6 +3,7 @@ build/
 dist/
 work/
 external/
+archive/
 models/
 llm/models/
 __pycache__/
