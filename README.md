@@ -1,33 +1,46 @@
 # M Auto Pilot
 
-M Auto Pilot is an independent computer-control application.
+M Auto Pilot is a standalone local-first agent for web research, Windows/browser control, coding tasks, and application automation.
 
-AI Video Localizer is a target application controlled through adapters, UI Automation, browser tools, APIs, or approved workspace commands. M Auto Pilot must not import AI Video Localizer modules or modify its source files.
+## Software boundary
 
-## Paths
+M Auto Pilot and AI Video Localizer are two separate applications:
 
-- M Auto Pilot root: D:\M-Auto-Pilot
-- AI Video Localizer target: D:\AI-Video-Localizer
-- Target executable: D:\OneDrive\Desktop\AI Video Localizer.exe
+- M Auto Pilot owns the controller, UI, tools, chats, runtime state, models, and build output.
+- AI Video Localizer is an external application that M Auto Pilot may control.
+- M Auto Pilot does not import AI Video Localizer code and does not modify its source files.
 
-## Runtime variables
+## Locations
 
-- M_AUTO_PILOT_ROOT controls M Auto Pilot state, chats, logs, models, and runtime files.
-- M_AUTO_PILOT_TARGET_ROOT identifies the application workspace to control.
-- M_AUTO_PILOT_TARGET_EXE identifies the target executable.
+- M Auto Pilot: `D:\M-Auto-Pilot`
+- AI Video Localizer workspace: `D:\AI-Video-Localizer`
+- AI Video Localizer executable: `D:\OneDrive\Desktop\AI Video Localizer.exe`
+- M Auto Pilot executable: `D:\OneDrive\Desktop\M Auto Pilot.exe`
 
-## Current separation checkpoint
+## Integration contract
 
-- The AI Video Localizer Git worktree was restored to its pre-M-Auto-Pilot state.
-- M Auto Pilot source was copied here for independent refactoring.
-- The AI Video Localizer adapter boundary is defined in adapters/ai_video_localizer.py.
+The only target-specific configuration is supplied through the adapter:
 
-## Core capability roadmap
+- `M_AUTO_PILOT_ROOT`: M Auto Pilot state and runtime root.
+- `M_AUTO_PILOT_TARGET_ROOT`: external application workspace.
+- `M_AUTO_PILOT_TARGET_EXE`: external application executable.
 
-1. Web research: search the Internet, open relevant sources, extract content, and return URLs and source excerpts.
-2. Computer control: inspect Windows/browser state and perform approved UI actions.
-3. Coding agent: inspect, edit, run checks, create checkpoints, and verify workspace changes.
-4. Target adapters: control AI Video Localizer and other applications without importing or changing their source.
-5. Runtime reliability: streaming progress, task history, resumable checkpoints, Q4/Q6 profiles, and clear tool errors.
+The adapter exposes status and launch operations. Further control uses generic Windows UI Automation, browser automation, APIs, or approved commands.
 
-The web research pipeline is now implemented with a generic `web_search` route and a Bing fallback when the primary search endpoint is unavailable. Platform-specific search tools remain optional optimizations, not the architecture boundary.
+## M Auto Pilot capabilities
+
+1. Generic Internet research with search fallback, source opening, extraction, URLs, and excerpts.
+2. Browser automation through open, snapshot, click, type, extract, screenshot, and close tools.
+3. Windows UI Automation through window listing, control inspection, click, type, and keyboard tools.
+4. Coding workflow with workspace reads, controlled edits, checkpoints, compile/test checks, and Git status/diff.
+5. Qwen3.8 27B profiles: Q4 default and Q6 for complex requests.
+6. Progress narration, chat history, resumable state, and clear tool errors.
+
+## Current status
+
+Development is temporarily paused because available VRAM is not sufficient to run M Auto Pilot and AI Video Localizer reliably at the same time.
+
+- Source: `D:\M-Auto-Pilot`
+- Build: `D:\M-Auto-Pilot\dist\M Auto Pilot.exe`
+- Desktop build: `D:\OneDrive\Desktop\M Auto Pilot.exe`
+- Project state: `PROJECT_STATE.md`

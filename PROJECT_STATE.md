@@ -1,31 +1,47 @@
 # M Auto Pilot Project State
 
-## Architecture boundary
+## Separation rule
 
-M Auto Pilot is the controller. AI Video Localizer is an external target application. The controller owns its own source, state, runtime, models, and build output.
+M Auto Pilot and AI Video Localizer are separate applications.
 
-## Checkpoint 2026-08-22
+- M Auto Pilot owns this repository, its UI, tools, chats, runtime files, models, and builds.
+- AI Video Localizer is an external target application.
+- M Auto Pilot may inspect or control the target through the adapter and generic automation tools.
+- M Auto Pilot must not import target modules or modify the target source tree.
 
-- Restored D:\AI-Video-Localizer tracked files changed by the previous embedded Auto Pilot implementation.
-- Created standalone root D:\M-Auto-Pilot.
-- Copied the current Auto Pilot controller/UI code into the standalone root for refactoring.
-- Switched local root/state resolution to M_AUTO_PILOT_ROOT.
-- Added an explicit target descriptor through M_AUTO_PILOT_TARGET_ROOT and M_AUTO_PILOT_TARGET_EXE.
-- Standalone dependency check and direct Bilibili search smoke test passed from D:\M-Auto-Pilot.
-- Generic Internet research smoke test passed: searched and opened Python 3.14 documentation, plus returned a Douyin search page when public video results were unavailable.
-- UI progress narration now writes each status, search, source-open, and tool-result step into the result panel.
-- Business Plan handoff is saved in `docs/BUSINESS_PLAN_HANDOFF.md`.
-- Browser open/snapshot/close, coding compile/checkpoint, and controlled application-launch smoke tests passed.
-- M Auto Pilot now has its own Git repository with a baseline commit; AI Video Localizer remains a separate clean worktree.
-- Development is paused for low-VRAM stability. Desktop cleanup kept only the latest build as `M Auto Pilot.exe`; older Desktop builds are outside Desktop in `archive/desktop-old`.
-- Standalone executable built at D:\M-Auto-Pilot\dist\M Auto Pilot.exe; the previous Desktop executable is still running, so the verified copy is D:\OneDrive\Desktop\M Auto Pilot Standalone.exe.
-- Do not build the final executable from D:\AI-Video-Localizer.
+## M Auto Pilot locations
 
-## Next implementation boundary
+- Source and state: `D:\M-Auto-Pilot`
+- Build output: `D:\M-Auto-Pilot\dist\M Auto Pilot.exe`
+- Desktop executable: `D:\OneDrive\Desktop\M Auto Pilot.exe`
+- External target workspace: `D:\AI-Video-Localizer`
+- External target executable: `D:\OneDrive\Desktop\AI Video Localizer.exe`
 
-- Keep generic web research independent from platform-specific optimizations.
-- Move target-specific actions behind adapters/ai_video_localizer.py.
-- Add UI Automation/API actions for launching, reading status, and controlling Localizer.
-- Keep browser, shell, coding, and Windows-control tools in M Auto Pilot.
-- Extend model-backed multi-step planning and source synthesis after the basic control path is stable.
-- Build the final executable from this root only.
+## Implemented
+
+- Generic web research with search fallback and source extraction.
+- Browser automation and Windows UI Automation.
+- Controlled `.exe` launch within approved directories.
+- AI Video Localizer adapter for status and launch.
+- Coding tools for read, controlled edit, checkpoint, compile/test, and Git verification.
+- Qwen Q4/Q6 profile selection and progress narration.
+- Independent Git repository for M Auto Pilot.
+- Latest Desktop build retained; older Desktop builds moved out of Desktop.
+
+## Verification
+
+- M Auto Pilot source compiles successfully.
+- Browser open/snapshot/close smoke test passed.
+- Generic web research smoke test passed.
+- AI Video Localizer adapter status test passed.
+- AI Video Localizer Git worktree is clean.
+
+## Pause state
+
+Development is temporarily paused due to low VRAM and crash risk when both applications run simultaneously. No model or source changes should be made until the runtime/resource plan is resumed.
+
+## Resume priorities
+
+1. Add a resource guard to prevent simultaneous high-VRAM workloads.
+2. Continue multi-step Qwen planning and source synthesis.
+3. Extend adapter/UI control only without changing AI Video Localizer source.
