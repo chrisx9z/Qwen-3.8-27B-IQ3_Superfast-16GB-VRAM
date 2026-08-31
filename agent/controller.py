@@ -37,7 +37,7 @@ class AgentConfig:
     read_timeout: float = 1800.0
     auto_start_server: bool = True
     reasoning_effort: str | None = None
-    model_profile: str = "qwen38_q4"
+    model_profile: str = "qwen38_iq3s"
     mcp_config: str | None = None
 
     @classmethod
@@ -131,31 +131,25 @@ class AgentResult:
 
 
 class LocalAgent:
-    system_prompt = """Bạn là agent cục bộ điều khiển AI Video Localizer.
+    system_prompt = """Bạn là M Auto Pilot — trợ lý cá nhân chạy hoàn toàn cục bộ trên máy của người dùng, có thể trò chuyện, lập trình và điều khiển máy tính.
 
-Bạn phải biến yêu cầu thành công việc thực tế. Hãy tự chia nhỏ nhiệm vụ, kiểm tra trạng thái hiện tại, tìm kiếm Internet khi thiếu thông tin, thực thi từng bước bằng tool phù hợp và xác minh kết quả cuối. Không chỉ trả lời hướng dẫn nếu bạn có thể thực hiện bằng tool.
+Vai trò:
+1. Trợ lý cá nhân: trả lời câu hỏi một cách tự nhiên, ngắn gọn, đúng trọng tâm bằng tiếng Việt. Với câu hỏi kiến thức chung, hãy trả lời trực tiếp và chỉ dùng tool khi cần thông tin mới hoặc cần thao tác trên máy.
+2. Coding Agent: đọc/tìm kiếm code liên quan, tạo checkpoint trước khi sửa, thay đổi tối thiểu, chạy run_code_check và kiểm tra git_diff. Chỉ sửa trong workspace; không truy cập secret, model, .venv hoặc chạy shell tùy ý.
+3. Điều khiển máy tính: tải video (Bilibili/YouTube), điều khiển AI Video Localizer, thao tác trình duyệt và ứng dụng Windows bằng tool có kiểm soát.
 
-Chỉ sử dụng các tool được cung cấp. Không tự tạo shell command trong nội dung trả lời, không tự đoán đường dẫn và không tuyên bố đã hoàn thành nếu tool chưa trả kết quả thành công.
-
-Dùng ID project và đường dẫn do tool trả về. Với thao tác tải hoặc tạo project, thực hiện đúng tham số người dùng yêu cầu và báo rõ kết quả, file đầu ra hoặc lỗi.
-
-Chỉ gọi run_project_stage khi người dùng yêu cầu rõ việc xử lý một project; không tự chạy stage chỉ vì thấy project đang pending.
-
-Khi người dùng yêu cầu lập trình, hãy đọc/tìm kiếm code liên quan, tạo checkpoint trước khi sửa, thay đổi tối thiểu, chạy run_code_check và kiểm tra git_diff. Chỉ sửa trong workspace; không truy cập secret, model, .venv hoặc chạy shell tùy ý.
-
-Khi cần cài đặt, build, test hoặc chạy script trong repo, dùng run_workspace_command với argv allowlist; không dùng shell operators. Sau mỗi thao tác ghi/cài/chạy, đọc output và thực hiện bước xác minh tiếp theo.
-
-Khi người dùng yêu cầu thao tác web, dùng browser_open rồi browser_snapshot/extract để xác định nội dung, sau đó click/type bằng selector hoặc text. Khi người dùng yêu cầu thao tác ứng dụng Windows, nếu ứng dụng chưa mở thì dùng launch_application với file .exe được phép, sau đó dùng ui_list_windows và ui_snapshot trước, rồi định vị control bằng title hoặc automation_id; không đoán tọa độ màn hình.
-
-Khi cần thông tin bên ngoài, ưu tiên web_search rồi web_open hoặc search_github_repositories. Đánh giá nguồn và ngày cập nhật; không tin tuyệt đối vào repo/package do người dùng trích dẫn nếu chưa inspect.
-
-Khi UI Automation không thấy control, dùng screen_capture hoặc screen_ocr để quan sát; OCR chỉ là tín hiệu định vị, không tự suy ra thao tác nguy hiểm. Dùng list_processes/read_runtime_log để chẩn đoán và chỉ stop_managed_process với runtime allowlist. Dùng get_resource_status trước request nặng hoặc khi đổi Q4/Q6; không chạy đồng thời nhiều model lớn nếu cảnh báo VRAM xuất hiện.
-
-Nếu có MCP tool với tiền tố mcp__, dùng đúng namespace đó và báo rõ server MCP khi thao tác thất bại.
-
-Khi người dùng yêu cầu cài repo hoặc npm package bên ngoài, trước tiên phải gọi inspect_github_repository hoặc inspect_npm_package để xác minh tồn tại. Nếu không tồn tại, dùng search_github_repositories/web_search tìm phương án thay thế; chỉ cài phương án thay thế nếu phù hợp rõ ràng và báo chính xác tên repo đã chọn. Nếu tồn tại, dùng install_github_repository hoặc install_npm_package; không tự chạy ứng dụng sau khi cài và chỉ báo thành công khi tool trả kết quả thành công.
-
-Nếu tool trả lỗi, giải thích ngắn gọn nguyên nhân và đề xuất bước tiếp theo an toàn.
+Nguyên tắc chung:
+- Biến yêu cầu thành công việc thực tế: tự chia nhỏ nhiệm vụ, kiểm tra trạng thái hiện tại, tìm kiếm Internet khi thiếu thông tin, thực thi từng bước bằng tool phù hợp và xác minh kết quả cuối. Không chỉ trả lời hướng dẫn nếu bạn có thể thực hiện bằng tool.
+- Chỉ sử dụng các tool được cung cấp. Không tự tạo shell command trong nội dung trả lời, không tự đoán đường dẫn và không tuyên bố đã hoàn thành nếu tool chưa trả kết quả thành công.
+- Dùng ID project và đường dẫn do tool trả về. Với thao tác tải hoặc tạo project, thực hiện đúng tham số người dùng yêu cầu và báo rõ kết quả, file đầu ra hoặc lỗi.
+- Chỉ gọi run_project_stage khi người dùng yêu cầu rõ việc xử lý một project; không tự chạy stage chỉ vì thấy project đang pending.
+- Khi cần cài đặt, build, test hoặc chạy script trong repo, dùng run_workspace_command với argv allowlist; không dùng shell operators. Sau mỗi thao tác ghi/cài/chạy, đọc output và thực hiện bước xác minh tiếp theo.
+- Khi người dùng yêu cầu thao tác web, dùng browser_open rồi browser_snapshot/extract để xác định nội dung, sau đó click/type bằng selector hoặc text. Khi người dùng yêu cầu thao tác ứng dụng Windows, nếu ứng dụng chưa mở thì dùng launch_application với file .exe được phép, sau đó dùng ui_list_windows và ui_snapshot trước, rồi định vị control bằng title hoặc automation_id; không đoán tọa độ màn hình.
+- Khi cần thông tin bên ngoài, ưu tiên web_search rồi web_open hoặc search_github_repositories. Đánh giá nguồn và ngày cập nhật; không tin tuyệt đối vào repo/package do người dùng trích dẫn nếu chưa inspect.
+- Khi UI Automation không thấy control, dùng screen_capture hoặc screen_ocr để quan sát; OCR chỉ là tín hiệu định vị, không tự suy ra thao tác nguy hiểm. Dùng list_processes/read_runtime_log để chẩn đoán và chỉ stop_managed_process với runtime allowlist. Dùng get_resource_status trước request nặng hoặc khi đổi Q4/Q6/IQ3_S; không chạy đồng thời nhiều model lớn nếu cảnh báo VRAM xuất hiện.
+- Nếu có MCP tool với tiền tố mcp__, dùng đúng namespace đó và báo rõ server MCP khi thao tác thất bại.
+- Khi người dùng yêu cầu cài repo hoặc npm package bên ngoài, trước tiên phải gọi inspect_github_repository hoặc inspect_npm_package để xác minh tồn tại. Nếu không tồn tại, dùng search_github_repositories/web_search tìm phương án thay thế; chỉ cài phương án thay thế nếu phù hợp rõ ràng và báo chính xác tên repo đã chọn. Nếu tồn tại, dùng install_github_repository hoặc install_npm_package; không tự chạy ứng dụng sau khi cài và chỉ báo thành công khi tool trả kết quả thành công.
+- Nếu tool trả lỗi, giải thích ngắn gọn nguyên nhân và đề xuất bước tiếp theo an toàn.
 """
 
     def __init__(
@@ -891,6 +885,152 @@ Nếu tool trả lỗi, giải thích ngắn gọn nguyên nhân và đề xuấ
         tool_definitions: list[dict[str, Any]],
         max_tokens: int,
     ) -> dict[str, Any]:
+        try:
+            return self._chat_stream(
+                messages,
+                tool_definitions,
+                max_tokens,
+            )
+        except requests.RequestException:
+            return self._chat_plain(
+                messages,
+                tool_definitions,
+                max_tokens,
+            )
+
+    def _chat_stream(
+        self,
+        messages: list[dict[str, Any]],
+        tool_definitions: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> dict[str, Any]:
+        body: dict[str, Any] = {
+            "model": self.config.model,
+            "temperature": self.config.temperature,
+            "max_tokens": max_tokens,
+            "stream": True,
+            "parallel_tool_calls": False,
+            "tool_choice": "auto",
+            "messages": messages,
+            "tools": tool_definitions,
+        }
+
+        if self.config.reasoning_effort:
+            body["reasoning_effort"] = self.config.reasoning_effort
+
+        try:
+            response = requests.post(
+                self.config.endpoint,
+                json=body,
+                timeout=(
+                    self.config.connect_timeout,
+                    self.config.read_timeout,
+                ),
+                stream=True,
+            )
+            response.raise_for_status()
+        except requests.Timeout as error:
+            raise RuntimeError(
+                "Local agent hết thời gian chờ model."
+            ) from error
+        except requests.RequestException as error:
+            # Để _chat() thử lại bằng luồng không stream.
+            raise error
+
+        content_parts: list[str] = []
+        reasoning_parts: list[str] = []
+        tool_calls: dict[int, dict[str, Any]] = {}
+        emitted_reasoning = 0
+        emitted_content = 0
+
+        try:
+            for raw_line in response.iter_lines(decode_unicode=True):
+                if not raw_line:
+                    continue
+                line = raw_line.strip()
+                if not line.startswith("data:"):
+                    continue
+                data = line[5:].strip()
+                if data == "[DONE]":
+                    break
+                try:
+                    chunk = json.loads(data)
+                except json.JSONDecodeError:
+                    continue
+                choices = chunk.get("choices") or []
+                if not choices:
+                    continue
+                choice = choices[0]
+                delta = choice.get("delta") or {}
+                if not isinstance(delta, dict):
+                    continue
+
+                reasoning = delta.get("reasoning_content")
+                if reasoning:
+                    reasoning_parts.append(reasoning)
+                    emitted_reasoning += len(reasoning)
+                    self._emit(
+                        "delta",
+                        {"reasoning": reasoning},
+                    )
+
+                content = delta.get("content")
+                if content:
+                    content_parts.append(content)
+                    emitted_content += len(content)
+                    self._emit(
+                        "delta",
+                        {"text": content},
+                    )
+
+                for call in delta.get("tool_calls") or []:
+                    if not isinstance(call, dict):
+                        continue
+                    index = int(call.get("index") or 0)
+                    entry = tool_calls.setdefault(index, {
+                        "id": "",
+                        "type": "function",
+                        "function": {
+                            "name": "",
+                            "arguments": "",
+                        },
+                    })
+                    if call.get("id"):
+                        entry["id"] = str(call["id"])
+                    if call.get("type"):
+                        entry["type"] = str(call["type"])
+                    function = call.get("function") or {}
+                    if function.get("name"):
+                        entry["function"]["name"] += str(
+                            function["name"]
+                        )
+                    if function.get("arguments"):
+                        entry["function"]["arguments"] += str(
+                            function["arguments"]
+                        )
+        except requests.RequestException as error:
+            raise RuntimeError(
+                "Kết nối Local LLM bị ngắt khi đang nhận phản hồi: "
+                f"{error}"
+            ) from error
+
+        message: dict[str, Any] = {
+            "role": "assistant",
+            "content": "".join(content_parts),
+        }
+        if tool_calls:
+            message["tool_calls"] = [
+                tool_calls[index]
+                for index in sorted(tool_calls)
+            ]
+        return message
+
+    def _chat_plain(
+        self,
+        messages: list[dict[str, Any]],
+        tool_definitions: list[dict[str, Any]],
+        max_tokens: int,
+    ) -> dict[str, Any]:
         body: dict[str, Any] = {
             "model": self.config.model,
             "temperature": self.config.temperature,
@@ -1044,13 +1184,16 @@ def _normalise_profile(value: object) -> str:
     if profile in {"q4", "qwen38", "qwen38_q4"}:
         return "qwen38_q4"
 
+    if profile in {"iq3s", "iq3_s", "qwen38_iq3s", "qwen38_iq3s_ud"}:
+        return "qwen38_iq3s"
+
     if profile in {"q6", "qwen38_q6"}:
         return "qwen38_q6"
 
     if profile in {"qwen14", "qwen3_14b", "fast"}:
         return "qwen14"
 
-    return "qwen38_q4"
+    return "qwen38_iq3s"
 
 
 def _normalise_task_mode(value: object) -> str:

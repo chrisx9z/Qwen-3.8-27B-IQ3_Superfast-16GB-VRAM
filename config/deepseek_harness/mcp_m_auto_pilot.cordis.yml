@@ -1,0 +1,12 @@
+- insert:
+    - id: mcp-m-auto-pilot
+      name: '@deepseek-ai/dsh-mcp-client'
+      config:
+        serverName: m_auto_pilot
+        transport: stdio
+        command: !!js process.env.M_AUTO_PILOT_PYTHON
+        args:
+          - !!js process.env.M_AUTO_PILOT_MCP_SERVER
+        cwd: !!js process.env.M_AUTO_PILOT_ROOT
+        toolCallTimeoutMs: 600000
+        failOnStartupError: true

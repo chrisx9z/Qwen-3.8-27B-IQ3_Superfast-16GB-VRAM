@@ -2,17 +2,19 @@
 
 ## Separation rule
 
-M Auto Pilot and AI Video Localizer are separate applications.
+M Auto Pilot và AI Video Localizer là hai ứng dụng riêng.
 
-- M Auto Pilot owns this repository, its UI, tools, chats, runtime files, models, and builds.
-- AI Video Localizer is an external target application.
-- M Auto Pilot may inspect or control the target through the adapter and generic automation tools.
-- M Auto Pilot must not import target modules or modify the target source tree.
+- M Auto Pilot sở hữu repo này, UI, tools, chats, runtime files, models và builds.
+- AI Video Localizer là external target application.
+- M Auto Pilot chỉ inspect/control target qua adapter và generic automation tools.
+- M Auto Pilot không import target modules và không sửa target source tree.
+- Model GGUF và llama-server được đọc chung từ `D:\AI-Video-Localizer\models` / `D:\AI-Video-Localizer\tools\llama.cpp`; không copy vào repo.
 
-## M Auto Pilot locations
+## Locations
 
-- Source and state: `D:\M-Auto-Pilot`
-- Build output: `D:\M-Auto-Pilot\dist\M Auto Pilot.exe`
+- Source (repo Git): `D:\Vibe Code\M-Auto-Pilot`
+- Runtime state (EXE): `D:\M-Auto-Pilot`
+- Build output: `D:\Vibe Code\M-Auto-Pilot\dist\M Auto Pilot.exe`
 - Desktop executable: `D:\OneDrive\Desktop\M Auto Pilot.exe`
 - External target workspace: `D:\AI-Video-Localizer`
 - External target executable: `D:\OneDrive\Desktop\AI Video Localizer.exe`
@@ -20,28 +22,35 @@ M Auto Pilot and AI Video Localizer are separate applications.
 ## Implemented
 
 - Generic web research with search fallback and source extraction.
-- Browser automation and Windows UI Automation.
-- Controlled `.exe` launch within approved directories.
-- AI Video Localizer adapter for status and launch.
-- Coding tools for read, controlled edit, checkpoint, compile/test, and Git verification.
-- Qwen Q4/Q6 profile selection and progress narration.
-- Independent Git repository for M Auto Pilot.
-- Latest Desktop build retained; older Desktop builds moved out of Desktop.
+- Browser automation (Playwright) và Windows UI Automation (pywinauto).
+- Controlled `.exe` launch trong approved directories.
+- AI Video Localizer adapter (status + launch).
+- Coding tools: read/search/edit, git status/diff, compile/test, checkpoint/rollback.
+- Screen capture + OCR (RapidOCR CPU), process/log tools, GPU resource manager.
+- MCP server (stdio, 48 tool) + MCP client tùy chọn.
+- DeepSeek Harness sidecar launcher (Web UI 3080, kết nối Qwen local 8090 + MCP).
+- Chat UI kiểu trợ lý: bong bóng, markdown, streaming từng token, 3 chế độ (Trợ lý cá nhân / Coding Agent / Auto Pilot), lịch sử chat ghim/đổi tên/xóa.
+- Model: **Qwen3.8-27B-UD-IQ3_S mặc định** (mới cài, phù hợp GPU 12 GB), Q4 cân bằng, Q6 suy luận sâu, Qwen3-14B nhanh. Agent cổng 8090, tách pipeline 8080.
 
-## Verification
+## Verification (2026-09-01)
 
-- M Auto Pilot source compiles successfully.
-- Browser open/snapshot/close smoke test passed.
-- Generic web research smoke test passed.
-- AI Video Localizer adapter status test passed.
-- AI Video Localizer Git worktree is clean.
+- compileall toàn bộ source: PASS.
+- `scripts/test_local_agent.py` (tool loop 48 tool + profile): PASS.
+- UI smoke test (offscreen): PASS — 4 profile, 3 chế độ, chats.json nạp được.
+- Model resolution: auto → `Qwen3.8-27B-UD-IQ3_S.gguf` tại `D:\AI-Video-Localizer\models`; llama-server tìm thấy.
+- Markdown renderer: PASS (h1, bold, inline code, link, ul/ol, blockquote, code block, escape).
+- Build PyInstaller: đang chạy bản mới `dist\M Auto Pilot.exe`.
 
-## Pause state
+## Runtime notes
 
-Development is temporarily paused due to low VRAM and crash risk when both applications run simultaneously. No model or source changes should be made until the runtime/resource plan is resumed.
+- EXE frozen dùng `M_AUTO_PILOT_ROOT = D:\M-Auto-Pilot` (đã tạo: work/auto_pilot/chats.json + resource_state.json, giữ 4 chat cũ).
+- Model path fallback: `M_AUTO_PILOT_MODELS_DIR` (mặc định `D:\AI-Video-Localizer\models`).
+- llama-server fallback: `M_AUTO_PILOT_LLAMA_SERVER` (mặc định `D:\AI-Video-Localizer\tools\llama.cpp\llama-server.exe`).
+- Agent streaming: `_chat` stream từng token, fallback non-stream khi endpoint không hỗ trợ.
+- Chưa nên chạy Q4/Q6 cùng lúc với pipeline dịch trên RTX 4070 SUPER 12 GB; dùng GPU status kiểm tra VRAM.
 
-## Resume priorities
+## Next priorities
 
-1. Add a resource guard to prevent simultaneous high-VRAM workloads.
-2. Continue multi-step Qwen planning and source synthesis.
-3. Extend adapter/UI control only without changing AI Video Localizer source.
+1. Smoke test EXE mới trên Desktop với model IQ3_S (chat + tool).
+2. Nếu cần: tự động hạ pipeline 8080 khi chọn Q6.
+3. Mở rộng computer-use (screenshot → grounding model 7B theo nhu cầu).

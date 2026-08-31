@@ -29,16 +29,33 @@ from PySide6.QtWidgets import QApplication, QMainWindow
 from ui.agent_page import AgentPage
 
 
+def load_stylesheet(app: QApplication) -> None:
+    bundle_root = Path(getattr(sys, "_MEIPASS", PROJECT_ROOT))
+    candidates = [
+        PROJECT_ROOT / "ui" / "styles.qss",
+        bundle_root / "ui" / "styles.qss",
+    ]
+    for candidate in candidates:
+        try:
+            if candidate.is_file():
+                app.setStyleSheet(candidate.read_text(encoding="utf-8"))
+                return
+        except OSError:
+            continue
+
+
 def main() -> int:
     app = QApplication(sys.argv)
+    app.setApplicationName("M Auto Pilot")
+    load_stylesheet(app)
     bundle_root = Path(getattr(sys, "_MEIPASS", PROJECT_ROOT))
     icon_path = bundle_root / "assets" / "M_Auto_Pilot_logo.png"
     if icon_path.is_file():
         app.setWindowIcon(QIcon(str(icon_path)))
     window = QMainWindow()
     window.setWindowTitle("M Auto Pilot")
-    window.resize(1120, 760)
-    window.setMinimumSize(900, 600)
+    window.resize(1280, 820)
+    window.setMinimumSize(1000, 660)
     window.setCentralWidget(AgentPage(window))
     window.show()
     return app.exec()

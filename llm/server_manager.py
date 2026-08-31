@@ -15,12 +15,40 @@ except ImportError:
 
 APP_ROOT = Path(os.environ.get("M_AUTO_PILOT_ROOT", Path(__file__).resolve().parent.parent)).resolve()
 
-LLAMA_SERVER_PATH = (
-    APP_ROOT
-    / "tools"
-    / "llama.cpp"
-    / "llama-server.exe"
+# Thư mục model dùng chung (M Auto Pilot và AI Video Localizer cùng đọc).
+# Có thể ghi đè bằng biến môi trường M_AUTO_PILOT_MODELS_DIR.
+SHARED_MODELS_DIR = (
+    Path(os.environ["M_AUTO_PILOT_MODELS_DIR"]).resolve()
+    if os.environ.get("M_AUTO_PILOT_MODELS_DIR", "").strip()
+    else Path(r"D:\AI-Video-Localizer\models")
 )
+
+MODEL_DIR_CANDIDATES = (
+    APP_ROOT / "models",
+    SHARED_MODELS_DIR,
+)
+
+
+def _first_existing(*paths: Path) -> Path:
+    for path in paths:
+        if path.is_file():
+            return path
+    return paths[0]
+
+
+def _llama_server_candidates() -> tuple[Path, ...]:
+    configured = os.environ.get("M_AUTO_PILOT_LLAMA_SERVER", "").strip()
+    candidates: list[Path] = []
+    if configured:
+        candidates.append(Path(configured))
+    candidates.append(APP_ROOT / "tools" / "llama.cpp" / "llama-server.exe")
+    candidates.append(
+        Path(r"D:\AI-Video-Localizer\tools\llama.cpp\llama-server.exe")
+    )
+    return tuple(candidates)
+
+
+LLAMA_SERVER_PATH = _first_existing(*_llama_server_candidates())
 
 MODEL_PATH = (
     APP_ROOT
@@ -77,36 +105,45 @@ def _model_available(path: Path) -> bool:
     return path.exists() and not marker.exists()
 
 
-QWEN38_Q4_MODEL_CANDIDATES = (
-    APP_ROOT / "models" / "Qwen3.8-27B-UD-Q4_K_M.gguf",
-    APP_ROOT / "models" / "Qwen3.8-27B-Q4_K_M.gguf",
+def _model_candidates(
+    *filenames: str,
+) -> tuple[Path, ...]:
+    candidates: list[Path] = []
+    for directory in MODEL_DIR_CANDIDATES:
+        for filename in filenames:
+            candidates.append(directory / filename)
+    candidates.append(
+        APP_ROOT
+        / "models"
+        / "experimental"
+        / "Qwen3.8-27B-GGUF"
+        / filenames[-1]
+    )
+    return tuple(candidates)
+
+
+QWEN38_Q4_MODEL_CANDIDATES = _model_candidates(
+    "Qwen3.8-27B-UD-Q4_K_M.gguf",
+    "Qwen3.8-27B-Q4_K_M.gguf",
+) + (
     APP_ROOT
     / "models"
     / "experimental"
     / "Qwen3.8-27B-GGUF"
     / "Qwen3.8-27B-UD-Q4_K_M.gguf",
-    APP_ROOT
-    / "models"
-    / "experimental"
-    / "Qwen3.8-27B-GGUF"
-    / "Qwen3.8-27B-Q4_K_M.gguf",
 )
 
-QWEN38_Q6_MODEL_CANDIDATES = (
-    APP_ROOT / "models" / "Qwen3.8-27B-UD-Q6_K_M.gguf",
-    APP_ROOT / "models" / "Qwen3.8-27B-Q6_K_M.gguf",
-    APP_ROOT / "models" / "Qwen3.8-27B-Q6_K.gguf",
-    APP_ROOT / "models" / "Qwen3.8-27B-Q6_K_L.gguf",
-    APP_ROOT
-    / "models"
-    / "experimental"
-    / "Qwen3.8-27B-GGUF"
-    / "Qwen3.8-27B-UD-Q6_K_M.gguf",
-    APP_ROOT
-    / "models"
-    / "experimental"
-    / "Qwen3.8-27B-GGUF"
-    / "Qwen3.8-27B-Q6_K_M.gguf",
+QWEN38_Q6_MODEL_CANDIDATES = _model_candidates(
+    "Qwen3.8-27B-UD-Q6_K_M.gguf",
+    "Qwen3.8-27B-Q6_K_M.gguf",
+    "Qwen3.8-27B-Q6_K.gguf",
+    "Qwen3.8-27B-Q6_K_L.gguf",
+)
+
+# Qwen3.8-27B IQ3_S — bản lượng hóa vừa được cài, chạy gọn trên GPU 12 GB.
+QWEN38_IQ3S_MODEL_CANDIDATES = _model_candidates(
+    "Qwen3.8-27B-UD-IQ3_S.gguf",
+    "Qwen3.8-27B-IQ3_S.gguf",
 )
 
 QWEN38_Q4_MODEL_PATH = Path(
@@ -126,7 +163,19 @@ QWEN38_Q6_MODEL_PATH = _configured_path(
     QWEN38_Q6_MODEL_CANDIDATES,
 )
 
-QWEN38_MODEL_PATH = QWEN38_Q4_MODEL_PATH
+QWEN38_IQ3S_MODEL_PATH = Path(
+    os.environ.get(
+        "AI_VIDEO_QWEN38_IQ3S_MODEL_PATH",
+        str(
+            _configured_path(
+                "AI_VIDEO_QWEN38_IQ3S_MODEL_PATH",
+                QWEN38_IQ3S_MODEL_CANDIDATES,
+            )
+        ),
+    )
+)
+
+QWEN38_MODEL_PATH = QWEN38_IQ3S_MODEL_PATH
 
 QWEN38_MTP_PATH = Path(
     os.environ.get(
@@ -195,6 +244,7 @@ class LocalLLMServerManager:
             "auto",
             "qwen38",
             "qwen38_q4",
+            "qwen38_iq3s",
             "qwen38_q6",
             "qwen38_mtp",
             "qwen36",
@@ -211,24 +261,33 @@ class LocalLLMServerManager:
         )
         self.qwen38_quant = "q4"
 
-        if selected_profile == "qwen38_q6":
+        if selected_profile == "qwen38_iq3s":
+            self.qwen38_quant = "iq3s"
+        elif selected_profile == "qwen38_q6":
             self.qwen38_quant = "q6"
         elif selected_profile == "auto":
-            if (
+            if _model_available(QWEN38_IQ3S_MODEL_PATH):
+                self.qwen38_quant = "iq3s"
+            elif (
                 not _model_available(QWEN38_Q4_MODEL_PATH)
                 and _model_available(QWEN38_Q6_MODEL_PATH)
             ):
                 self.qwen38_quant = "q6"
 
         self.qwen38_model_path = (
-            QWEN38_Q6_MODEL_PATH
-            if self.qwen38_quant == "q6"
-            else QWEN38_Q4_MODEL_PATH
+            QWEN38_IQ3S_MODEL_PATH
+            if self.qwen38_quant == "iq3s"
+            else (
+                QWEN38_Q6_MODEL_PATH
+                if self.qwen38_quant == "q6"
+                else QWEN38_Q4_MODEL_PATH
+            )
         )
         self.qwen38_mtp_enabled = model_path is None and (
             selected_profile == "qwen38_mtp"
             or (
                 selected_profile == "auto"
+                and self.qwen38_quant in {"q4", "q6"}
                 and _model_available(self.qwen38_model_path)
                 and QWEN38_MTP_PATH.exists()
             )
@@ -238,6 +297,7 @@ class LocalLLMServerManager:
             or selected_profile in {
                 "qwen38",
                 "qwen38_q4",
+                "qwen38_iq3s",
                 "qwen38_q6",
             }
             or (
@@ -441,12 +501,18 @@ class LocalLLMServerManager:
 
         if self.qwen38_enabled:
             if not _model_available(self.model_path):
+                quant_name = (
+                    "IQ3_S"
+                    if self.qwen38_quant == "iq3s"
+                    else self.qwen38_quant.upper()
+                )
                 raise FileNotFoundError(
-                    f"Không tìm thấy model Qwen3.8-27B {self.qwen38_quant.upper()}.\n\n"
+                    f"Không tìm thấy model Qwen3.8-27B {quant_name}.\n\n"
                     f"{self.model_path}\n\n"
                     "Đặt model đúng profile hoặc cấu hình "
                     "AI_VIDEO_QWEN38_Q4_MODEL_PATH/"
-                    "AI_VIDEO_QWEN38_Q6_MODEL_PATH."
+                    "AI_VIDEO_QWEN38_Q6_MODEL_PATH/"
+                    "AI_VIDEO_QWEN38_IQ3S_MODEL_PATH."
                 )
             return
 
@@ -475,6 +541,7 @@ class LocalLLMServerManager:
             self.profile in {
                 "qwen38",
                 "qwen38_q4",
+                "qwen38_iq3s",
                 "qwen38_q6",
                 "qwen38_mtp",
                 "qwen36",

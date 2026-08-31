@@ -1,0 +1,260 @@
+/* ============ M Auto Pilot — dark theme ============ */
+
+QWidget {
+    background-color: #1b1d23;
+    color: #e6e6eb;
+    font-size: 13px;
+}
+
+QMainWindow {
+    background-color: #1b1d23;
+}
+
+/* ---------- Sidebar ---------- */
+#Sidebar {
+    background-color: #14161b;
+    border-right: 1px solid #262932;
+}
+
+#Brand {
+    font-size: 17px;
+    font-weight: 700;
+    color: #f2f2f6;
+    padding: 2px 2px 6px 2px;
+}
+
+#MutedText {
+    color: #8a8f9c;
+    font-size: 12px;
+}
+
+#ChatList {
+    background-color: transparent;
+    border: none;
+    outline: none;
+    padding: 4px;
+}
+
+#ChatList::item {
+    color: #d6d8df;
+    padding: 8px 10px;
+    border-radius: 8px;
+    margin-bottom: 2px;
+}
+
+#ChatList::item:hover {
+    background-color: #23262f;
+}
+
+#ChatList::item:selected {
+    background-color: #2c3140;
+    color: #ffffff;
+}
+
+/* ---------- Buttons ---------- */
+#PrimaryButton {
+    background-color: #3b6ef5;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 600;
+}
+
+#PrimaryButton:hover {
+    background-color: #4d7cf8;
+}
+
+#PrimaryButton:pressed {
+    background-color: #315fd8;
+}
+
+#PrimaryButton:disabled {
+    background-color: #2a2d38;
+    color: #6a6f7d;
+}
+
+#GhostButton {
+    background-color: transparent;
+    color: #b9bdc8;
+    border: 1px solid #2e313c;
+    border-radius: 8px;
+    padding: 6px 10px;
+}
+
+#GhostButton:hover {
+    background-color: #23262f;
+    color: #ffffff;
+    border-color: #3b6ef5;
+}
+
+/* ---------- Header / cards ---------- */
+#Card {
+    background-color: #21242c;
+    border: 1px solid #2b2f3a;
+    border-radius: 12px;
+}
+
+#PageTitle {
+    font-size: 15px;
+    font-weight: 700;
+    color: #f2f2f6;
+}
+
+#Combo {
+    background-color: #262a35;
+    color: #e6e6eb;
+    border: 1px solid #333848;
+    border-radius: 8px;
+    padding: 5px 10px;
+    min-width: 130px;
+}
+
+#Combo:hover {
+    border-color: #3b6ef5;
+}
+
+#Combo QAbstractItemView {
+    background-color: #21242c;
+    border: 1px solid #333848;
+    selection-background-color: #2c3140;
+    selection-color: #ffffff;
+}
+
+#StatusLabel {
+    color: #8a8f9c;
+    font-size: 12px;
+    padding: 0 6px;
+}
+
+/* ---------- Chat area ---------- */
+#ChatScroll {
+    background-color: #1b1d23;
+    border: none;
+}
+
+#ChatScroll QScrollBar:vertical {
+    background: transparent;
+    width: 10px;
+    margin: 2px;
+}
+
+#ChatScroll QScrollBar::handle:vertical {
+    background: #333848;
+    border-radius: 4px;
+    min-height: 30px;
+}
+
+#ChatScroll QScrollBar::handle:vertical:hover {
+    background: #454b60;
+}
+
+#ChatScroll QScrollBar::add-line:vertical,
+#ChatScroll QScrollBar::sub-line:vertical {
+    height: 0;
+}
+
+#ChatBrowser {
+    background-color: #262a34;
+    border: 1px solid #2e3341;
+    border-radius: 14px;
+    padding: 10px 14px;
+    color: #e6e6eb;
+    selection-background-color: #3b6ef5;
+    font-size: 13px;
+}
+
+#ChatBrowser a {
+    color: #7aa2ff;
+}
+
+#ChatBrowser p {
+    margin: 4px 0;
+}
+
+#ChatBrowser h1, #ChatBrowser h2, #ChatBrowser h3, #ChatBrowser h4 {
+    color: #f2f2f6;
+    margin: 10px 0 4px 0;
+}
+
+#ChatBrowser code.inline-code {
+    background-color: #1d2129;
+    color: #ffb86b;
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+}
+
+#ChatBrowser pre.code-block {
+    background-color: #171a21;
+    border: 1px solid #2e3341;
+    border-radius: 10px;
+    padding: 10px 12px;
+    margin: 8px 0;
+}
+
+#ChatBrowser pre.code-block code {
+    color: #d4d7e0;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 12px;
+    white-space: pre-wrap;
+}
+
+#ChatBrowser blockquote {
+    border-left: 3px solid #3b6ef5;
+    margin: 6px 0;
+    padding: 2px 10px;
+    color: #aeb3c0;
+}
+
+#ChatBrowser hr {
+    border: none;
+    border-top: 1px solid #333848;
+    margin: 8px 0;
+}
+
+#ChatBrowser ul, #ChatBrowser ol {
+    margin: 4px 0;
+    padding-left: 22px;
+}
+
+#UserBubble {
+    background-color: #3b6ef5;
+    color: #ffffff;
+    border-radius: 14px;
+    padding: 10px 14px;
+    max-width: 620px;
+    font-size: 13px;
+}
+
+#StepText {
+    color: #7d8494;
+    font-size: 12px;
+    background-color: transparent;
+}
+
+#ErrorText {
+    color: #ff7b7b;
+    font-size: 12px;
+    background-color: transparent;
+}
+
+/* ---------- Input ---------- */
+#InputCard {
+    background-color: #21242c;
+    border: 1px solid #2b2f3a;
+    border-radius: 14px;
+}
+
+#ChatInput {
+    background-color: transparent;
+    border: none;
+    color: #e6e6eb;
+    padding: 6px 4px;
+    font-size: 13px;
+}
+
+#ChatInput:focus {
+    border: none;
+}

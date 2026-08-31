@@ -1,0 +1,15 @@
+llm-pi-ai:
+  providers:
+    m-auto-pilot-local:
+      displayName: M Auto Pilot Qwen3.8 Local
+      apiKeyEnv: M_AUTO_PILOT_LOCAL_API_KEY
+      api: openai-completions
+      baseURL: http://127.0.0.1:8090/v1
+      compat:
+        supportsDeveloperRole: false
+        maxTokensField: max_tokens
+      models:
+        - id: local-qwen
+agent-default-model:
+  provider: m-auto-pilot-local
+  model: local-qwen
