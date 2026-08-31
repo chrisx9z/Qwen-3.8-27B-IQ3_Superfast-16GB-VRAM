@@ -373,14 +373,9 @@ class AgentPage(QWidget):
 
         header_layout.addStretch(1)
 
-        header_layout.addWidget(QLabel("Model"))
-        self.profile_combo = QComboBox()
-        self.profile_combo.setObjectName("Combo")
-        self.profile_combo.addItem("IQ3_S · mặc định", "qwen38_iq3s")
-        self.profile_combo.addItem("Q4 · cân bằng", "qwen38_q4")
-        self.profile_combo.addItem("Q6 · suy luận sâu", "qwen38_q6")
-        self.profile_combo.addItem("Qwen3 14B · nhanh", "qwen14")
-        header_layout.addWidget(self.profile_combo)
+        model_label = QLabel("Model: Qwen3.8-27B · IQ3_S")
+        model_label.setObjectName("ModelChip")
+        header_layout.addWidget(model_label)
 
         header_layout.addWidget(QLabel("Chế độ"))
         self.mode_combo = QComboBox()
@@ -805,7 +800,7 @@ class AgentPage(QWidget):
         self.worker = AgentWorker(
             prompt,
             list(self.agent_messages(chat)),
-            str(self.profile_combo.currentData()),
+            "qwen38_iq3s",
             str(self.mode_combo.currentData()),
         )
         self.worker.signals.status_changed.connect(
@@ -940,7 +935,6 @@ class AgentPage(QWidget):
                 "Không tìm thấy launcher hoặc Python môi trường"
             )
             return
-        profile = str(self.profile_combo.currentData()).rsplit("_", 1)[-1]
         self.harness_process = QProcess(self)
         self.harness_process.setWorkingDirectory(str(root))
         self.harness_process.started.connect(
@@ -958,5 +952,5 @@ class AgentPage(QWidget):
         )
         self.harness_process.start(
             str(python_executable),
-            [str(launcher), "--profile", profile],
+            [str(launcher), "--profile", "iq3s"],
         )

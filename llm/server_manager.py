@@ -50,33 +50,22 @@ def _llama_server_candidates() -> tuple[Path, ...]:
 
 LLAMA_SERVER_PATH = _first_existing(*_llama_server_candidates())
 
-MODEL_PATH = (
-    APP_ROOT
-    / "models"
-    / "Qwen3-14B-Q4_K_M.gguf"
-)
 
-FALLBACK_MODEL_PATH = (
-    APP_ROOT
-    / "models"
-    / "Qwen3-8B-Q4_K_M.gguf"
-)
-
-QWEN36_MODEL_PATH = (
-    APP_ROOT
-    / "models"
-    / "experimental"
-    / "Qwen3.6-35B-A3B-GGUF"
-    / "Qwen3.6-35B-A3B-Q4_K_M.gguf"
-)
-
-QWEN36_MTP_PATH = (
-    APP_ROOT
-    / "models"
-    / "experimental"
-    / "Qwen3.6-35B-A3B-GGUF"
-    / "mtp-Qwen3.6-35B-A3B-Q4_0.gguf"
-)
+def _model_candidates(
+    *filenames: str,
+) -> tuple[Path, ...]:
+    candidates: list[Path] = []
+    for directory in MODEL_DIR_CANDIDATES:
+        for filename in filenames:
+            candidates.append(directory / filename)
+    candidates.append(
+        APP_ROOT
+        / "models"
+        / "experimental"
+        / "Qwen3.8-27B-GGUF"
+        / filenames[-1]
+    )
+    return tuple(candidates)
 
 
 def _configured_path(
@@ -105,104 +94,33 @@ def _model_available(path: Path) -> bool:
     return path.exists() and not marker.exists()
 
 
-def _model_candidates(
-    *filenames: str,
-) -> tuple[Path, ...]:
-    candidates: list[Path] = []
-    for directory in MODEL_DIR_CANDIDATES:
-        for filename in filenames:
-            candidates.append(directory / filename)
-    candidates.append(
-        APP_ROOT
-        / "models"
-        / "experimental"
-        / "Qwen3.8-27B-GGUF"
-        / filenames[-1]
-    )
-    return tuple(candidates)
-
-
-QWEN38_Q4_MODEL_CANDIDATES = _model_candidates(
-    "Qwen3.8-27B-UD-Q4_K_M.gguf",
-    "Qwen3.8-27B-Q4_K_M.gguf",
-) + (
-    APP_ROOT
-    / "models"
-    / "experimental"
-    / "Qwen3.8-27B-GGUF"
-    / "Qwen3.8-27B-UD-Q4_K_M.gguf",
-)
-
-QWEN38_Q6_MODEL_CANDIDATES = _model_candidates(
-    "Qwen3.8-27B-UD-Q6_K_M.gguf",
-    "Qwen3.8-27B-Q6_K_M.gguf",
-    "Qwen3.8-27B-Q6_K.gguf",
-    "Qwen3.8-27B-Q6_K_L.gguf",
-)
-
-# Qwen3.8-27B IQ3_S — bản lượng hóa vừa được cài, chạy gọn trên GPU 12 GB.
+# Model duy nhất của M Auto Pilot: Qwen3.8-27B-UD-IQ3_S.
 QWEN38_IQ3S_MODEL_CANDIDATES = _model_candidates(
     "Qwen3.8-27B-UD-IQ3_S.gguf",
     "Qwen3.8-27B-IQ3_S.gguf",
 )
 
-QWEN38_Q4_MODEL_PATH = Path(
+QWEN38_MODEL_PATH = Path(
     os.environ.get(
-        "AI_VIDEO_QWEN38_MODEL_PATH",
+        "M_AUTO_PILOT_MODEL_PATH",
         str(
             _configured_path(
-                "AI_VIDEO_QWEN38_Q4_MODEL_PATH",
-                QWEN38_Q4_MODEL_CANDIDATES,
-            )
-        ),
-    )
-)
-
-QWEN38_Q6_MODEL_PATH = _configured_path(
-    "AI_VIDEO_QWEN38_Q6_MODEL_PATH",
-    QWEN38_Q6_MODEL_CANDIDATES,
-)
-
-QWEN38_IQ3S_MODEL_PATH = Path(
-    os.environ.get(
-        "AI_VIDEO_QWEN38_IQ3S_MODEL_PATH",
-        str(
-            _configured_path(
-                "AI_VIDEO_QWEN38_IQ3S_MODEL_PATH",
+                "M_AUTO_PILOT_MODEL_PATH",
                 QWEN38_IQ3S_MODEL_CANDIDATES,
             )
         ),
     )
 )
 
-QWEN38_MODEL_PATH = QWEN38_IQ3S_MODEL_PATH
-
-QWEN38_MTP_PATH = Path(
-    os.environ.get(
-        "AI_VIDEO_QWEN38_MTP_PATH",
-        str(
-            APP_ROOT
-            / "models"
-            / "experimental"
-            / "Qwen3.8-27B-GGUF"
-            / "mtp-Qwen3.8-27B-Q4_0.gguf"
-        ),
-    )
-)
-
 SERVER_HOST = "127.0.0.1"
-SERVER_PORT = 8080
 AGENT_SERVER_PORT = 8090
-
-BASE_URL = f"http://{SERVER_HOST}:{SERVER_PORT}"
-HEALTH_URL = f"{BASE_URL}/health"
 
 LOG_PATH = APP_ROOT / "logs" / "llama-server.log"
 
 
 class LocalLLMServerManager:
     """
-    Quản lý llama-server chạy cục bộ.
+    Quản lý llama-server chạy cục bộ với model Qwen3.8-27B IQ3_S.
 
     Trách nhiệm:
     - Kiểm tra server đã hoạt động chưa.
@@ -215,13 +133,12 @@ class LocalLLMServerManager:
         *,
         server_path: Path = LLAMA_SERVER_PATH,
         model_path: Path | None = None,
-        fallback_model_path: Path = FALLBACK_MODEL_PATH,
-        context_size: int = 8192,
-        startup_timeout: int = 120,
+        context_size: int = 16384,
+        startup_timeout: int = 300,
         profile: str | None = None,
         reasoning: str = "off",
         host: str = SERVER_HOST,
-        port: int = SERVER_PORT,
+        port: int = AGENT_SERVER_PORT,
         replace_existing: bool = False,
     ) -> None:
         self.server_path = server_path.resolve()
@@ -232,134 +149,19 @@ class LocalLLMServerManager:
         self.props_url = f"{self.base_url}/props"
         self._process: subprocess.Popen | None = None
         self.replace_existing = replace_existing
-        selected_profile = (
-            profile
-            if profile is not None
-            else os.environ.get(
-                "AI_VIDEO_LLM_PROFILE",
-                "auto",
-            )
-        ).strip().lower()
-        if selected_profile not in {
-            "auto",
-            "qwen38",
-            "qwen38_q4",
-            "qwen38_iq3s",
-            "qwen38_q6",
-            "qwen38_mtp",
-            "qwen36",
-            "qwen36_mtp",
-            "qwen14",
-        }:
-            selected_profile = "auto"
-
-        self.profile = selected_profile
+        self.profile = "qwen38_iq3s"
         self.reasoning = (
             reasoning.strip().lower()
             if reasoning.strip().lower() in {"on", "off", "auto"}
             else "off"
         )
-        self.qwen38_quant = "q4"
-
-        if selected_profile == "qwen38_iq3s":
-            self.qwen38_quant = "iq3s"
-        elif selected_profile == "qwen38_q6":
-            self.qwen38_quant = "q6"
-        elif selected_profile == "auto":
-            if _model_available(QWEN38_IQ3S_MODEL_PATH):
-                self.qwen38_quant = "iq3s"
-            elif (
-                not _model_available(QWEN38_Q4_MODEL_PATH)
-                and _model_available(QWEN38_Q6_MODEL_PATH)
-            ):
-                self.qwen38_quant = "q6"
-
-        self.qwen38_model_path = (
-            QWEN38_IQ3S_MODEL_PATH
-            if self.qwen38_quant == "iq3s"
-            else (
-                QWEN38_Q6_MODEL_PATH
-                if self.qwen38_quant == "q6"
-                else QWEN38_Q4_MODEL_PATH
-            )
-        )
-        self.qwen38_mtp_enabled = model_path is None and (
-            selected_profile == "qwen38_mtp"
-            or (
-                selected_profile == "auto"
-                and self.qwen38_quant in {"q4", "q6"}
-                and _model_available(self.qwen38_model_path)
-                and QWEN38_MTP_PATH.exists()
-            )
-        )
-        self.qwen38_enabled = model_path is None and (
-            self.qwen38_mtp_enabled
-            or selected_profile in {
-                "qwen38",
-                "qwen38_q4",
-                "qwen38_iq3s",
-                "qwen38_q6",
-            }
-            or (
-                selected_profile == "auto"
-                and _model_available(self.qwen38_model_path)
-            )
-        )
-        self.qwen36_mtp_enabled = model_path is None and (
-            selected_profile == "qwen36_mtp"
-            or (
-                selected_profile == "auto"
-                and not self.qwen38_enabled
-                and QWEN36_MODEL_PATH.exists()
-                and QWEN36_MTP_PATH.exists()
-            )
-        )
-        self.qwen36_enabled = model_path is None and (
-            self.qwen36_mtp_enabled
-            or selected_profile == "qwen36"
-            or (
-                selected_profile == "auto"
-                and not self.qwen38_enabled
-                and QWEN36_MODEL_PATH.exists()
-            )
-        )
-        self.mtp_enabled = (
-            self.qwen38_mtp_enabled
-            or self.qwen36_mtp_enabled
-        )
-        self.mtp_model_path = (
-            (
-                QWEN38_MTP_PATH
-                if self.qwen38_mtp_enabled
-                else QWEN36_MTP_PATH
-            ).resolve()
-            if self.mtp_enabled
-            else None
-        )
-        self.primary_model_path = (
-            (
-                self.qwen38_model_path
-                if self.qwen38_enabled
-                else (
-                    QWEN36_MODEL_PATH
-                    if self.qwen36_enabled
-                    else (model_path or MODEL_PATH)
-                )
-            )
+        self.model_path = (
+            QWEN38_MODEL_PATH
+            if model_path is None
+            else Path(model_path)
         ).resolve()
-        self.fallback_model_path = fallback_model_path.resolve()
-        self.model_path = self._select_model_path()
         self.context_size = max(1024, int(context_size))
-        if self.qwen38_enabled:
-            self.startup_timeout = max(startup_timeout, 300)
-        elif self.mtp_enabled:
-            self.context_size = min(self.context_size, 4096)
-            self.startup_timeout = max(startup_timeout, 300)
-        elif self.qwen36_enabled:
-            self.context_size = min(self.context_size, 4096)
-            self.startup_timeout = max(startup_timeout, 180)
-        else:
-            self.startup_timeout = startup_timeout
+        self.startup_timeout = max(startup_timeout, 300)
 
     def ensure_running(self) -> None:
         """
@@ -478,84 +280,13 @@ class LocalLLMServerManager:
                 f"{self.server_path}"
             )
 
-        if self.mtp_enabled:
-            missing = [
-                path
-                for path in (
-                    self.model_path,
-                    self.mtp_model_path,
-                )
-                if path is not None and not path.exists()
-            ]
-            if missing:
-                model_name = (
-                    f"Qwen3.8-27B {self.qwen38_quant.upper()}"
-                    if self.qwen38_mtp_enabled
-                    else "Qwen3.6"
-                )
-                raise FileNotFoundError(
-                    f"Không tìm thấy đủ model {model_name} MTP.\n\n"
-                    + "\n".join(str(path) for path in missing)
-                )
-            return
-
-        if self.qwen38_enabled:
-            if not _model_available(self.model_path):
-                quant_name = (
-                    "IQ3_S"
-                    if self.qwen38_quant == "iq3s"
-                    else self.qwen38_quant.upper()
-                )
-                raise FileNotFoundError(
-                    f"Không tìm thấy model Qwen3.8-27B {quant_name}.\n\n"
-                    f"{self.model_path}\n\n"
-                    "Đặt model đúng profile hoặc cấu hình "
-                    "AI_VIDEO_QWEN38_Q4_MODEL_PATH/"
-                    "AI_VIDEO_QWEN38_Q6_MODEL_PATH/"
-                    "AI_VIDEO_QWEN38_IQ3S_MODEL_PATH."
-                )
-            return
-
-        if self.qwen36_enabled:
-            if not self.model_path.exists():
-                raise FileNotFoundError(
-                    "Không tìm thấy model Qwen3.6 base.\n\n"
-                    f"{self.model_path}"
-                )
-            return
-
-        if not self.model_path.exists():
+        if not _model_available(self.model_path):
             raise FileNotFoundError(
-                "Không tìm thấy model GGUF.\n\n"
-                "Ứng dụng ưu tiên Qwen3.8-27B, sau đó Qwen3.6, "
-                "Qwen3-14B và fallback Qwen3-8B ở profile auto.\n\n"
-                f"Model chính:\n{self.primary_model_path}\n\n"
-                f"Model fallback:\n{self.fallback_model_path}"
+                "Không tìm thấy model Qwen3.8-27B IQ3_S.\n\n"
+                f"{self.model_path}\n\n"
+                "Đặt model trong thư mục models hoặc cấu hình "
+                "M_AUTO_PILOT_MODEL_PATH."
             )
-
-    def _select_model_path(self) -> Path:
-        if self.primary_model_path.exists():
-            return self.primary_model_path
-
-        if (
-            self.profile in {
-                "qwen38",
-                "qwen38_q4",
-                "qwen38_iq3s",
-                "qwen38_q6",
-                "qwen38_mtp",
-                "qwen36",
-                "qwen36_mtp",
-            }
-            or self.qwen38_enabled
-            or self.qwen36_enabled
-        ):
-            return self.primary_model_path
-
-        if self.fallback_model_path.exists():
-            return self.fallback_model_path
-
-        return self.primary_model_path
 
     def _process_is_running(self) -> bool:
         process = self._process
@@ -662,7 +393,7 @@ class LocalLLMServerManager:
         self._process = process
 
     def _build_command(self) -> list[str]:
-        command = [
+        return [
             str(self.server_path),
 
             "--model",
@@ -702,24 +433,6 @@ class LocalLLMServerManager:
             "--log-file",
             str(LOG_PATH),
         ]
-
-        if self.mtp_enabled and self.mtp_model_path is not None:
-            command.extend([
-                "--spec-draft-model",
-                str(self.mtp_model_path),
-                "--spec-type",
-                "draft-mtp",
-                "--spec-draft-n-max",
-                os.environ.get("AI_VIDEO_MTP_DRAFT_MAX", "3"),
-                "--spec-draft-ngl",
-                "auto",
-                "--n-cpu-moe",
-                os.environ.get("AI_VIDEO_N_CPU_MOE", "32"),
-                "--reasoning-budget",
-                "0",
-            ])
-
-        return command
 
     def _wait_until_ready(self) -> None:
         deadline = time.monotonic() + self.startup_timeout

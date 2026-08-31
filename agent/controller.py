@@ -211,8 +211,6 @@ Nguyên tắc chung:
         active_profile = _normalise_profile(
             model_profile or self.config.model_profile
         )
-        if active_profile == "qwen38_q4" and _should_use_fast_profile(user_prompt):
-            active_profile = "qwen14"
 
         if (
             _normalise_task_mode(task_mode) != "coding"
@@ -727,7 +725,7 @@ Nguyên tắc chung:
             self.server_manager = LocalLLMServerManager(
                 context_size=self.config.context_size,
                 profile=profile,
-                reasoning="auto" if profile == "qwen38_q6" else "off",
+                reasoning="off",
                 host=self.config.server_host,
                 port=self.config.server_port,
                 replace_existing=True,
@@ -737,7 +735,7 @@ Nguyên tắc chung:
             self.server_manager = LocalLLMServerManager(
                 context_size=self.config.context_size,
                 profile=profile,
-                reasoning="auto" if profile == "qwen38_q6" else "off",
+                reasoning="off",
                 host=self.config.server_host,
                 port=self.config.server_port,
                 replace_existing=True,
@@ -1179,55 +1177,13 @@ def _env_bool(
 
 
 def _normalise_profile(value: object) -> str:
-    profile = str(value or "").strip().lower()
-
-    if profile in {"q4", "qwen38", "qwen38_q4"}:
-        return "qwen38_q4"
-
-    if profile in {"iq3s", "iq3_s", "qwen38_iq3s", "qwen38_iq3s_ud"}:
-        return "qwen38_iq3s"
-
-    if profile in {"q6", "qwen38_q6"}:
-        return "qwen38_q6"
-
-    if profile in {"qwen14", "qwen3_14b", "fast"}:
-        return "qwen14"
-
+    # M Auto Pilot chỉ chạy một model: Qwen3.8-27B-UD-IQ3_S.
+    # Mọi giá trị profile cũ (Q4/Q6/14B...) đều quy về profile duy nhất.
     return "qwen38_iq3s"
 
 
 def _normalise_task_mode(value: object) -> str:
     return "coding" if str(value or "").strip().lower() == "coding" else "auto"
-
-
-def _should_use_fast_profile(prompt: str) -> bool:
-    lowered = prompt.lower()
-    if len(prompt) > 420 or any(
-        marker in lowered
-        for marker in (
-            "phức tạp",
-            "toàn bộ",
-            "kiến trúc",
-            "nhiều bước",
-            "phân tích sâu",
-            "triển khai hệ thống",
-        )
-    ):
-        return False
-    return any(
-        marker in lowered
-        for marker in (
-            "repo",
-            "github",
-            "npm",
-            "package",
-            "cài đặt",
-            "tải",
-            "tìm kiếm",
-            "sửa lỗi",
-            "chạy test",
-        )
-    )
 
 
 def _is_direct_repo_task(prompt: str) -> bool:

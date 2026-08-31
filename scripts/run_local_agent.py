@@ -64,12 +64,6 @@ def main() -> int:
         help="Context agent, mặc định 16384.",
     )
     parser.add_argument(
-        "--profile",
-        choices=("iq3s", "q4", "q6"),
-        default=None,
-        help="IQ3_S mặc định; chọn Q6 cho request phức tạp.",
-    )
-    parser.add_argument(
         "--reasoning-effort",
         choices=("low", "medium", "high", "xhigh"),
         default=None,
@@ -97,11 +91,7 @@ def main() -> int:
             "context_size": args.context_size,
             "reasoning_effort": args.reasoning_effort,
             "mcp_config": args.mcp_config,
-            "model_profile": (
-                f"qwen38_{args.profile}"
-                if args.profile
-                else None
-            ),
+            "model_profile": "qwen38_iq3s",
             "auto_start_server": not args.no_server,
         }.items()
         if value is not None
@@ -133,7 +123,7 @@ def main() -> int:
         print(result.text)
         return 0
 
-    print("Local agent đã sẵn sàng. Dùng /iq3s, /q4 hoặc /q6 ở đầu request; gõ 'exit' để thoát.")
+    print("Local agent đã sẵn sàng (Qwen3.8-27B IQ3_S). Gõ 'exit' để thoát.")
 
     while True:
         try:
@@ -148,25 +138,11 @@ def main() -> int:
         if not prompt:
             continue
 
-        request_profile = None
-        for marker, profile in (
-            ("/iq3s ", "qwen38_iq3s"),
-            ("/q4 ", "qwen38_q4"),
-            ("/q6 ", "qwen38_q6"),
-        ):
-            if prompt.lower().startswith(marker):
-                request_profile = profile
-                prompt = prompt[len(marker):].strip()
-                break
-
-        if not prompt:
-            continue
-
         try:
             result = agent.run(
                 prompt,
                 messages=messages,
-                model_profile=request_profile,
+                model_profile="qwen38_iq3s",
             )
             messages = result.messages
             print(f"\nAgent> {result.text}")

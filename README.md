@@ -25,16 +25,9 @@ M Auto Pilot và AI Video Localizer là hai ứng dụng riêng:
 
 ## Model
 
-Mặc định là **Qwen3.8-27B-UD-IQ3_S** (bản lượng hóa nhẹ, chạy gọn trên GPU 12 GB), chọn được trong giao diện:
+M Auto Pilot chỉ chạy **một model duy nhất: Qwen3.8-27B-UD-IQ3_S** (`Qwen3.8-27B-UD-IQ3_S.gguf`, bản lượng hóa nhẹ, hợp GPU 12–16 GB). Không còn Q4/Q6/14B — mọi profile cũ đều quy về model này.
 
-| Profile | Model | Dùng khi |
-|---|---|---|
-| IQ3_S · mặc định | `Qwen3.8-27B-UD-IQ3_S.gguf` | Hội thoại, coding, tool calling hằng ngày |
-| Q4 · cân bằng | `Qwen3.8-27B-UD-Q4_K_M.gguf` | Yêu cầu chất lượng cao hơn |
-| Q6 · suy luận sâu | `Qwen3.8-27B-UD-Q6_K_M.gguf` | Lập kế hoạch phức tạp, phân tích sâu |
-| Qwen3 14B · nhanh | `Qwen3-14B-Q4_K_M.gguf` | Câu hỏi ngắn, cần phản hồi nhanh |
-
-Agent chạy trên cổng 8090, tách biệt với pipeline dịch 8080 của AI Video Localizer. Với GPU 12 GB không nên chạy Q4/Q6 cùng lúc với pipeline; bấm **GPU status** để xem VRAM trước khi chọn model nặng.
+Agent chạy trên cổng 8090, tách biệt với pipeline dịch 8080 của AI Video Localizer. Bấm **GPU status** để xem VRAM trước khi dùng.
 
 ## Cách chạy
 
@@ -51,7 +44,7 @@ CLI agent:
 
 ```powershell
 & D:\AI-Video-Localizer\.venv\Scripts\python.exe scripts\run_local_agent.py "Liệt kê project"
-# hoặc hội thoại: /iq3s, /q4, /q6 ở đầu request
+# hoặc hội thoại: gõ 'exit' để thoát
 ```
 
 ## Giao diện

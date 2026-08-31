@@ -149,7 +149,8 @@ def main() -> int:
 
     assert result.text == "Đã kiểm tra project."
     assert result.steps == 2
-    assert agent.profiles == ["qwen38_q6"]
+    # Mọi profile cũ (Q4/Q6/14B) đều quy về model duy nhất IQ3_S.
+    assert agent.profiles == ["qwen38_iq3s"]
     print("local-agent tool-loop/profile: PASS")
     return 0
 

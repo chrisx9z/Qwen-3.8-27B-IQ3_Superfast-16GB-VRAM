@@ -30,14 +30,14 @@ M Auto Pilot và AI Video Localizer là hai ứng dụng riêng.
 - MCP server (stdio, 48 tool) + MCP client tùy chọn.
 - DeepSeek Harness sidecar launcher (Web UI 3080, kết nối Qwen local 8090 + MCP).
 - Chat UI kiểu trợ lý: bong bóng, markdown, streaming từng token, 3 chế độ (Trợ lý cá nhân / Coding Agent / Auto Pilot), lịch sử chat ghim/đổi tên/xóa.
-- Model: **Qwen3.8-27B-UD-IQ3_S mặc định** (mới cài, phù hợp GPU 12 GB), Q4 cân bằng, Q6 suy luận sâu, Qwen3-14B nhanh. Agent cổng 8090, tách pipeline 8080.
+- Model duy nhất: **Qwen3.8-27B-UD-IQ3_S** — đã bỏ Q4/Q6/Qwen3-14B khỏi phần mềm; mọi profile cũ quy về IQ3_S. Đã xóa file `Qwen3.8-27B-UD-Q4_K_M.gguf` và `Qwen3.8-27B-UD-Q6_K_M.gguf` khỏi ổ D (~36.8 GB). Agent cổng 8090, tách pipeline 8080.
 
 ## Verification (2026-09-01)
 
 - compileall toàn bộ source: PASS.
-- `scripts/test_local_agent.py` (tool loop 48 tool + profile): PASS.
-- UI smoke test (offscreen): PASS — 4 profile, 3 chế độ, chats.json nạp được.
-- Model resolution: auto → `Qwen3.8-27B-UD-IQ3_S.gguf` tại `D:\AI-Video-Localizer\models`; llama-server tìm thấy.
+- `scripts/test_local_agent.py` (tool loop 48 tool + profile): PASS — profile cũ (q6/q4) quy về `qwen38_iq3s`.
+- UI smoke test (offscreen): PASS — 3 chế độ, không còn bộ chọn model, chats.json nạp được.
+- Model resolution: chỉ `Qwen3.8-27B-UD-IQ3_S.gguf` tại `D:\AI-Video-Localizer\models`; llama-server tìm thấy.
 - Markdown renderer: PASS (h1, bold, inline code, link, ul/ol, blockquote, code block, escape).
 - Build PyInstaller: đang chạy bản mới `dist\M Auto Pilot.exe`.
 

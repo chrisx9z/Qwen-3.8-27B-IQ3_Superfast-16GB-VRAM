@@ -127,6 +127,16 @@ QMainWindow {
     padding: 0 6px;
 }
 
+#ModelChip {
+    background-color: #262a35;
+    color: #7aa2ff;
+    border: 1px solid #333848;
+    border-radius: 8px;
+    padding: 5px 12px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
 /* ---------- Chat area ---------- */
 #ChatScroll {
     background-color: #1b1d23;

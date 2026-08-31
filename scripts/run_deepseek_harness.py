@@ -32,12 +32,6 @@ def _parser() -> argparse.ArgumentParser:
         description="Khởi động DeepSeek Harness với M Auto Pilot và Qwen local."
     )
     parser.add_argument(
-        "--profile",
-        choices=("iq3s", "q4", "q6"),
-        default="iq3s",
-        help="IQ3_S mặc định; Q4 cân bằng; Q6 dùng cho request phức tạp.",
-    )
-    parser.add_argument(
         "--no-server",
         action="store_true",
         help="Chỉ kết nối server Qwen đang chạy.",
@@ -63,14 +57,14 @@ def _prepare_home() -> Path:
     return HARNESS_HOME
 
 
-def _ensure_qwen(profile: str, no_server: bool) -> None:
+def _ensure_qwen(no_server: bool) -> None:
     if no_server:
         return
 
     manager = LocalLLMServerManager(
         context_size=16384,
-        profile=f"qwen38_{profile}",
-        reasoning="auto" if profile == "q6" else "off",
+        profile="qwen38_iq3s",
+        reasoning="off",
         host="127.0.0.1",
         port=AGENT_SERVER_PORT,
         replace_existing=False,
@@ -78,7 +72,7 @@ def _ensure_qwen(profile: str, no_server: bool) -> None:
     was_ready = manager.is_ready()
     if not was_ready:
         GPUResourceManager().claim_agent(
-            profile=f"qwen38_{profile}",
+            profile="qwen38_iq3s",
             port=AGENT_SERVER_PORT,
             model_path=str(manager.model_path),
         )
@@ -142,7 +136,7 @@ def main() -> int:
     if not MCP_SERVER.exists():
         raise RuntimeError("Không tìm thấy M Auto Pilot MCP server.")
 
-    _ensure_qwen(args.profile, args.no_server)
+    _ensure_qwen(args.no_server)
     home = _prepare_home()
     return _run_harness(home, args.no_open, args.dump_config)
 
