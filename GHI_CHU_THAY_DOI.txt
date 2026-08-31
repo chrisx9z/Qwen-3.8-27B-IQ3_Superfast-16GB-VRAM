@@ -1,0 +1,103 @@
+GHI CHÚ THAY ĐỔI M AUTO PILOT
+================================
+Ngày: 2026-09-01
+So với: trạng thái dự án được mô tả trong đoạn chat Codex/ChatGPT
+("M Auto Pilot" — link chatgpt.com/s/cx_6a95beda142c81919f76a01046ceb554)
+và PROJECT_STATE.md trước khi dừng phát triển.
+
+1. MODEL — CHỈ CÒN QWEN3.8-27B-UD-IQ3_S
+---------------------------------------
+- Trong chat: phần mềm dùng Qwen3.8-27B với 2 profile Q4 (mặc định) và Q6
+  (request phức tạp), thêm Qwen3-14B cho yêu cầu nhanh.
+- Đã sửa: M Auto Pilot chỉ chạy đúng MỘT model vừa mới cài đặt:
+  Qwen3.8-27B-UD-IQ3_S.gguf (11.2 GB, phù hợp GPU 12-16 GB).
+- Đã xóa toàn bộ profile Q4/Q6/Qwen14/Qwen36/MTP khỏi mã nguồn:
+  + llm/server_manager.py: viết lại gọn, chỉ còn QWEN38_MODEL_PATH = IQ3_S
+    (có thể ghi đè bằng biến môi trường M_AUTO_PILOT_MODEL_PATH).
+  + agent/controller.py: _normalise_profile quy mọi giá trị profile cũ
+    (q4/q6/qwen14...) về qwen38_iq3s; bỏ chuyển nhanh sang 14B;
+    reasoning luôn off.
+  + ui/agent_page.py: bỏ combo chọn model, thay bằng chip cố định
+    "Model: Qwen3.8-27B · IQ3_S".
+  + scripts/run_local_agent.py: bỏ --profile và lệnh /q4, /q6.
+  + scripts/run_deepseek_harness.py: chỉ dùng IQ3_S.
+- Đã XÓA FILE trên ổ D (giải phóng ~36.8 GB):
+  + D:\AI-Video-Localizer\models\Qwen3.8-27B-UD-Q4_K_M.gguf (15.33 GB)
+  + D:\AI-Video-Localizer\models\Qwen3.8-27B-UD-Q6_K_M.gguf (21.50 GB)
+- Giữ lại Qwen3-14B-Q4_K_M.gguf vì AI Video Localizer (phần mềm tách biệt)
+  vẫn tham chiếu trong config riêng của nó.
+
+2. SỬA ĐƯỜNG DẪN RUNTIME (lý do EXE cũ bị crash)
+-------------------------------------------------
+- Trong chat: source ở D:\M-Auto-Pilot, sau đó chuyển sang D:\Vibe Code\M-Auto-Pilot;
+  EXE frozen hard-code D:\M-Auto-Pilot nhưng thư mục này không tồn tại,
+  models/llama-server nằm trong D:\AI-Video-Localizer -> EXE không tìm được.
+- Đã sửa:
+  + Tạo D:\M-Auto-Pilot làm runtime root cho EXE (work/auto_pilot/chats.json,
+    resource_state.json — giữ nguyên 4 chat cũ).
+  + server_manager tự phân giải:
+    * model: M_AUTO_PILOT_MODELS_DIR (mặc định D:\AI-Video-Localizer\models)
+    * llama-server: M_AUTO_PILOT_LLAMA_SERVER
+      (mặc định D:\AI-Video-Localizer\tools\llama.cpp\llama-server.exe)
+  + Khôi phục scripts đã bị bỏ sót khi tách repo: run_local_agent.py,
+    run_mcp_server.py, run_deepseek_harness.py, test_local_agent.py,
+    core/console.py, config/deepseek_harness/*, mcp example configs.
+
+3. THIẾT KẾ LẠI GIAO DIỆN — CHAT KIỂU TRỢ LÝ
+---------------------------------------------
+- Trong chat: UI cũ là 1 trang với ô "Yêu cầu" (QPlainTextEdit) + ô "Kết quả"
+  dạng text thô, nút "Chạy Auto Pilot".
+- Đã sửa (ui/agent_page.py viết lại toàn bộ + ui/styles.qss mới):
+  + Chat dạng bong bóng: người dùng bên phải, trợ lý bên trái.
+  + Render markdown (tiêu đề, in đậm/nghiêng, inline code, code block,
+    danh sách, link, blockquote) bằng QTextBrowser.
+  + STREAMING câu trả lời từng token (giống ChatGPT); hiện chip tiến trình
+    từng bước: gọi tool, kết quả tool, suy luận...
+  + 3 chế độ: Trợ lý cá nhân / Coding Agent / Auto Pilot.
+  + Enter = gửi, Shift+Enter = xuống dòng; nút Gửi.
+  + Sidebar lịch sử chat (ghim / đổi tên / xóa) giữ nguyên.
+  + Theme tối, header với trạng thái, nút GPU status + DeepSeek Harness.
+  + Lưu chat dạng mới (history + agent_messages), tự migration chat cũ.
+
+4. CONTROLLER / AGENT LOOP
+--------------------------
+- _chat chuyển sang stream SSE (data: ... chunks), gom nội dung + tool_calls,
+  phát sự kiện "delta"; có fallback tự động sang non-stream nếu endpoint
+  không hỗ trợ stream.
+- System prompt viết lại: định vị "trợ lý cá nhân + coding + điều khiển máy",
+  giữ nguyên các quy tắc an toàn (allowlist, checkpoint, không shell tùy ý...).
+
+5. BUILD EXE
+------------
+- Tạo M Auto Pilot.spec (PyInstaller onefile, không console, icon logo).
+- Loại torch/torchvision bị cuốn nhầm qua nhánh import tùy chọn
+  (EXE đầu 2 GB -> 183.8 MB).
+- EXE mới: D:\Vibe Code\M-Auto-Pilot\dist\M Auto Pilot.exe
+  Đã copy lên Desktop: D:\OneDrive\Desktop\M Auto Pilot.exe
+
+6. KIỂM CHỨNG THỰC TẾ
+----------------------
+- compileall toàn bộ source: PASS
+- scripts/test_local_agent.py (tool loop 48 tool + profile): PASS
+  (profile cũ q6/q4 quy về qwen38_iq3s)
+- UI smoke test (offscreen): PASS
+- Markdown renderer: PASS
+- Streaming thật trên IQ3_S (cổng 8090): trả lời tiếng Việt OK
+- Agent thật gọi tool list_projects trên IQ3_S: OK
+- EXE khởi động, cửa sổ "M Auto Pilot" hiển thị: OK
+
+7. GIT
+------
+- Repo: D:\Vibe Code\M-Auto-Pilot (branch master)
+- Commit mới:
+  + 5b1c337  Resume M Auto Pilot: IQ3_S default model, assistant chat UI, streaming
+  + 26955d8  Single model: chi chay Qwen3.8-27B-UD-IQ3_S, bo Q4/Q6
+
+8. LƯU Ý KHI DÙNG
+------------------
+- Cổng agent: 8090 (llama-server IQ3_S), tách biệt pipeline 8080 của
+  AI Video Localizer.
+- Nếu llama-server 8090 đang chạy sẵn với đúng model IQ3_S, app dùng luôn,
+  không khởi động lại.
+- Bấm "GPU status" để xem VRAM trước khi chạy tác vụ nặng.
+- DeepSeek Harness (Web UI 3080) chỉ dùng IQ3_S.
