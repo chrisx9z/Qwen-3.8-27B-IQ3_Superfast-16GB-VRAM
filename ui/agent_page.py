@@ -262,6 +262,13 @@ class ChatInput(QPlainTextEdit):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setAcceptDrops(True)
+        self.setMinimumHeight(44)
+        self.setMaximumHeight(160)
+        self.textChanged.connect(self._adjust_input_height)
+
+    def _adjust_input_height(self) -> None:
+        doc_h = int(self.document().size().height()) + 16
+        self.setFixedHeight(max(44, min(160, doc_h)))
 
     def keyPressEvent(self, event: Any) -> None:
         if (
@@ -9499,6 +9506,34 @@ class AgentPage(QWidget):
 
     # ------------------------------------------------------------- UI
 
+    def on_mode_changed(self) -> None:
+        if not hasattr(self, "mode_combo") or not hasattr(self, "prompt_input"):
+            return
+        mode = self.mode_combo.currentData()
+        lang = get_current_language()
+        if mode == "coding":
+            if lang == "en":
+                ph = "Describe coding task, bugfix, refactor, tests... (Shift+Enter for newline)"
+            elif lang == "zh":
+                ph = "输入代码任务、Bug修复、重构、单元测试... (Shift+Enter换行)"
+            else:
+                ph = "Yêu cầu code, sửa lỗi, refactor, viết test... (Shift+Enter xuống dòng)"
+        elif mode == "auto":
+            if lang == "en":
+                ph = "Computer-use automation instruction... (Shift+Enter for newline)"
+            elif lang == "zh":
+                ph = "电脑自动化控制任务指令... (Shift+Enter换行)"
+            else:
+                ph = "Yêu cầu điều khiển máy tính, tự động hóa... (Shift+Enter xuống dòng)"
+        else:
+            if lang == "en":
+                ph = "Ask anything, summarize, write docs... (Shift+Enter for newline)"
+            elif lang == "zh":
+                ph = "问任何问题、总结、编写文档... (Shift+Enter换行)"
+            else:
+                ph = "Hỏi bất cứ điều gì hoặc nhờ viết tài liệu... (Shift+Enter xuống dòng)"
+        self.prompt_input.setPlaceholderText(ph)
+
     def _populate_mode_combo(self) -> None:
         cur_data = self.mode_combo.currentData() if hasattr(self, "mode_combo") and self.mode_combo.count() > 0 else "assistant"
         self.mode_combo.blockSignals(True)
@@ -9692,6 +9727,7 @@ class AgentPage(QWidget):
         self.mode_combo = QComboBox()
         self.mode_combo.setObjectName("Combo")
         self._populate_mode_combo()
+        self.mode_combo.currentIndexChanged.connect(self.on_mode_changed)
         header_layout.addWidget(self.mode_combo)
 
         # Language Selector Dropdown
@@ -9926,6 +9962,7 @@ class AgentPage(QWidget):
             self.prompt_input.clear()
             self.status_label.setText(t("status_ready"))
             self.refresh_chat_list()
+            self.prompt_input.setFocus()
         self.save_chats()
 
     def on_chat_selected(self, item: QListWidgetItem) -> None:
