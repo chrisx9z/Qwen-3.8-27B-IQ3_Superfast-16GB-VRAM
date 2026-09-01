@@ -101,6 +101,7 @@ def main() -> int:
             Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
         )
     app = QApplication(sys.argv)
+    app.setStyle("Fusion")
     app.setApplicationName("Auto Pilot Qwen 3.8 27B IQ3_Superfast")
     app.setQuitOnLastWindowClosed(False)
     load_stylesheet(app)
