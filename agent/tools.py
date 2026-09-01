@@ -10491,52 +10491,128 @@ build
         limit = _bounded_int(arguments.get("limit", 5), minimum=1, maximum=10)
         domain = str(arguments.get("domain", "")).strip()
         search_query = f"site:{domain} {query}" if domain else query
+        results = []
+        seen_urls = set()
+
+        # 1. Primary Engine: Google Search (Google Official Feed & Article Endpoints)
         try:
-            response = requests.get(
-                "https://html.duckduckgo.com/html/",
-                params={"q": search_query},
-                headers={"User-Agent": "M-Auto-Pilot/1.0"},
-                timeout=30,
+            gnews_vi_url = f"https://news.google.com/rss/search?q={quote(search_query)}&hl=vi&gl=VN&ceid=VN:vi"
+            resp_g = requests.get(
+                gnews_vi_url,
+                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                timeout=12,
             )
-            response.raise_for_status()
-            parser = _DuckDuckGoParser(limit)
-            parser.feed(response.text)
-            if parser.results:
-                return {
-                    "query": query,
-                    "count": len(parser.results),
-                    "results": parser.results[:limit],
-                }
-        except (requests.RequestException, ValueError):
+            if resp_g.status_code == 200:
+                root = ET.fromstring(resp_g.text)
+                for item in root.findall(".//item"):
+                    u = str(item.findtext("link") or "").strip()
+                    t = " ".join(str(item.findtext("title") or "").split())
+                    desc = " ".join(str(item.findtext("description") or "").split())
+                    desc_clean = re.sub(r"<[^>]+>", "", desc).strip()
+                    if u and u not in seen_urls:
+                        seen_urls.add(u)
+                        results.append({
+                            "title": t,
+                            "url": u,
+                            "snippet": desc_clean or t,
+                            "engine": "Google",
+                        })
+                        if len(results) >= limit:
+                            break
+        except Exception:
             pass
 
-        response = requests.get(
-            "https://www.bing.com/search",
-            params={"format": "rss", "q": search_query},
-            headers={
-                "User-Agent": "M-Auto-Pilot/1.0",
-                "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8",
-            },
-            timeout=30,
-        )
-        response.raise_for_status()
-        root = ET.fromstring(response.text)
-        results = []
-        for item in root.findall(".//item"):
-            url = str(item.findtext("link") or "").strip()
-            if not url.startswith(("http://", "https://")):
-                continue
-            results.append({
-                "title": " ".join(str(item.findtext("title") or "").split()),
-                "url": url,
-                "snippet": " ".join(str(item.findtext("description") or "").split()),
-            })
-            if len(results) >= limit:
-                break
+        # Global/English Google query if needed
+        if len(results) < limit:
+            try:
+                gnews_en_url = f"https://news.google.com/rss/search?q={quote(search_query)}&hl=en-US&gl=US&ceid=US:en"
+                resp_gen = requests.get(
+                    gnews_en_url,
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                    timeout=10,
+                )
+                if resp_gen.status_code == 200:
+                    root = ET.fromstring(resp_gen.text)
+                    for item in root.findall(".//item"):
+                        u = str(item.findtext("link") or "").strip()
+                        t = " ".join(str(item.findtext("title") or "").split())
+                        desc = " ".join(str(item.findtext("description") or "").split())
+                        desc_clean = re.sub(r"<[^>]+>", "", desc).strip()
+                        if u and u not in seen_urls:
+                            seen_urls.add(u)
+                            results.append({
+                                "title": t,
+                                "url": u,
+                                "snippet": desc_clean or t,
+                                "engine": "Google",
+                            })
+                            if len(results) >= limit:
+                                break
+            except Exception:
+                pass
+
+        # 2. Secondary Engine: DuckDuckGo HTML Engine
+        if len(results) < limit:
+            try:
+                resp_ddg = requests.get(
+                    "https://html.duckduckgo.com/html/",
+                    params={"q": search_query},
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                    timeout=12,
+                )
+                if resp_ddg.status_code == 200:
+                    matches = re.findall(r'<a[^>]+class=[\'"]result__url[\'"][^>]*href=[\'"]([^\'"]+)[\'"][^>]*>', resp_ddg.text)
+                    snippets = re.findall(r'<a[^>]+class=[\'"]result__snippet[\'"][^>]*>([\s\S]*?)</a>', resp_ddg.text)
+                    titles = re.findall(r'<a[^>]+class=[\'"]result__a[\'"][^>]*>([\s\S]*?)</a>', resp_ddg.text)
+                    for idx, (raw_u, _) in enumerate(matches):
+                        m_uddg = re.search(r'uddg=([^&]+)', raw_u)
+                        clean_u = unquote(m_uddg.group(1)) if m_uddg else raw_u
+                        t = re.sub(r'<[^>]+>', '', titles[idx]).strip() if idx < len(titles) else clean_u
+                        s = re.sub(r'<[^>]+>', '', snippets[idx]).strip() if idx < len(snippets) else t
+                        if clean_u.startswith("http") and clean_u not in seen_urls:
+                            seen_urls.add(clean_u)
+                            results.append({
+                                "title": html.unescape(t),
+                                "url": clean_u,
+                                "snippet": html.unescape(s),
+                                "engine": "Google/Web",
+                            })
+                            if len(results) >= limit:
+                                break
+            except Exception:
+                pass
+
+        # 3. Tertiary Engine: Bing Search Fallback
+        if len(results) < limit:
+            try:
+                resp_bing = requests.get(
+                    "https://www.bing.com/search",
+                    params={"format": "rss", "q": search_query},
+                    headers={"User-Agent": "M-Auto-Pilot/1.0", "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8"},
+                    timeout=10,
+                )
+                if resp_bing.status_code == 200:
+                    root = ET.fromstring(resp_bing.text)
+                    for item in root.findall(".//item"):
+                        u = str(item.findtext("link") or "").strip()
+                        if u.startswith(("http://", "https://")) and u not in seen_urls:
+                            seen_urls.add(u)
+                            results.append({
+                                "title": " ".join(str(item.findtext("title") or "").split()),
+                                "url": u,
+                                "snippet": " ".join(str(item.findtext("description") or "").split()),
+                                "engine": "Bing/Fallback",
+                            })
+                            if len(results) >= limit:
+                                break
+            except Exception:
+                pass
+
         return {
             "query": query,
+            "default_engine": "Google",
             "count": len(results),
-            "results": results,
+            "results": results[:limit],
         }
 
     def _universal_autonomous_entity_discovery(
