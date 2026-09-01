@@ -6692,10 +6692,12 @@ class GitBranchDialog(QDialog):
         name = self.new_branch_input.text().strip()
         if not name:
             return
+        QApplication.processEvents()
         from agent.tools import LocalToolRegistry
         res = LocalToolRegistry().execute("git_branch", {"action": "create", "name": name})
         if res.get("ok"):
             QMessageBox.information(self, "Thành công", f"Đã tạo nhánh `{name}` thành công!")
+            self.new_branch_input.clear()
             self.load_branches()
         else:
             QMessageBox.warning(self, "Lỗi", f"Lỗi tạo nhánh:\n{res.get('error') or res.get('output')}")
@@ -6704,10 +6706,12 @@ class GitBranchDialog(QDialog):
         name = self.switch_input.text().strip()
         if not name:
             return
+        QApplication.processEvents()
         from agent.tools import LocalToolRegistry
         res = LocalToolRegistry().execute("git_branch", {"action": "checkout", "name": name})
         if res.get("ok"):
             QMessageBox.information(self, "Thành công", f"Đã chuyển sang nhánh `{name}`!")
+            self.switch_input.clear()
             self.load_branches()
         else:
             QMessageBox.warning(self, "Lỗi", f"Lỗi chuyển nhánh:\n{res.get('error') or res.get('output')}")
@@ -6716,10 +6720,12 @@ class GitBranchDialog(QDialog):
         name = self.switch_input.text().strip()
         if not name:
             return
+        QApplication.processEvents()
         from agent.tools import LocalToolRegistry
         res = LocalToolRegistry().execute("git_merge", {"branch": name, "no_ff": True})
         if res.get("ok"):
             QMessageBox.information(self, "Thành công", f"Đã merge nhánh `{name}` thành công!\n{res.get('output')}")
+            self.switch_input.clear()
             self.load_branches()
         else:
             QMessageBox.warning(self, "Lỗi Merge", f"Lỗi merge:\n{res.get('error') or res.get('output')}")
