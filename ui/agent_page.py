@@ -9,7 +9,8 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
-from uuid import uuid4
+from core.project import APP_ROOT
+from core.i18n import t, set_language, get_current_language
 
 from PySide6.QtCore import QObject, QProcess, QRunnable, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
 from PySide6.QtGui import QKeySequence, QShortcut, QDesktopServices, QGuiApplication, QTextCursor
