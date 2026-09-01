@@ -6529,6 +6529,7 @@ class TestRunnerDialog(QDialog):
     def run_tests(self) -> None:
         p = self.path_input.text().strip()
         self.browser.setPlainText(f"Đang thực thi Pytest trên `{p}`...")
+        QApplication.processEvents()
         from agent.tools import LocalToolRegistry
         res = LocalToolRegistry().execute("run_test_suite", {"test_path": p, "verbose": True})
         out = res.get("output", "") or res.get("error", "")
@@ -8253,6 +8254,8 @@ class AgentPage(QWidget):
         self._add_assistant_bubble(f"### 🛡️ Quét Lỗ Hổng CVE Dependencies:\n- **Trạng thái**: **{res_d.get('status')}**\n- Đã kiểm tra `{res_d.get('total_packages_audited')}` packages, 0 lỗi phát sinh.")
 
     def format_code_action(self) -> None:
+        self.status_label.setText("Đang định dạng và kiểm tra mã nguồn...")
+        QApplication.processEvents()
         from agent.tools import LocalToolRegistry
         res = LocalToolRegistry().execute("format_python_source", {"path": "agent/tools.py", "dry_run": True})
         res_d = res.get("result", {})
