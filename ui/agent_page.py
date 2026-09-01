@@ -9817,11 +9817,14 @@ class AgentPage(QWidget):
         ]
 
     def save_chats(self) -> None:
-        self.chats_path.parent.mkdir(parents=True, exist_ok=True)
-        self.chats_path.write_text(
-            json.dumps(self.chats, ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        try:
+            self.chats_path.parent.mkdir(parents=True, exist_ok=True)
+            serialized = json.dumps(self.chats, ensure_ascii=False, indent=2)
+            tmp_path = self.chats_path.with_name(f".{self.chats_path.name}.tmp")
+            tmp_path.write_text(serialized, encoding="utf-8")
+            tmp_path.replace(self.chats_path)
+        except Exception:
+            pass
 
     @property
     def chats_path(self) -> Path:

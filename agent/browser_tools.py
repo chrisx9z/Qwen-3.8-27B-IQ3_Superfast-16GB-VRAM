@@ -1,13 +1,14 @@
 from __future__ import annotations
 
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from core.project import APP_ROOT
 
-
 DEFAULT_BROWSER_PROFILE = APP_ROOT / "work" / "auto_pilot" / "browser_profile"
+_SESSION: dict[str, Any] | None = None
 
 
 def browser_open(
@@ -27,9 +28,12 @@ def browser_open(
         browser = None
         errors: list[str] = []
 
+        # Browser channel priority: chrome -> msedge -> chromium
+        channels = ("chrome", "msedge", "chromium") if sys.platform == "darwin" else ("chrome", "msedge", "chromium")
+
         if persistent:
             DEFAULT_BROWSER_PROFILE.mkdir(parents=True, exist_ok=True)
-            for channel in ("msedge", "chrome", "chromium"):
+            for channel in channels:
                 try:
                     context = playwright.chromium.launch_persistent_context(
                         user_data_dir=str(DEFAULT_BROWSER_PROFILE),
@@ -42,7 +46,7 @@ def browser_open(
                     errors.append(f"persistent-{channel}: {error}")
 
         if context is None:
-            for channel in ("msedge", "chrome", "chromium"):
+            for channel in channels:
                 try:
                     browser = playwright.chromium.launch(
                         channel=channel if channel != "chromium" else None,
@@ -58,8 +62,8 @@ def browser_open(
         if context is None:
             playwright.stop()
             raise RuntimeError(
-                "Không mở được Edge/Chrome qua Playwright. "
-                "Hãy cài Edge/Chrome hoặc chạy playwright install chromium. "
+                "Unable to launch Chrome/Edge via Playwright. "
+                "Please install Google Chrome / Microsoft Edge or run 'playwright install chromium'. "
                 + " | ".join(errors)[-1000:]
             )
         page = context.pages[0] if context.pages else context.new_page()
@@ -144,11 +148,23 @@ def browser_screenshot() -> dict[str, Any]:
 def browser_close() -> dict[str, Any]:
     global _SESSION
     if _SESSION is None:
-        return {"closed": False, "reason": "browser chưa mở"}
+        return {"closed": False, "reason": "Browser not open"}
     try:
-        _SESSION["context"].close()
-        _SESSION["browser"].close()
-        _SESSION["playwright"].stop()
+        if _SESSION.get("context"):
+            try:
+                _SESSION["context"].close()
+            except Exception:
+                pass
+        if _SESSION.get("browser"):
+            try:
+                _SESSION["browser"].close()
+            except Exception:
+                pass
+        if _SESSION.get("playwright"):
+            try:
+                _SESSION["playwright"].stop()
+            except Exception:
+                pass
     finally:
         _SESSION = None
     return {"closed": True}
@@ -156,7 +172,7 @@ def browser_close() -> dict[str, Any]:
 
 def _page() -> Any:
     if _SESSION is None:
-        raise RuntimeError("Browser chưa mở. Hãy gọi browser_open trước.")
+        raise RuntimeError("Browser is not open. Call browser_open first.")
     return _SESSION["page"]
 
 
@@ -165,7 +181,7 @@ def _locator(page: Any, *, selector: str, text: str) -> Any:
         return page.locator(selector.strip())
     if text.strip():
         return page.get_by_text(text.strip(), exact=False)
-    raise ValueError("Cần selector CSS hoặc text để xác định phần tử.")
+    raise ValueError("Either CSS selector or text is required to locate element.")
 
 
 def _page_summary(page: Any) -> dict[str, Any]:
@@ -178,4 +194,4 @@ def _page_summary(page: Any) -> dict[str, Any]:
 def _validate_url(url: str) -> None:
     value = str(url or "").strip().lower()
     if not value.startswith(("http://", "https://")):
-        raise ValueError("Browser chỉ mở URL http hoặc https.")
+        raise ValueError("Browser only supports http:// or https:// URLs.")
