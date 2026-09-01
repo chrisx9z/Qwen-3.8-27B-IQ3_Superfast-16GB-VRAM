@@ -1,55 +1,77 @@
-/* ============ Auto Pilot Qwen 3.8 27B IQ3_Superfast — dark theme ============ */
+/* ============ Auto Pilot Qwen 3.8 27B IQ3_Superfast — Codex / DeepSeek Harness Dark Theme ============ */
 
 QWidget {
-    background-color: #1b1d23;
+    background-color: #16171b;
     color: #e6e6eb;
     font-size: 13px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Segoe UI Symbol", "Apple Color Emoji", "Noto Sans", Arial, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Text", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans", Arial, sans-serif;
 }
 
 QMainWindow {
-    background-color: #1b1d23;
+    background-color: #16171b;
 }
 
 /* ---------- Sidebar ---------- */
 #Sidebar {
-    background-color: #14161b;
-    border-right: 1px solid #262932;
+    background-color: #111216;
+    border-right: 1px solid #23252e;
+}
+
+#SidebarHeader {
+    padding: 6px 2px 2px 2px;
 }
 
 #Brand {
-    font-size: 17px;
+    font-size: 16px;
     font-weight: 700;
-    color: #f2f2f6;
-    padding: 2px 2px 6px 2px;
+    color: #ffffff;
+    letter-spacing: -0.3px;
+}
+
+#BrandStatus {
+    font-size: 11px;
+    color: #3fb950;
+    font-weight: 600;
+}
+
+#SidebarSectionTitle {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: #6e7687;
+    padding: 8px 4px 2px 4px;
 }
 
 #MutedText {
-    color: #8a8f9c;
-    font-size: 12px;
+    color: #7d8495;
+    font-size: 11.5px;
 }
 
 #ChatList {
     background-color: transparent;
     border: none;
     outline: none;
-    padding: 4px;
+    padding: 2px;
 }
 
 #ChatList::item {
-    color: #d6d8df;
+    color: #c9cdd7;
     padding: 8px 10px;
     border-radius: 8px;
     margin-bottom: 2px;
+    font-size: 12.5px;
 }
 
 #ChatList::item:hover {
-    background-color: #23262f;
+    background-color: #1c1e26;
+    color: #ffffff;
 }
 
 #ChatList::item:selected {
-    background-color: #2c3140;
+    background-color: #272b38;
     color: #ffffff;
+    font-weight: 600;
 }
 
 /* ---------- Buttons ---------- */
@@ -60,6 +82,7 @@ QMainWindow {
     border-radius: 8px;
     padding: 8px 14px;
     font-weight: 600;
+    font-size: 13px;
 }
 
 #PrimaryButton:hover {
@@ -67,48 +90,86 @@ QMainWindow {
 }
 
 #PrimaryButton:pressed {
-    background-color: #315fd8;
+    background-color: #2f5ed6;
 }
 
 #PrimaryButton:disabled {
-    background-color: #2a2d38;
-    color: #6a6f7d;
+    background-color: #252834;
+    color: #5d6374;
+}
+
+#CircleSendBtn {
+    background-color: #3b6ef5;
+    color: #ffffff;
+    border: none;
+    border-radius: 16px;
+    min-width: 32px;
+    max-width: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    font-size: 15px;
+    font-weight: bold;
+}
+
+#CircleSendBtn:hover {
+    background-color: #4d7cf8;
+}
+
+#CircleSendBtn:pressed {
+    background-color: #2f5ed6;
 }
 
 #GhostButton {
     background-color: transparent;
-    color: #b9bdc8;
-    border: 1px solid #2e313c;
-    border-radius: 8px;
-    padding: 6px 10px;
+    color: #a6abb9;
+    border: 1px solid #282b36;
+    border-radius: 7px;
+    padding: 5px 10px;
+    font-size: 12px;
 }
 
 #GhostButton:hover {
-    background-color: #23262f;
+    background-color: #1e212b;
     color: #ffffff;
     border-color: #3b6ef5;
 }
 
-/* ---------- Header / cards ---------- */
+#GhostIconBtn {
+    background-color: transparent;
+    color: #9aa0b0;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    padding: 4px 6px;
+    font-size: 13px;
+}
+
+#GhostIconBtn:hover {
+    background-color: #21242f;
+    color: #ffffff;
+    border-color: #313645;
+}
+
+/* ---------- Header / Cards ---------- */
 #Card {
-    background-color: #21242c;
-    border: 1px solid #2b2f3a;
+    background-color: #1b1d24;
+    border: 1px solid #272a35;
     border-radius: 12px;
 }
 
 #PageTitle {
-    font-size: 15px;
+    font-size: 14px;
     font-weight: 700;
-    color: #f2f2f6;
+    color: #ffffff;
 }
 
 #Combo {
-    background-color: #262a35;
+    background-color: #21242e;
     color: #e6e6eb;
-    border: 1px solid #333848;
-    border-radius: 8px;
-    padding: 5px 10px;
-    min-width: 130px;
+    border: 1px solid #2f3444;
+    border-radius: 7px;
+    padding: 4px 8px;
+    min-width: 110px;
+    font-size: 12px;
 }
 
 #Combo:hover {
@@ -116,48 +177,58 @@ QMainWindow {
 }
 
 #Combo QAbstractItemView {
-    background-color: #21242c;
-    border: 1px solid #333848;
-    selection-background-color: #2c3140;
+    background-color: #1b1d24;
+    border: 1px solid #2f3444;
+    selection-background-color: #2b3040;
     selection-color: #ffffff;
 }
 
 #StatusLabel {
-    color: #8a8f9c;
+    color: #8b92a4;
     font-size: 12px;
-    padding: 0 6px;
+    padding: 0 4px;
 }
 
 #ModelChip {
-    background-color: #262a35;
-    color: #7aa2ff;
-    border: 1px solid #333848;
-    border-radius: 8px;
-    padding: 5px 12px;
-    font-size: 12px;
+    background-color: #202430;
+    color: #79a1ff;
+    border: 1px solid #2e3549;
+    border-radius: 7px;
+    padding: 4px 10px;
+    font-size: 11.5px;
     font-weight: 600;
+}
+
+#TokenEstimator {
+    color: #7a8296;
+    font-size: 11px;
+    font-family: Consolas, "Courier New", monospace;
+    padding: 2px 6px;
+    background-color: #171920;
+    border: 1px solid #252834;
+    border-radius: 5px;
 }
 
 /* ---------- Chat area ---------- */
 #ChatScroll {
-    background-color: #1b1d23;
+    background-color: #16171b;
     border: none;
 }
 
 #ChatScroll QScrollBar:vertical {
     background: transparent;
-    width: 10px;
+    width: 8px;
     margin: 2px;
 }
 
 #ChatScroll QScrollBar::handle:vertical {
-    background: #333848;
+    background: #2b2e3c;
     border-radius: 4px;
     min-height: 30px;
 }
 
 #ChatScroll QScrollBar::handle:vertical:hover {
-    background: #454b60;
+    background: #40455a;
 }
 
 #ChatScroll QScrollBar::add-line:vertical,
@@ -166,81 +237,90 @@ QMainWindow {
 }
 
 #ChatBrowser {
-    background-color: #262a34;
-    border: 1px solid #2e3341;
-    border-radius: 14px;
-    padding: 10px 14px;
+    background-color: #1c1e26;
+    border: 1px solid #262936;
+    border-radius: 12px;
+    padding: 12px 16px;
     color: #e6e6eb;
     selection-background-color: #3b6ef5;
-    font-size: 13px;
+    font-size: 13.5px;
+    line-height: 1.5;
 }
 
 #ChatBrowser a {
-    color: #7aa2ff;
+    color: #6ea1ff;
+    text-decoration: none;
+}
+
+#ChatBrowser a:hover {
+    text-decoration: underline;
 }
 
 #ChatBrowser p {
-    margin: 4px 0;
+    margin: 5px 0;
 }
 
 #ChatBrowser h1, #ChatBrowser h2, #ChatBrowser h3, #ChatBrowser h4 {
-    color: #f2f2f6;
-    margin: 10px 0 4px 0;
+    color: #ffffff;
+    margin: 12px 0 6px 0;
+    font-weight: 700;
 }
 
 #ChatBrowser code.inline-code {
-    background-color: #1d2129;
-    color: #ffb86b;
+    background-color: #14161d;
+    color: #f7a868;
     border-radius: 4px;
-    padding: 1px 5px;
+    padding: 2px 6px;
     font-family: Consolas, "Courier New", monospace;
     font-size: 12px;
 }
 
 #ChatBrowser pre.code-block {
-    background-color: #171a21;
-    border: 1px solid #2e3341;
+    background-color: #111318;
+    border: 1px solid #262a37;
     border-radius: 10px;
-    padding: 10px 12px;
-    margin: 8px 0;
+    padding: 12px 14px;
+    margin: 10px 0;
 }
 
 #ChatBrowser pre.code-block code {
-    color: #d4d7e0;
+    color: #d8dbe4;
     font-family: Consolas, "Courier New", monospace;
-    font-size: 12px;
+    font-size: 12.5px;
     white-space: pre-wrap;
 }
 
 #ChatBrowser blockquote {
     border-left: 3px solid #3b6ef5;
     margin: 6px 0;
-    padding: 2px 10px;
-    color: #aeb3c0;
+    padding: 2px 12px;
+    color: #a6acbd;
 }
 
 #ChatBrowser hr {
     border: none;
-    border-top: 1px solid #333848;
-    margin: 8px 0;
+    border-top: 1px solid #2c303f;
+    margin: 10px 0;
 }
 
 #ChatBrowser ul, #ChatBrowser ol {
-    margin: 4px 0;
+    margin: 6px 0;
     padding-left: 22px;
 }
 
 #UserBubble {
-    background-color: #3b6ef5;
+    background-color: #282d3c;
     color: #ffffff;
+    border: 1px solid #363c50;
     border-radius: 14px;
-    padding: 10px 15px;
-    max-width: 650px;
+    padding: 10px 16px;
+    max-width: 680px;
     font-size: 13.5px;
+    line-height: 1.45;
 }
 
 #StepText {
-    color: #7d8494;
+    color: #7b8396;
     font-size: 12px;
     background-color: transparent;
 }
@@ -251,18 +331,23 @@ QMainWindow {
     background-color: transparent;
 }
 
-/* ---------- Input ---------- */
+/* ---------- Codex / DeepSeek Capsule Input Card ---------- */
 #InputCard {
-    background-color: #21242c;
-    border: 1px solid #2b2f3a;
-    border-radius: 14px;
+    background-color: #1b1d24;
+    border: 1px solid #2a2e3b;
+    border-radius: 16px;
+    padding: 6px 12px 10px 12px;
+}
+
+#InputCard:hover {
+    border-color: #383d4e;
 }
 
 #ChatInput {
     background-color: transparent;
     border: none;
     color: #f2f2f6;
-    padding: 8px 6px;
+    padding: 6px 2px;
     font-size: 13.5px;
     selection-background-color: #3b6ef5;
     selection-color: #ffffff;
@@ -279,13 +364,13 @@ QMainWindow {
 }
 
 #ChatInput QScrollBar::handle:vertical {
-    background: #333848;
+    background: #2b2e3c;
     border-radius: 3px;
     min-height: 20px;
 }
 
 #ChatInput QScrollBar::handle:vertical:hover {
-    background: #4d7cf8;
+    background: #40455a;
 }
 
 #ChatInput QScrollBar::add-line:vertical,
@@ -299,7 +384,7 @@ QMainWindow {
     color: #ffffff;
     border: none;
     border-radius: 8px;
-    padding: 8px 14px;
+    padding: 6px 14px;
     font-weight: 600;
 }
 
@@ -313,16 +398,16 @@ QMainWindow {
 
 /* ---------- Reasoning Card & Progress ---------- */
 #ReasoningCard {
-    background-color: #171922;
-    border: 1px solid #2d3345;
-    border-radius: 10px;
+    background-color: #13141a;
+    border: 1px solid #232632;
+    border-radius: 9px;
     margin: 4px 0;
 }
 
 #ReasoningHeader {
     background-color: transparent;
     border: none;
-    color: #9aa2b6;
+    color: #8c94a8;
     text-align: left;
     font-size: 12px;
     font-weight: 600;
@@ -330,14 +415,14 @@ QMainWindow {
 }
 
 #ReasoningHeader:hover {
-    color: #d0d7e8;
+    color: #c0c8dd;
 }
 
 #ReasoningBody {
-    background-color: #111319;
-    border: 1px solid #232733;
+    background-color: #0d0e12;
+    border: 1px solid #1c1e26;
     border-radius: 6px;
-    color: #b0b6c6;
+    color: #a4abbc;
     font-family: Consolas, "Courier New", monospace;
     font-size: 11.5px;
     padding: 6px;
@@ -345,9 +430,9 @@ QMainWindow {
 
 /* ---------- Terminal Card ---------- */
 #TerminalCard {
-    background-color: #0d1117;
-    border: 1px solid #21262d;
-    border-radius: 10px;
+    background-color: #0c0e12;
+    border: 1px solid #1f232d;
+    border-radius: 9px;
     margin: 4px 0;
 }
 
@@ -366,8 +451,8 @@ QMainWindow {
 }
 
 #TerminalBody {
-    background-color: #05070a;
-    border: 1px solid #161b22;
+    background-color: #050608;
+    border: 1px solid #14171e;
     border-radius: 6px;
     color: #3fb950;
     font-family: Consolas, "Courier New", monospace;
@@ -377,11 +462,11 @@ QMainWindow {
 
 /* ---------- Search Input & Attachments ---------- */
 #SearchInput {
-    background-color: #181b22;
-    border: 1px solid #2d3345;
-    border-radius: 8px;
+    background-color: #16181f;
+    border: 1px solid #262935;
+    border-radius: 7px;
     color: #e6e6eb;
-    padding: 6px 10px;
+    padding: 5px 8px;
     font-size: 12px;
 }
 
@@ -390,14 +475,14 @@ QMainWindow {
 }
 
 #AttachmentChip {
-    background-color: #1c202c;
-    border: 1px solid #333a4d;
+    background-color: #1a1d27;
+    border: 1px solid #2a3040;
     border-radius: 6px;
     padding: 2px 8px;
 }
 
 #AttachmentChip QLabel {
-    color: #8bb2ff;
+    color: #79a1ff;
     font-size: 11px;
     font-weight: 500;
 }
@@ -405,7 +490,7 @@ QMainWindow {
 #ChipRemoveBtn {
     background-color: transparent;
     border: none;
-    color: #8b949e;
+    color: #7d8496;
     font-weight: bold;
     font-size: 11px;
     padding: 0 2px;
@@ -415,168 +500,39 @@ QMainWindow {
     color: #ff7b7b;
 }
 
-/* ---------- Task Checklist Card ---------- */
-#TaskChecklistCard {
-    background-color: #151821;
-    border: 1px solid #2d3345;
-    border-radius: 10px;
-    margin: 6px 0;
-}
-
-#TaskChecklistHeader {
-    background-color: transparent;
-    border: none;
-    color: #58a6ff;
-    text-align: left;
-    font-size: 12.5px;
-    font-weight: 600;
-    padding: 4px 8px;
-}
-
-#TaskChecklistHeader:hover {
-    color: #79c0ff;
-}
-
-#TaskProgressBar {
-    background-color: #212633;
-    border-radius: 4px;
-    height: 6px;
-    text-align: center;
-}
-
-#TaskProgressBar::chunk {
-    background-color: #238636;
-    border-radius: 4px;
-}
-
 /* ---------- Quick Action Chips ---------- */
 #QuickActionChip {
-    background-color: #1c202b;
-    border: 1px solid #2e3547;
+    background-color: #1a1c24;
+    color: #a2a8b8;
+    border: 1px solid #272a36;
     border-radius: 12px;
-    color: #9aa2b6;
+    padding: 4px 11px;
     font-size: 11.5px;
     font-weight: 500;
-    padding: 3px 10px;
 }
 
 #QuickActionChip:hover {
-    background-color: #262c3b;
+    background-color: #242733;
     color: #ffffff;
-    border-color: #4d7cf8;
+    border-color: #3b6ef5;
 }
 
 #QuickActionChip:pressed {
-    background-color: #1e2433;
+    background-color: #2f3446;
 }
 
-/* ---------- Workspace Badge ---------- */
-#WorkspaceBadge {
-    background-color: #1b1f2b;
-    border: 1px solid #2e3547;
-    border-radius: 6px;
-    color: #8b949e;
-    font-size: 11px;
-    padding: 2px 8px;
-}
-
-#WorkspaceBadge:hover {
-    color: #58a6ff;
-    border-color: #3b6ef5;
-}
-
-/* ---------- Resource Monitor in Footer ---------- */
-#ResourceMonitor {
-    background-color: #141720;
-    border: 1px solid #232836;
-    border-radius: 6px;
-    padding: 4px 8px;
-}
-
-#ResourcePill {
-    font-size: 11px;
-    font-family: Consolas, monospace;
-    color: #8b949e;
-}
-
-#CheckpointItem {
-    background-color: #161922;
-    border: 1px solid #272d3d;
-    border-radius: 8px;
-    padding: 8px 10px;
-    margin: 4px 0;
-}
-
-/* ---------- Voice Button & File Tree ---------- */
-#VoiceButton {
-    background-color: #1f2430;
-    color: #58a6ff;
-    border: 1px solid #2e3547;
-    border-radius: 8px;
-    padding: 8px 12px;
-    font-size: 14px;
-}
-
-#VoiceButton:hover {
-    background-color: #2b3242;
-    border-color: #3b6ef5;
-}
-
-#VoiceButton:pressed {
-    background-color: #1a1e29;
-}
-
-#FileTreeView {
-    background-color: #12151d;
-    border: 1px solid #272d3d;
-    border-radius: 6px;
-    color: #e6e6eb;
-    font-size: 12px;
-}
-
-#FileTreeView::item:hover {
-    background-color: #1c212e;
-}
-
-#FileTreeView::item:selected {
-    background-color: #2b3859;
-    color: #ffffff;
-}
-
-
-
-
-
-
-
-#TokenEstimator {
-    color: #8b949e;
+/* ---------- Telemetry Footer ---------- */
+#TelemetryFooter {
+    color: #636b7e;
     font-size: 11px;
     font-family: Consolas, "Courier New", monospace;
-    padding: 2px 6px;
+    padding: 2px 4px;
 }
 
-#InputCard {
-    background-color: #21242c;
-    border: 1px solid #2d3345;
-    border-radius: 12px;
-}
-
-#UserBubble {
-    background-color: #2b56cc;
-    color: #ffffff;
-    border-radius: 14px;
-    padding: 10px 15px;
-    max-width: 680px;
-    font-size: 13.5px;
-}
-
-#ChatBrowser {
-    background-color: #21242d;
-    border: 1px solid #2b303d;
-    border-radius: 14px;
-    padding: 12px 16px;
-    color: #e6e6eb;
-    selection-background-color: #3b6ef5;
-    font-size: 13.5px;
+/* ---------- Profile Capsule Bottom ---------- */
+#ProfileCapsule {
+    background-color: #171920;
+    border: 1px solid #242733;
+    border-radius: 8px;
+    padding: 4px 8px;
 }
