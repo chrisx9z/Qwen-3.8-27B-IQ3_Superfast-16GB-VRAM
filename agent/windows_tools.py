@@ -296,11 +296,25 @@ def ui_click_text(
     else:
         raise ValueError("Định dạng bounding box không hợp lệ.")
 
-    try:
-        import pyautogui
-        pyautogui.click(cx, cy)
-    except Exception:
-        if IS_WINDOWS:
+    if IS_MACOS:
+        try:
+            import pyautogui
+            screen_w, screen_h = pyautogui.size()
+            from PIL import ImageGrab
+            sample_img = ImageGrab.grab()
+            scale_x = sample_img.width / screen_w if screen_w > 0 else 1.0
+            scale_y = sample_img.height / screen_h if screen_h > 0 else 1.0
+            if scale_x > 1.2:
+                cx = int(cx / scale_x)
+                cy = int(cy / scale_y)
+            pyautogui.click(cx, cy)
+        except Exception:
+            pass
+    elif IS_WINDOWS:
+        try:
+            import pyautogui
+            pyautogui.click(cx, cy)
+        except Exception:
             try:
                 import ctypes
                 ctypes.windll.user32.SetCursorPos(cx, cy)

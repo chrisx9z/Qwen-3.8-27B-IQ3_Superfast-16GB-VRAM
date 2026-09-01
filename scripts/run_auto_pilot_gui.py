@@ -25,7 +25,6 @@ os.environ["M_AUTO_PILOT_ROOT"] = str(PROJECT_ROOT)
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-import ctypes
 import threading
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QAction, QIcon
@@ -138,14 +137,15 @@ def main() -> int:
 
     # System Tray
     tray = QSystemTrayIcon(app_icon, app)
-    tray.setToolTip("Auto Pilot Qwen 3.8 27B IQ3_Superfast · AI Assistant & Coding Agent (Alt+Shift+M)")
+    shortcut_txt = "Cmd+Shift+M" if sys.platform == "darwin" else "Alt+Shift+M"
+    tray.setToolTip(f"Auto Pilot Qwen 3.8 27B IQ3_Superfast · AI Assistant & Coding Agent ({shortcut_txt})")
     tray_menu = QMenu()
 
-    toggle_action = QAction("Hiện / Ẩn ứng dụng (Alt+Shift+M)", tray_menu)
+    toggle_action = QAction(f"Show / Hide Window ({shortcut_txt})", tray_menu)
     toggle_action.triggered.connect(toggle_window)
     tray_menu.addAction(toggle_action)
 
-    new_chat_action = QAction("＋ Chat mới", tray_menu)
+    new_chat_action = QAction("＋ New Chat", tray_menu)
     new_chat_action.triggered.connect(
         lambda: (
             window.showNormal(),
@@ -157,7 +157,7 @@ def main() -> int:
     tray_menu.addAction(new_chat_action)
 
     tray_menu.addSeparator()
-    exit_action = QAction("Thoát hoàn toàn", tray_menu)
+    exit_action = QAction("Quit Auto Pilot", tray_menu)
     exit_action.triggered.connect(app.quit)
     tray_menu.addAction(exit_action)
 
