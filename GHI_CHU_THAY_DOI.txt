@@ -29,16 +29,15 @@ và PROJECT_STATE.md trước khi dừng phát triển.
 
 2. SỬA ĐƯỜNG DẪN RUNTIME (lý do EXE cũ bị crash)
 -------------------------------------------------
-- Trong chat: source ở D:\M-Auto-Pilot, sau đó chuyển sang D:\Vibe Code\M-Auto-Pilot;
+- Trong chat: chuyển từ thư mục gốc cũ sang D:\Vibe Code\M-Auto-Pilot;
   EXE frozen hard-code D:\M-Auto-Pilot nhưng thư mục này không tồn tại,
   models/llama-server nằm trong D:\AI-Video-Localizer -> EXE không tìm được.
 - Đã sửa:
-  + Tạo D:\M-Auto-Pilot làm runtime root cho EXE (work/auto_pilot/chats.json,
-    resource_state.json — giữ nguyên 4 chat cũ).
+  + Cấu hình D:\Vibe Code\M-Auto-Pilot làm repository và workspace root chuẩn cho dự án.
   + server_manager tự phân giải:
-    * model: M_AUTO_PILOT_MODELS_DIR (mặc định D:\AI-Video-Localizer\models)
+    * model: M_AUTO_PILOT_MODELS_DIR (mặc định ~/.auto_pilot/models hoặc D:\AI-Video-Localizer\models)
     * llama-server: M_AUTO_PILOT_LLAMA_SERVER
-      (mặc định D:\AI-Video-Localizer\tools\llama.cpp\llama-server.exe)
+      (mặc định llama-server hoặc D:\AI-Video-Localizer\tools\llama.cpp\llama-server.exe)
   + Khôi phục scripts đã bị bỏ sót khi tách repo: run_local_agent.py,
     run_mcp_server.py, run_deepseek_harness.py, test_local_agent.py,
     core/console.py, config/deepseek_harness/*, mcp example configs.
