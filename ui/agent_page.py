@@ -9962,6 +9962,7 @@ class AgentPage(QWidget):
             self.prompt_input.clear()
             self.status_label.setText(t("status_ready"))
             self.refresh_chat_list()
+            self._show_welcome_hero()
             self.prompt_input.setFocus()
         self.save_chats()
 
@@ -9980,8 +9981,12 @@ class AgentPage(QWidget):
             return
         self.active_chat_id = chat_id
         self.clear_chat_area()
-        for message in self.history(chat):
-            self.append_message(message)
+        hist = self.history(chat)
+        if not hist:
+            self._show_welcome_hero()
+        else:
+            for message in hist:
+                self.append_message(message)
         self.status_label.setText(t("status_ready"))
         for index in range(self.chat_list.count()):
             item = self.chat_list.item(index)
@@ -10068,12 +10073,118 @@ class AgentPage(QWidget):
 
     # -------------------------------------------------- Rendering
 
+    def _show_welcome_hero(self) -> None:
+        if hasattr(self, "_welcome_hero") and self._welcome_hero is not None:
+            return
+        lang = get_current_language()
+        if lang == "en":
+            title = "What would you like to build today?"
+            sub = "Supercharged by Qwen 3.8 27B IQ3_Superfast · Local & Private"
+            cards = [
+                ("⚡ Build REST API", "Create a FastAPI backend with Pydantic validation and async endpoints..."),
+                ("🔍 Code Audit & Bugfix", "Audit the codebase in the current workspace, identify potential bugs and refactor..."),
+                ("🧪 Automated Unit Tests", "Write a complete pytest test suite with fixtures and parametrized tests..."),
+                ("🖥️ System Automation", "Inspect system processes, GPU memory usage, and run diagnostic health check..."),
+            ]
+        elif lang == "zh":
+            title = "今天你想构建什么？"
+            sub = "基于 Qwen 3.8 27B IQ3_Superfast 强力驱动 · 本地安全私密"
+            cards = [
+                ("⚡ 构建 REST API", "使用 FastAPI 和 Pydantic 创建异步后端接口与数据验证..."),
+                ("🔍 代码审查与修复", "审查当前工作区代码，查找潜在漏洞并提供重构优化建议..."),
+                ("🧪 编写自动化测试", "为当前项目的核心模块编写完整的 Pytest 单元测试套件..."),
+                ("🖥️ 系统与进程自动化", "检查系统运行进程、GPU 显存占用并执行健康诊断..."),
+            ]
+        else:
+            title = "Bạn muốn thực hiện tác vụ nào hôm nay?"
+            sub = "Được tăng tốc bởi Qwen 3.8 27B IQ3_Superfast · Riêng tư & Chạy Offline 100%"
+            cards = [
+                ("⚡ Xây dựng REST API", "Tạo một ứng dụng REST API bằng FastAPI với Pydantic model và phân trang..."),
+                ("🔍 Rà soát & Sửa lỗi code", "Rà soát mã nguồn trong dự án hiện tại, tìm các tiềm ẩn lỗi và đề xuất bản vá..."),
+                ("🧪 Viết kiểm thử Pytest", "Tạo bộ kiểm thử tự động bằng pytest cho các module trong dự án với độ phủ cao..."),
+                ("🖥️ Tự động hóa hệ thống", "Kiểm tra danh sách tiến trình, mức sử dụng VRAM GPU và chẩn đoán sức khỏe hệ thống..."),
+            ]
+
+        hero = QFrame()
+        hero.setObjectName("WelcomeHeroFrame")
+        hero.setStyleSheet("""
+            QFrame#WelcomeHeroFrame {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1d24, stop:1 #13151a);
+                border: 1px solid #2a2d36;
+                border-radius: 12px;
+                padding: 20px;
+                margin: 20px 10px;
+            }
+            QLabel#HeroTitle {
+                color: #ffffff;
+                font-size: 17px;
+                font-weight: 700;
+            }
+            QLabel#HeroSubtitle {
+                color: #8b949e;
+                font-size: 12px;
+            }
+            QPushButton#HeroCard {
+                background: #1e222b;
+                border: 1px solid #2e323e;
+                border-radius: 8px;
+                padding: 10px 14px;
+                text-align: left;
+                color: #e6e6eb;
+                font-size: 12px;
+            }
+            QPushButton#HeroCard:hover {
+                background: #252a36;
+                border: 1px solid #3b82f6;
+                color: #ffffff;
+            }
+        """)
+        h_layout = QVBoxLayout(hero)
+        h_layout.setSpacing(14)
+
+        t_lbl = QLabel(title)
+        t_lbl.setObjectName("HeroTitle")
+        h_layout.addWidget(t_lbl)
+
+        s_lbl = QLabel(sub)
+        s_lbl.setObjectName("HeroSubtitle")
+        h_layout.addWidget(s_lbl)
+
+        grid = QGridLayout()
+        grid.setSpacing(10)
+
+        for i, (head, prompt_text) in enumerate(cards):
+            r, c = divmod(i, 2)
+            btn = QPushButton(f"<b>{head}</b><br><span style='color: #8b949e; font-size: 11px;'>{prompt_text[:55]}...</span>")
+            btn.setObjectName("HeroCard")
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.clicked.connect(lambda _, pt=prompt_text: self._on_starter_card_clicked(pt))
+            grid.addWidget(btn, r, c)
+
+        h_layout.addLayout(grid)
+        self._welcome_hero = hero
+        self.chat_layout.insertWidget(0, hero)
+
+    def _on_starter_card_clicked(self, prompt_text: str) -> None:
+        self.prompt_input.setPlainText(prompt_text)
+        self.prompt_input.setFocus()
+        cursor = self.prompt_input.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.prompt_input.setTextCursor(cursor)
+
+    def _remove_welcome_hero(self) -> None:
+        if hasattr(self, "_welcome_hero") and self._welcome_hero is not None:
+            self._welcome_hero.setParent(None)
+            self._welcome_hero.deleteLater()
+            self._welcome_hero = None
+
     def clear_chat_area(self) -> None:
         while self.chat_layout.count() > 1:
             item = self.chat_layout.takeAt(0)
             widget = item.widget()
             if widget is not None:
                 widget.deleteLater()
+        self._welcome_hero = None
         self._streaming_browser = None
         self._streaming_row = None
         self._streaming_text = ""
@@ -10223,6 +10334,7 @@ class AgentPage(QWidget):
     # ---------------------------------------------------- Actions
 
     def on_send_clicked(self) -> None:
+        self._remove_welcome_hero()
         if self.worker is not None:
             self.worker.abort_event.set()
             self.status_label.setText("Đang dừng tác vụ...")
