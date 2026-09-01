@@ -1527,13 +1527,15 @@ def _is_direct_repo_task(prompt: str) -> bool:
 
 def _is_universal_discovery_task(prompt: str) -> bool:
     lowered = prompt.lower()
-    has_url = "http://" in lowered or "https://" in lowered or ".net" in lowered or ".com" in lowered or ".org" in lowered or ".vn" in lowered or ".io" in lowered or "@" in lowered
     intent_markers = [
         "tìm hiểu", "phân tích", "nghiên cứu", "khảo sát", "kiểm tra", "đánh giá", 
         "review", "bài viết", "sitemap", "chuyên mục", "chủ đề", "kênh", "channel",
-        "bao nhiêu bài", "hướng phát triển", "chiến lược", "audit", "tổng quan"
+        "bao nhiêu bài", "hướng phát triển", "chiến lược", "audit", "tổng quan",
+        "so sánh", "xu hướng", "thị trường", "tình hình"
     ]
-    return has_url and any(marker in lowered for marker in intent_markers)
+    has_marker = any(marker in lowered for marker in intent_markers)
+    has_entity = any(k in lowered for k in [".net", ".com", ".org", ".vn", ".io", ".ai", "http", "@", "repo", "github"])
+    return (has_marker or has_entity) and len(prompt.strip()) >= 5
 
 def _is_direct_website_audit_task(prompt: str) -> bool:
     lowered = prompt.lower()
