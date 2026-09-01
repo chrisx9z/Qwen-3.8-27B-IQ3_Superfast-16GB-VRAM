@@ -9981,9 +9981,9 @@ class AgentPage(QWidget):
             return
         title, accepted = QInputDialog.getText(
             self,
-            "Đổi tên chat",
-            "Tên mới:",
-            text=chat.get("title", "New chat"),
+            t("rename"),
+            t("rename") + ":",
+            text=chat.get("title", t("default_new_chat_title")),
         )
         if accepted and title.strip():
             chat["title"] = title.strip()[:80]
