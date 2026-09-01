@@ -10185,18 +10185,52 @@ class AgentPage(QWidget):
                 self.prompt_input.clear()
                 self.refresh_resource_status()
                 return
-            elif cmd == "/help":
+            elif cmd in ("/help", "/h", "/?"):
                 self.prompt_input.clear()
-                self._add_assistant_bubble(
-                    "### 💡 Danh sách lệnh tắt (Slash Commands):\n"
-                    "- `/code <yêu cầu>`: Chuyển sang chế độ Coding Agent và chạy.\n"
-                    "- `/auto <yêu cầu>`: Chuyển sang chế độ Auto Pilot và chạy.\n"
-                    "- `/chat <câu hỏi>`: Chuyển sang chế độ Trợ lý cá nhân.\n"
-                    "- `/diff`: Xem thay đổi Git diff trực quan (Visual Diff).\n"
-                    "- `/export`: Xuất cuộc trò chuyện hiện tại ra file Markdown.\n"
-                    "- `/gpu`: Kiểm tra nhanh dung lượng VRAM và tài nguyên GPU.\n"
-                    "- `/clear`: Xóa lịch sử tin nhắn trong chat hiện tại.\n"
-                )
+                lang = get_current_language()
+                if lang == "en":
+                    help_text = (
+                        "### 💡 Available Slash Commands:\n"
+                        "- `/code <task>`: Switch to Coding Agent mode.\n"
+                        "- `/auto <task>`: Switch to Autonomous OS Auto-Pilot mode.\n"
+                        "- `/chat <query>`: Switch to Personal Assistant mode.\n"
+                        "- `/plan <goal>`: Generate structured implementation plan.\n"
+                        "- `/diff`: View visual Git diff in real-time.\n"
+                        "- `/export`: Export current conversation to Markdown file.\n"
+                        "- `/gpu`: Inspect VRAM usage and GPU resource status.\n"
+                        "- `/clear`: Clear message history in current chat session.\n"
+                        "- `/memory`: Open persistent memory management dialog.\n"
+                        "- `/tree`: Open workspace interactive file tree.\n"
+                    )
+                elif lang == "zh":
+                    help_text = (
+                        "### 💡 快捷斜杠指令列表 (Slash Commands):\n"
+                        "- `/code <任务>`: 切换到 Coding Agent 编程模式。\n"
+                        "- `/auto <任务>`: 切换到 Auto Pilot 全自动模式。\n"
+                        "- `/chat <问题>`: 切换到个人助手问答模式。\n"
+                        "- `/plan <目标>`: 生成结构化实现规划方案。\n"
+                        "- `/diff`: 实时查看 Git 可视化差异。\n"
+                        "- `/export`: 将当前对话导出为 Markdown 文件。\n"
+                        "- `/gpu`: 快速检查 VRAM 显存与 GPU 状态。\n"
+                        "- `/clear`: 清空当前会话的消息历史记录。\n"
+                        "- `/memory`: 打开持久化知识记忆管理面板。\n"
+                        "- `/tree`: 打开工作区交互式文件目录树。\n"
+                    )
+                else:
+                    help_text = (
+                        "### 💡 Danh sách lệnh tắt (Slash Commands):\n"
+                        "- `/code <yêu cầu>`: Chuyển sang chế độ Coding Agent và chạy.\n"
+                        "- `/auto <yêu cầu>`: Chuyển sang chế độ Auto Pilot và chạy.\n"
+                        "- `/chat <câu hỏi>`: Chuyển sang chế độ Trợ lý cá nhân.\n"
+                        "- `/plan <mục tiêu>`: Lập kế hoạch thực thi chi tiết.\n"
+                        "- `/diff`: Xem thay đổi Git diff trực quan (Visual Diff).\n"
+                        "- `/export`: Xuất cuộc trò chuyện hiện tại ra file Markdown.\n"
+                        "- `/gpu`: Kiểm tra nhanh dung lượng VRAM và tài nguyên GPU.\n"
+                        "- `/clear`: Xóa lịch sử tin nhắn trong chat hiện tại.\n"
+                        "- `/memory`: Mở bảng quản lý bộ nhớ dài hạn MEMORY.md.\n"
+                        "- `/tree`: Mở cây thư mục file workspace trực quan.\n"
+                    )
+                self._add_assistant_bubble(help_text)
                 return
             elif cmd == "/diff":
                 self.prompt_input.clear()
