@@ -1,10 +1,10 @@
 {
   "m_auto_pilot": {
-    "command": "D:\\AI-Video-Localizer\\.venv\\Scripts\\python.exe",
+    "command": "python",
     "args": [
-      "D:\\AI-Video-Localizer\\scripts\\run_mcp_server.py"
+      "scripts/run_mcp_server.py"
     ],
-    "cwd": "D:\\AI-Video-Localizer",
+    "cwd": ".",
     "transport": "stdio"
   }
 }
