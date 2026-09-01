@@ -106,7 +106,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name="M Auto Pilot",
+    name="Auto Pilot Qwen 3.8 27B IQ3_Superfast",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

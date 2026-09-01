@@ -26,12 +26,13 @@
 
 | Thành phần | Đường dẫn |
 |---|---|
-| Mã nguồn (Git Repo) | `D:\Vibe Code\M-Auto-Pilot` |
+| Mã nguồn (GitHub Repo) | `https://github.com/chrisx9z/Auto-Pilot-Qwen-3.8-27B-IQ3_Superfast` |
+| Thư mục làm việc Local | `D:\Vibe Code\M-Auto-Pilot` |
 | Runtime state (Logs, Chats, Checkpoints) | `work\auto_pilot\` |
 | Model GGUF | `D:\AI-Video-Localizer\models\Qwen3.8-27B-UD-IQ3_S.gguf` |
 | Llama Server | `http://127.0.0.1:8080/v1/chat/completions` |
-| File EXE đóng gói | `D:\Vibe Code\M-Auto-Pilot\dist\M Auto Pilot.exe` |
-| Shortcut Desktop | `D:\OneDrive\Desktop\M Auto Pilot.exe` |
+| File EXE đóng gói | `dist\Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe` |
+| Shortcut Desktop | `D:\OneDrive\Desktop\Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe` |
 
 ---
 
@@ -44,7 +45,7 @@ Set-Location "D:\Vibe Code\M-Auto-Pilot"
 ```
 
 ### 2. Chạy từ File thực thi EXE:
-Mở file **`M Auto Pilot.exe`** ngay trên màn hình Desktop (hoặc nhấn phím tắt toàn hệ thống **`Alt + Shift + M`** để ẩn/hiện cửa sổ).
+Mở file **`Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe`** ngay trên màn hình Desktop (hoặc nhấn phím tắt toàn hệ thống **`Alt + Shift + M`** để ẩn/hiện cửa sổ).
 
 ### 3. Kiểm thử tự động:
 ```powershell
@@ -58,5 +59,5 @@ Mở file **`M Auto Pilot.exe`** ngay trên màn hình Desktop (hoặc nhấn ph
 ```powershell
 Set-Location "D:\Vibe Code\M-Auto-Pilot"
 & "D:\AI-Video-Localizer\.venv\Scripts\python.exe" -m PyInstaller "M Auto Pilot.spec" --noconfirm
-Copy-Item "dist\M Auto Pilot.exe" "D:\OneDrive\Desktop\M Auto Pilot.exe" -Force
+Copy-Item "dist\Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe" "D:\OneDrive\Desktop\Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe" -Force
 ```
