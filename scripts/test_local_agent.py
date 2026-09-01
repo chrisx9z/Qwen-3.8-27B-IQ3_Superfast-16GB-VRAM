@@ -71,7 +71,11 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 296
+    assert len(registry.definitions()) == 297
+    assert registry.execute(
+        "universal_autonomous_entity_discovery",
+        {"target_or_question": "https://vibemmo.net/"},
+    )["ok"]
     assert registry.execute(
         "audit_and_inspect_website_structure",
         {"url": "https://vibemmo.net/"},

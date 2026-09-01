@@ -264,6 +264,12 @@ Core Operating Principles:
 
         if (
             _normalise_task_mode(task_mode) != "coding"
+            and _is_universal_discovery_task(user_prompt)
+        ):
+            return self._run_universal_discovery_task(user_prompt, messages)
+
+        if (
+            _normalise_task_mode(task_mode) != "coding"
             and _is_direct_website_audit_task(user_prompt)
         ):
             return self._run_direct_website_audit_task(user_prompt, messages)
@@ -545,6 +551,36 @@ Core Operating Principles:
             text = f"Đã xác minh {selected} nhưng cài đặt thất bại: {install_result.get('error', 'lỗi không rõ')}."
         conversation.append({"role": "assistant", "content": text})
         return AgentResult(text=text, messages=conversation, steps=1)
+
+    def _run_universal_discovery_task(
+        self,
+        prompt: str,
+        messages: list[dict[str, Any]] | None,
+    ) -> AgentResult:
+        self._emit(
+            "status",
+            {"message": "Đang kích hoạt Động Cơ Tự Chủ Khám Phá Phổ Quát (Universal Autonomous Discovery)..."},
+        )
+        res = self.registry.execute("universal_autonomous_entity_discovery", {"target_or_question": prompt})
+        report = (res.get("result") or {}).get("report_markdown", "")
+        if not report:
+            report = f"Đã hoàn thành khám phá tự chủ cho yêu cầu: {prompt}"
+            
+        conversation = list(messages or [])
+        if not conversation:
+            conversation.append({
+                "role": "system",
+                "content": self.system_prompt,
+            })
+        conversation.extend([
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": report},
+        ])
+        return AgentResult(
+            text=report,
+            messages=conversation,
+            steps=1,
+        )
 
     def _run_direct_website_audit_task(
         self,
@@ -904,6 +940,7 @@ Core Operating Principles:
 
         # 1. Base Core Tools (Always useful for general assistance & navigation)
         base_tools = {
+            "universal_autonomous_entity_discovery",
             "audit_and_inspect_website_structure",
             "swarm_multi_agent_deep_investigation",
             "track_trending_industry_topics_radar",
@@ -1485,6 +1522,17 @@ def _is_direct_repo_task(prompt: str) -> bool:
     return has_target and has_install
 
 
+
+
+def _is_universal_discovery_task(prompt: str) -> bool:
+    lowered = prompt.lower()
+    has_url = "http://" in lowered or "https://" in lowered or ".net" in lowered or ".com" in lowered or ".org" in lowered or ".vn" in lowered or ".io" in lowered or "@" in lowered
+    intent_markers = [
+        "tìm hiểu", "phân tích", "nghiên cứu", "khảo sát", "kiểm tra", "đánh giá", 
+        "review", "bài viết", "sitemap", "chuyên mục", "chủ đề", "kênh", "channel",
+        "bao nhiêu bài", "hướng phát triển", "chiến lược", "audit", "tổng quan"
+    ]
+    return has_url and any(marker in lowered for marker in intent_markers)
 
 def _is_direct_website_audit_task(prompt: str) -> bool:
     lowered = prompt.lower()

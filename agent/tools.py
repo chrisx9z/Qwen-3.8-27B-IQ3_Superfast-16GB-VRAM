@@ -4164,6 +4164,26 @@ class LocalToolRegistry:
                     handler=self._douyin_search,
                 ),
                 ToolSpec(
+                    name="universal_autonomous_entity_discovery",
+                    description=(
+                        "Động cơ Tự Chủ Khám Phá Tri Thức Phổ Quát (Universal Autonomous Discovery Engine): "
+                        "Tự động nhận diện bản chất của BẤT KỲ đối tượng nào (Website, Kênh YouTube/Video, GitHub Repo, Khái niệm kỹ thuật, Thị trường), "
+                        "tự chọn chiến lược đào sâu tối ưu (Crawl sitemaps/robots, bóc tách metrics, giải mã API, đối chiếu chéo) và trả về báo cáo toàn diện 100% trong 1 lượt."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "target_or_question": {
+                                "type": "string",
+                                "description": "Bất kỳ URL, tên kênh, repo, thực thể, hoặc câu hỏi phức tạp cần khám phá sâu.",
+                            },
+                        },
+                        "required": ["target_or_question"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._universal_autonomous_entity_discovery,
+                ),
+                ToolSpec(
                     name="audit_and_inspect_website_structure",
                     description=(
                         "Khảo sát toàn diện một website: tự động quét robots.txt, sitemap.xml, post-sitemap.xml, feed RSS, "
@@ -10517,6 +10537,75 @@ build
             "query": query,
             "count": len(results),
             "results": results,
+        }
+
+    def _universal_autonomous_entity_discovery(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        target = _required_text(arguments.get("target_or_question"), "target_or_question").strip()
+        lowered = target.lower()
+
+        # 1. Website / Domain Detection
+        url_match = re.search(r'(https?://[^\s]+)', target)
+        domain_match = re.search(r'([a-zA-Z0-9-]+\.(?:net|com|org|vn|io|ai|dev|co|xyz)[^\s]*)', target)
+        is_youtube_link = "youtube.com" in lowered or "youtu.be" in lowered
+        
+        if (url_match or domain_match) and not is_youtube_link and not "github.com" in lowered:
+            raw_target = url_match.group(1) if url_match else f"https://{domain_match.group(1)}"
+            site_url = raw_target.rstrip(".,;)>'\"")
+            audit_res = self._audit_and_inspect_website_structure({"url": site_url})
+            return {
+                "discovery_type": "website",
+                "target": site_url,
+                "report_markdown": audit_res.get("report_markdown", ""),
+            }
+
+        # 2. YouTube Channel / Video Detection
+        if is_youtube_link or any(k in lowered for k in ["youtube", "kênh", "channel", "@"]):
+            handle_m = re.search(r'(@[a-zA-Z0-9_.-]+)', target)
+            if handle_m:
+                ch_target = handle_m.group(1)
+            elif is_youtube_link:
+                ch_target = url_match.group(1).rstrip(".,;)>'\"") if url_match else target
+            else:
+                ch_m = re.search(r'(?:kênh|channel)\s+([a-zA-Z0-9_\s.-]+?)(?:\s+xem|\s+có|\s+là|\s+chiến|\s+hướng|$)', target, re.IGNORECASE)
+                ch_target = ch_m.group(1).strip() if ch_m else target
+
+            yt_res = self._analyze_youtube_channel_deep_dive({"query_or_url": ch_target})
+            r_md = yt_res.get("report_markdown", "")
+            if not r_md:
+                r_md = f"Đã hoàn tất phân tích kênh {ch_target}."
+            return {
+                "discovery_type": "youtube_channel",
+                "target": ch_target,
+                "report_markdown": r_md,
+            }
+
+        # 3. GitHub Repository Detection
+        if "github.com" in lowered or ("/" in target and len(target.split("/")) == 2 and not " " in target):
+            repo_m = re.search(r'github\.com/([a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+)', target)
+            repo_name = repo_m.group(1) if repo_m else target.strip("/")
+            insp_res = self._inspect_github_repository({"repository": repo_name})
+            if insp_res.get("repository_found"):
+                r_md = f"# 📦 Báo Cáo Phân Tích Mã Nguồn GitHub: {repo_name}\n"
+                r_md += f"- **Mô tả**: {insp_res.get('description')}\n"
+                r_md += f"- **Ngôn ngữ**: {insp_res.get('language')}\n"
+                r_md += f"- **Stars**: {insp_res.get('stars')} ⭐ · **Forks**: {insp_res.get('forks')}\n"
+                r_md += f"- **Cấu trúc thư mục**: {', '.join(insp_res.get('top_level_items', [])[:10])}\n"
+                return {
+                    "discovery_type": "github_repository",
+                    "target": repo_name,
+                    "report_markdown": r_md,
+                }
+
+        # 4. General Entity / Complex Research (Swarm Deep-Dive)
+        clean_q = re.sub(r'^(tìm hiểu|phân tích|nghiên cứu|hãy cho tôi biết|cho tôi hỏi|giải thích|hướng dẫn)\s+', '', target, flags=re.IGNORECASE)
+        swarm_res = self._swarm_multi_agent_deep_investigation({"topic": clean_q, "focus": "Toàn diện"})
+        return {
+            "discovery_type": "general_research",
+            "target": target,
+            "report_markdown": swarm_res.get("report_markdown", ""),
         }
 
     def _audit_and_inspect_website_structure(
