@@ -263,10 +263,12 @@ class ChatInput(QPlainTextEdit):
         if (
             event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter)
             and not (
-                event.modifiers() & Qt.KeyboardModifier.ShiftModifier
+                event.modifiers() & (Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier | Qt.KeyboardModifier.AltModifier)
             )
         ):
-            self.submit.emit()
+            text = self.toPlainText().strip()
+            if text:
+                self.submit.emit()
             event.accept()
             return
         super().keyPressEvent(event)
@@ -9960,6 +9962,12 @@ class AgentPage(QWidget):
         bar = self.scroll.verticalScrollBar()
         bar.setValue(bar.maximum())
 
+    def scroll_to_bottom_if_near_end(self) -> None:
+        bar = self.scroll.verticalScrollBar()
+        # If user is within 140px of bottom, keep auto-scrolling; otherwise let user read freely
+        if bar.maximum() - bar.value() < 140:
+            bar.setValue(bar.maximum())
+
     def _on_anchor_clicked(self, url: Any) -> None:
         url_str = url.toString() if hasattr(url, "toString") else str(url)
         if url_str.startswith("copy:"):
@@ -9968,7 +9976,8 @@ class AgentPage(QWidget):
             if code:
                 clipboard = QGuiApplication.clipboard()
                 clipboard.setText(code)
-                self.status_label.setText("Đã sao chép code vào clipboard! 📋")
+                self.status_label.setText(t("copied") + " 📋")
+                QTimer.singleShot(2500, lambda: self.status_label.setText(t("status_ready")) if self.worker is None else None)
         elif url_str.startswith(("http://", "https://")):
             QDesktopServices.openUrl(QUrl(url_str))
 
@@ -10043,7 +10052,7 @@ class AgentPage(QWidget):
         cursor.movePosition(QTextCursor.MoveOperation.End)
         self._streaming_browser.setTextCursor(cursor)
         self._streaming_browser.insertPlainText(text)
-        self.scroll_to_bottom()
+        self.scroll_to_bottom_if_near_end()
 
     def _finalize_stream(self) -> str:
         text = self._streaming_text
