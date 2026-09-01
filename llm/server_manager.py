@@ -25,6 +25,9 @@ SHARED_MODELS_DIR = (
 
 MODEL_DIR_CANDIDATES = (
     APP_ROOT / "models",
+    Path.home() / "models",
+    Path.home() / ".auto_pilot" / "models",
+    Path("/opt/homebrew/share/models"),
     SHARED_MODELS_DIR,
 )
 
@@ -37,14 +40,24 @@ def _first_existing(*paths: Path) -> Path:
 
 
 def _llama_server_candidates() -> tuple[Path, ...]:
+    import shutil
     configured = os.environ.get("M_AUTO_PILOT_LLAMA_SERVER", "").strip()
     candidates: list[Path] = []
     if configured:
         candidates.append(Path(configured))
+    
+    # Check PATH first (e.g. brew install llama.cpp)
+    which_server = shutil.which("llama-server")
+    if which_server:
+        candidates.append(Path(which_server))
+        
+    # Standard macOS Homebrew / Local paths
+    candidates.append(Path("/opt/homebrew/bin/llama-server"))
+    candidates.append(Path("/usr/local/bin/llama-server"))
+    candidates.append(APP_ROOT / "tools" / "llama.cpp" / "llama-server")
     candidates.append(APP_ROOT / "tools" / "llama.cpp" / "llama-server.exe")
-    candidates.append(
-        Path(r"D:\AI-Video-Localizer\tools\llama.cpp\llama-server.exe")
-    )
+    candidates.append(Path.home() / ".auto_pilot" / "tools" / "llama-server")
+    candidates.append(Path(r"D:\AI-Video-Localizer\tools\llama.cpp\llama-server.exe"))
     return tuple(candidates)
 
 
@@ -327,7 +340,7 @@ class LocalLLMServerManager:
             except (psutil.Error, OSError):
                 continue
 
-            if process_name != "llama-server.exe":
+            if process_name not in ("llama-server.exe", "llama-server"):
                 continue
 
             if not any(

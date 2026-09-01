@@ -44,37 +44,51 @@ class GlobalHotkeyListener(QObject):
         self._thread: threading.Thread | None = None
 
     def start(self) -> None:
-        if sys.platform != "win32":
-            return
         self._thread = threading.Thread(target=self._loop, daemon=True)
         self._thread.start()
 
     def _loop(self) -> None:
-        try:
-            import ctypes.wintypes
-            user32 = ctypes.windll.user32
-            HOTKEY_ID = 101
-            MOD_ALT = 0x0001
-            MOD_SHIFT = 0x0004
-            VK_M = 0x4D  # Phím M (Alt + Shift + M)
-
-            if not user32.RegisterHotKey(None, HOTKEY_ID, MOD_ALT | MOD_SHIFT, VK_M):
-                return
-
-            msg = ctypes.wintypes.MSG()
-            while self._running:
-                if user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
-                    if msg.message == 0x0312:  # WM_HOTKEY
-                        self.hotkey_triggered.emit()
-                    user32.TranslateMessage(ctypes.byref(msg))
-                    user32.DispatchMessageW(ctypes.byref(msg))
-        except Exception:
-            pass
-        finally:
+        if sys.platform == "darwin":
             try:
-                ctypes.windll.user32.UnregisterHotKey(None, 101)
+                from pynput import keyboard
+                with keyboard.GlobalHotKeys({
+                    '<cmd>+<shift>+m': self.hotkey_triggered.emit,
+                    '<ctrl>+<shift>+m': self.hotkey_triggered.emit,
+                }) as h:
+                    while self._running:
+                        import time
+                        time.sleep(0.5)
             except Exception:
                 pass
+            return
+
+        if sys.platform == "win32":
+            try:
+                import ctypes
+                import ctypes.wintypes
+                user32 = ctypes.windll.user32
+                HOTKEY_ID = 101
+                MOD_ALT = 0x0001
+                MOD_SHIFT = 0x0004
+                VK_M = 0x4D
+
+                if not user32.RegisterHotKey(None, HOTKEY_ID, MOD_ALT | MOD_SHIFT, VK_M):
+                    return
+
+                msg = ctypes.wintypes.MSG()
+                while self._running:
+                    if user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
+                        if msg.message == 0x0312:
+                            self.hotkey_triggered.emit()
+                        user32.TranslateMessage(ctypes.byref(msg))
+                        user32.DispatchMessageW(ctypes.byref(msg))
+            except Exception:
+                pass
+            finally:
+                try:
+                    ctypes.windll.user32.UnregisterHotKey(None, 101)
+                except Exception:
+                    pass
 
     def stop(self) -> None:
         self._running = False

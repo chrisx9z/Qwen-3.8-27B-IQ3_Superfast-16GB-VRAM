@@ -1,0 +1,15 @@
+# Auto Pilot Qwen 3.8 27B IQ3_Superfast Requirements (macOS & Cross-Platform)
+PySide6>=6.6.0
+requests>=2.31.0
+psutil>=5.9.0
+rapidocr_onnxruntime>=1.2.0
+pillow>=10.0.0
+opencv-python>=4.8.0
+pyautogui>=0.9.54
+pynput>=1.7.6
+pydantic>=2.5.0
+PyYAML>=6.0.0
+mcp>=1.0.0
+rich>=13.0.0
+yt-dlp>=2024.0.0
+playwright>=1.40.0
