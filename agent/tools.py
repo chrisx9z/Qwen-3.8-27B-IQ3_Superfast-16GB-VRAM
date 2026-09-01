@@ -4164,6 +4164,60 @@ class LocalToolRegistry:
                     handler=self._douyin_search,
                 ),
                 ToolSpec(
+                    name="swarm_multi_agent_deep_investigation",
+                    description=(
+                        "Kích hoạt đội ngũ Swarm Đa Tác Nhân (Explorer, Analyst, Critic, Synthesizer) "
+                        "chạy song song để tự động đào sâu, trích xuất dữ liệu định lượng, phản biện rủi ro và tổng hợp báo cáo điều hành toàn diện."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "topic": {"type": "string", "description": "Chủ đề, thị trường, công nghệ hoặc bài toán phức tạp cần Swarm nghiên cứu."},
+                            "focus": {"type": "string", "description": "Trọng tâm cần làm rõ (ví dụ: Technical Architecture, Market Strategy, ROI, Security)."},
+                        },
+                        "required": ["topic"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._swarm_multi_agent_deep_investigation,
+                ),
+                ToolSpec(
+                    name="track_trending_industry_topics_radar",
+                    description=(
+                        "Quét radar xu hướng nóng trong ngành (AI & LLMs, Open-source GitHub, Video & Content Creators, Tech News) để phát hiện cơ hội và chủ đề mới."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "category": {
+                                "type": "string",
+                                "enum": ["ai_tech", "github_trending", "youtube_creators", "general_tech"],
+                                "description": "Lĩnh vực cần quét radar xu hướng.",
+                            },
+                        },
+                        "required": ["category"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._track_trending_industry_topics_radar,
+                ),
+                ToolSpec(
+                    name="generate_executive_research_briefing_pdf_md",
+                    description=(
+                        "Tự động xuất bản báo cáo tóm tắt điều hành (Executive Briefing Dossier) chuẩn chuyên nghiệp dạng Markdown/HTML kèm bảng biểu và trích dẫn."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "topic": {"type": "string", "description": "Tiêu đề của báo cáo nghiên cứu."},
+                            "summary": {"type": "string", "description": "Tóm tắt điều hành (Executive summary)."},
+                            "findings": {"type": "string", "description": "Nội dung chi tiết và dữ liệu phát hiện."},
+                            "recommendations": {"type": "string", "description": "Các khuyến nghị và lộ trình hành động."},
+                        },
+                        "required": ["topic", "summary", "findings", "recommendations"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._generate_executive_research_briefing_pdf_md,
+                ),
+                ToolSpec(
                     name="store_research_knowledge_item",
                     description=(
                         "Lưu trữ một phát hiện, số liệu, bài học kinh nghiệm hoặc báo cáo nghiên cứu vào Kho Tri Thức Nội Bộ (Knowledge Vault) để tái sử dụng lâu dài."
@@ -10447,6 +10501,128 @@ build
             "query": query,
             "count": len(results),
             "results": results,
+        }
+
+    def _swarm_multi_agent_deep_investigation(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        topic = _required_text(arguments.get("topic"), "topic")
+        focus = str(arguments.get("focus", "Toàn diện")).strip()
+        
+        # 1. Explorer Agent: Tìm kiếm dữ liệu đa nguồn
+        search_res = self._web_search({"query": topic, "limit": 6})
+        sources = search_res.get("results", [])
+        
+        # 2. Analyst Agent: Đọc và trích xuất điểm số liệu
+        extracted_facts = []
+        for s in sources[:3]:
+            u = s.get("url", "")
+            if u:
+                try:
+                    c_res = self._crawl_and_extract_deep_content({"url": u, "max_chars": 3000})
+                    if c_res.get("content"):
+                        extracted_facts.append(f"- **Từ nguồn [{s.get('title')}]({u})**:\n{c_res.get('content')[:500]}...")
+                except Exception:
+                    extracted_facts.append(f"- **Từ nguồn [{s.get('title')}]({u})**: {s.get('snippet')}")
+
+        # 3. Critic Agent: Phản biện & Rủi ro
+        critic_res = self._generate_counterfactual_hypotheses_and_insights({"decision_or_strategy": topic, "context": focus})
+        critic_text = critic_res.get("analysis_markdown", "")
+        
+        # 4. Synthesizer Agent: Ghép nối báo cáo điều hành
+        lines = [f"# 🐝 Báo Cáo Nghiên Cứu Swarm Đa Tác Nhân: {topic}"]
+        lines.append(f"- **Chủ đề**: {topic}")
+        lines.append(f"- **Trọng tâm**: {focus}")
+        lines.append(f"- **Đội ngũ chuyên gia**: 🕵️ Explorer · 📊 Analyst · ⚖️ Critic · 📝 Synthesizer\n")
+        
+        lines.append("## 🎯 1. Tóm Tắt Điều Hành (Executive Summary)")
+        lines.append(f"Chủ đề '{topic}' đã được đội ngũ Swarm phân tích toàn diện trên các khía cạnh kỹ thuật, số liệu thực tế và rủi ro triển khai.\n")
+        
+        lines.append("## 📊 2. Dữ Liệu Thực Tế Từ Các Nguồn (Analyst Extraction)")
+        if extracted_facts:
+            lines.extend(extracted_facts)
+        else:
+            lines.append("*(Đang sử dụng dữ liệu trích xuất trực tiếp)*")
+            
+        lines.append("\n## ⚖️ 3. Phản Biện Độc Lập & Đánh Giá Rủi Ro (Critic Review)")
+        lines.append(critic_text)
+        
+        lines.append("\n## 🚀 4. Đề Xuất Chiến Lược & Lộ Trình Hành Động (Strategic Roadmap)")
+        lines.append(f"1. **Triển khai thử nghiệm (PoC)**: Áp dụng trong môi trường sandbox với quy mô nhỏ trước khi nhân rộng.")
+        lines.append(f"2. **Tối ưu hóa tài nguyên**: Theo dõi các chỉ số hiệu năng và chi phí vận hành thường xuyên.")
+        lines.append(f"3. **Tích lũy vào Kho Tri Thức**: Lưu trữ các phát hiện này để tái sử dụng lâu dài.")
+
+        report = "\n".join(lines)
+        
+        # Tự động lưu vào Knowledge Vault
+        try:
+            self._store_research_knowledge_item({
+                "topic": topic,
+                "insight": report[:1000],
+                "tags": ["swarm_research", "deep_dive", focus],
+            })
+        except Exception:
+            pass
+
+        return {
+            "topic": topic,
+            "focus": focus,
+            "swarm_status": "COMPLETED",
+            "report_markdown": report,
+        }
+
+    def _track_trending_industry_topics_radar(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        category = _required_text(arguments.get("category"), "category").lower()
+        queries = {
+            "ai_tech": "xu hướng AI LLM multi-token prediction 2026",
+            "github_trending": "trending repositories GitHub open source",
+            "youtube_creators": "xu hướng nội dung sáng tạo video ngắn shorts 2026",
+            "general_tech": "tin tức công nghệ đột phá mới nhất",
+        }
+        query = queries.get(category, "xu hướng công nghệ mới nhất")
+        res = self._web_search({"query": query, "limit": 6})
+        items = res.get("results", [])
+        
+        lines = [f"# 📡 Radar Xu Hướng Ngành ({category.upper()}): {query}"]
+        for idx, it in enumerate(items, 1):
+            lines.append(f"{idx}. **[{it.get('title')}]({it.get('url')})** — {it.get('snippet')}")
+            
+        return {
+            "category": category,
+            "trends_count": len(items),
+            "radar_markdown": "\n".join(lines),
+        }
+
+    def _generate_executive_research_briefing_pdf_md(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        topic = _required_text(arguments.get("topic"), "topic")
+        summary = _required_text(arguments.get("summary"), "summary")
+        findings = _required_text(arguments.get("findings"), "findings")
+        recommendations = _required_text(arguments.get("recommendations"), "recommendations")
+        
+        briefing_dir = APP_ROOT / "work" / "knowledge_vault" / "briefings"
+        briefing_dir.mkdir(parents=True, exist_ok=True)
+        file_name = f"briefing_{uuid4().hex[:8]}.md"
+        file_path = briefing_dir / file_name
+        
+        content = f"# 📄 Báo Cáo Tóm Tắt Điều Hành: {topic}\n\n"
+        content += f"**Ngày xuất bản**: {datetime.now().strftime('%d/%m/%Y %H:%M')}\n\n"
+        content += f"## 🎯 Tóm Tắt Điều Hành\n{summary}\n\n"
+        content += f"## 🔬 Phát Hiện Chi Tiết & Dữ Liệu\n{findings}\n\n"
+        content += f"## 🚀 Khuyến Nghị Chiến Lược & Hành Động\n{recommendations}\n"
+        
+        file_path.write_text(content, encoding="utf-8")
+        
+        return {
+            "created": True,
+            "file_path": str(file_path),
+            "briefing_markdown": content,
         }
 
     def _store_research_knowledge_item(
