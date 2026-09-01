@@ -966,6 +966,7 @@ Operating Principles:
             "tool_choice": "auto",
             "messages": messages,
             "tools": tool_definitions,
+            "cache_prompt": True,
         }
 
         if self.config.reasoning_effort:
@@ -1091,6 +1092,7 @@ Operating Principles:
             "tool_choice": "auto",
             "messages": messages,
             "tools": tool_definitions,
+            "cache_prompt": True,
         }
 
         if self.config.reasoning_effort:
