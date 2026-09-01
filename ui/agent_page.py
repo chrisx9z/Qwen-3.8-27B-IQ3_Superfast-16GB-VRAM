@@ -79,6 +79,9 @@ def markdown_to_html(text: str) -> str:
 
             clean_code = code.rstrip("\n")
             code_id = uuid4().hex[:8]
+            if len(_CODE_SNIPPETS) > 500:
+                for k in list(_CODE_SNIPPETS.keys())[:100]:
+                    _CODE_SNIPPETS.pop(k, None)
             _CODE_SNIPPETS[code_id] = clean_code
             lang_label = language or "code"
 
@@ -99,7 +102,7 @@ def markdown_to_html(text: str) -> str:
                 parts.append(
                     f'<div style="margin: 8px 0; background: #0d1117; border: 1px solid #30363d; border-radius: 8px; overflow: hidden;">'
                     f'<div style="background: #161b22; padding: 4px 10px; border-bottom: 1px solid #30363d; font-size: 11px; color: #8b949e;">'
-                    f'<b>🔍 VISUAL DIFF</b> &nbsp;|&nbsp; <a href="copy:{code_id}" style="color: #58a6ff; text-decoration: none; font-weight: bold;">📋 Sao chép</a>'
+                    f'<b>🔍 VISUAL DIFF</b> &nbsp;|&nbsp; <a href="copy:{code_id}" style="color: #58a6ff; text-decoration: none; font-weight: bold;">{t("copy_content")}</a>'
                     f'</div>'
                     f'<div style="padding: 6px 0; font-size: 11.5px; line-height: 1.45; overflow-x: auto;">{"".join(diff_html_lines)}</div>'
                     f'</div>'
@@ -109,7 +112,7 @@ def markdown_to_html(text: str) -> str:
             parts.append(
                 f'<div style="margin: 8px 0; background: #14171f; border: 1px solid #2d3345; border-radius: 8px; overflow: hidden;">'
                 f'<div style="background: #1c202b; padding: 4px 10px; border-bottom: 1px solid #2d3345; font-size: 11px; color: #8a92a6;">'
-                f'<b>{escape(lang_label)}</b> &nbsp;|&nbsp; <a href="copy:{code_id}" style="color: #4d7cf8; text-decoration: none; font-weight: bold;">📋 Sao chép</a>'
+                f'<b>{escape(lang_label)}</b> &nbsp;|&nbsp; <a href="copy:{code_id}" style="color: #4d7cf8; text-decoration: none; font-weight: bold;">{t("copy_content")}</a>'
                 f'</div>'
                 f'<pre class="code-block" style="margin: 0; padding: 10px 12px; border: none; background: transparent;"><code>{escape(clean_code)}</code></pre>'
                 f'</div>'
