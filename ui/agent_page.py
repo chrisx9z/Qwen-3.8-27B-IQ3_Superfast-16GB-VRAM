@@ -12,7 +12,7 @@ from typing import Any
 from uuid import uuid4
 
 from PySide6.QtCore import QObject, QProcess, QRunnable, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
-from PySide6.QtGui import QDesktopServices, QGuiApplication, QTextCursor
+from PySide6.QtGui import QKeySequence, QShortcut, QDesktopServices, QGuiApplication, QTextCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -9585,8 +9585,16 @@ class AgentPage(QWidget):
 
         self.chat_list = QListWidget()
         self.chat_list.setObjectName("ChatList")
+        self.chat_list.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.chat_list.customContextMenuRequested.connect(self.on_chat_context_menu)
         self.chat_list.itemClicked.connect(self.on_chat_selected)
+        self.chat_list.itemDoubleClicked.connect(lambda _: self.rename_chat())
         sidebar_layout.addWidget(self.chat_list, 1)
+
+        # Global Shortcuts inside GUI
+        QShortcut(QKeySequence("Ctrl+N"), self, self.new_chat)
+        QShortcut(QKeySequence("Ctrl+F"), self, self.search_input.setFocus)
+        QShortcut(QKeySequence("Escape"), self, self.on_escape_pressed)
 
         sidebar_actions = QGridLayout()
         sidebar_actions.setSpacing(6)
@@ -9908,6 +9916,42 @@ class AgentPage(QWidget):
                 break
         self.refresh_chat_list()
         self.scroll_to_bottom()
+
+    def on_chat_context_menu(self, pos: Any) -> None:
+        item = self.chat_list.itemAt(pos)
+        if item is None:
+            return
+        chat_id = str(item.data(32))
+        self.select_chat(chat_id)
+        chat = self.active_chat()
+        if chat is None:
+            return
+
+        menu = QMenu(self)
+        pin_text = t("unpin") if chat.get("pinned", False) else t("pin")
+        pin_action = menu.addAction(pin_text)
+        pin_action.triggered.connect(self.toggle_pin)
+
+        rename_action = menu.addAction(t("rename"))
+        rename_action.triggered.connect(self.rename_chat)
+
+        export_action = menu.addAction(t("export_md"))
+        export_action.triggered.connect(self.export_current_chat)
+
+        menu.addSeparator()
+        delete_action = menu.addAction(t("delete"))
+        delete_action.triggered.connect(self.delete_chat)
+
+        menu.exec(self.chat_list.mapToGlobal(pos))
+
+    def on_escape_pressed(self) -> None:
+        if self.worker is not None:
+            self.worker.abort_event.set()
+            self.status_label.setText(t("status_stopped"))
+            self.send_button.setEnabled(False)
+        elif hasattr(self, "search_input") and self.search_input.hasFocus():
+            self.search_input.clear()
+            self.prompt_input.setFocus()
 
     def toggle_pin(self) -> None:
         chat = self.active_chat()
