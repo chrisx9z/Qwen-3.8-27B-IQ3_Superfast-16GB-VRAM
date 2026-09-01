@@ -109,7 +109,8 @@ def _llama_servers() -> list[dict[str, Any]]:
     for pid, ports in ports_by_pid.items():
         try:
             process = psutil.Process(pid)
-            if process.name().lower() != "llama-server.exe":
+            p_name = process.name().lower()
+            if p_name not in ("llama-server.exe", "llama-server"):
                 continue
             servers.append({
                 "pid": pid,
@@ -123,6 +124,22 @@ def _llama_servers() -> list[dict[str, Any]]:
 
 
 def _gpu_status() -> dict[str, Any]:
+    import sys
+    # macOS Apple Silicon Metal Unified Memory
+    if sys.platform == "darwin":
+        try:
+            vm = psutil.virtual_memory()
+            return {
+                "available": True,
+                "device_name": "Apple Silicon (Metal Unified Memory)",
+                "total_bytes": vm.total,
+                "used_bytes": vm.used,
+                "free_bytes": vm.available,
+                "utilization_percent": round(vm.percent, 1),
+            }
+        except Exception:
+            pass
+
     command = [
         "nvidia-smi",
         "--query-gpu=memory.total,memory.used,memory.free,utilization.gpu",
@@ -139,16 +156,16 @@ def _gpu_status() -> dict[str, Any]:
             check=False,
         )
     except (OSError, subprocess.TimeoutExpired):
-        return {"available": False, "reason": "nvidia-smi không khả dụng"}
+        return {"available": False, "reason": "GPU monitor không khả dụng"}
     if completed.returncode != 0 or not completed.stdout.strip():
-        return {"available": False, "reason": "nvidia-smi không trả dữ liệu"}
+        return {"available": False, "reason": "GPU monitor không trả dữ liệu"}
     values = [value.strip() for value in completed.stdout.splitlines()[0].split(",")]
     if len(values) < 4:
         return {"available": False, "reason": "Không đọc được trạng thái VRAM"}
     try:
         total_mb, used_mb, free_mb, utilization = (float(value) for value in values[:4])
     except ValueError:
-        return {"available": False, "reason": "Dữ liệu nvidia-smi không hợp lệ"}
+        return {"available": False, "reason": "Dữ liệu GPU không hợp lệ"}
     return {
         "available": True,
         "total_bytes": int(total_mb * 1024 * 1024),

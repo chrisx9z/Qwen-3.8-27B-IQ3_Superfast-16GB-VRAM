@@ -29,7 +29,10 @@ def screen_capture(
         if width <= 0 or height <= 0:
             raise ValueError("width và height phải lớn hơn 0.")
         bbox = (x, y, x + width, y + height)
-    image = ImageGrab.grab(bbox=bbox, all_screens=True)
+    try:
+        image = ImageGrab.grab(bbox=bbox, all_screens=True)
+    except Exception:
+        image = ImageGrab.grab(bbox=bbox)
     path = SCREENSHOT_ROOT / (
         datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".png"
     )

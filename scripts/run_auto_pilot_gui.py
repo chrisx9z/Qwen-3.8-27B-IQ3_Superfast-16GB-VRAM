@@ -9,20 +9,19 @@ def get_project_root() -> Path:
     configured = os.environ.get("M_AUTO_PILOT_ROOT", "").strip()
     if configured:
         return Path(configured).resolve()
+    if getattr(sys, "frozen", False):
+        return Path(sys.executable).parent
+    file_root = Path(__file__).resolve().parents[1]
+    if (file_root / "agent").is_dir() and (file_root / "ui").is_dir():
+        return file_root
     vibe_path = Path(r"D:\Vibe Code\M-Auto-Pilot")
     if vibe_path.is_dir():
         return vibe_path
-    if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
-    return Path(__file__).resolve().parents[1]
+    return file_root
 
 
 PROJECT_ROOT = get_project_root()
 os.environ["M_AUTO_PILOT_ROOT"] = str(PROJECT_ROOT)
-os.environ.setdefault(
-    "M_AUTO_PILOT_TARGET_ROOT",
-    r"D:\AI-Video-Localizer",
-)
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
