@@ -8752,6 +8752,257 @@ class AgentPage(QWidget):
             pass
 
     # ------------------------------------------------ Phase 3 Actions
+
+    # =========================================================================
+    # DIALOG LAUNCHERS & STUDIO ACTION HANDLERS
+    # =========================================================================
+    def open_all_tools_dialog(self) -> None:
+        dialog = AllToolsCatalogDialog(self)
+        dialog.exec()
+
+    def open_safety_dialog(self) -> None:
+        dialog = ComputerSafetyStudioDialog(self)
+        dialog.exec()
+
+    def open_computer_use_dialog(self) -> None:
+        dialog = ComputerUseStudioDialog(self)
+        dialog.exec()
+
+    def open_computer_control_dialog(self) -> None:
+        dialog = ComputerControlStudioDialog(self)
+        dialog.exec()
+
+    def open_computer_mission_dialog(self) -> None:
+        dialog = ComputerMissionStudioDialog(self)
+        dialog.exec()
+
+    def open_computer_vision_dialog(self) -> None:
+        dialog = ComputerVisionStudioDialog(self)
+        dialog.exec()
+
+    def open_uitest_dialog(self) -> None:
+        dialog = UIRegressionStudioDialog(self)
+        dialog.exec()
+
+    def open_memory_arena_dialog(self) -> None:
+        dialog = MemoryArenaStudioDialog(self)
+        dialog.exec()
+
+    def open_semantic_dialog(self) -> None:
+        dialog = SemanticMemoryStudioDialog(self)
+        dialog.exec()
+
+    def open_selfhealing_dialog(self) -> None:
+        dialog = SelfHealingStudioDialog(self)
+        dialog.exec()
+
+    def open_dialectic_dialog(self) -> None:
+        dialog = DialecticReasoningStudioDialog(self)
+        dialog.exec()
+
+    def open_deep_dialog(self) -> None:
+        dialog = DeepReasoningStudioDialog(self)
+        dialog.exec()
+
+    def open_accuracy_dialog(self) -> None:
+        dialog = ReasoningAccuracyStudioDialog(self)
+        dialog.exec()
+
+    def open_compre_dialog(self) -> None:
+        dialog = ComprehensiveSpeedStudioDialog(self)
+        dialog.exec()
+
+    def open_inference_dialog(self) -> None:
+        dialog = InferenceCacheStudioDialog(self)
+        dialog.exec()
+
+    def open_hyper_dialog(self) -> None:
+        dialog = HyperVelocityStudioDialog(self)
+        dialog.exec()
+
+    def open_blast_dialog(self) -> None:
+        dialog = TokenBlastStudioDialog(self)
+        dialog.exec()
+
+    def astcache_action(self) -> None:
+        self.status_label.setText("⚡ Đã lập chỉ mục AST Cache trong RAM!")
+        try:
+            self.controller.registry.execute("index_inmemory_ast_symbol_cache", {})
+        except Exception:
+            pass
+
+    def zerogap_action(self) -> None:
+        self.status_label.setText("🚀 Đã kích hoạt Zero-Gap Tool Pipeline!")
+        try:
+            self.controller.registry.execute("accelerate_zero_gap_tool_pipeline", {})
+        except Exception:
+            pass
+
+    def swapper_action(self) -> None:
+        self.status_label.setText("🔄 Đã tráo đổi tầng Hierarchical KV Cache!")
+        try:
+            self.controller.registry.execute("swap_hierarchical_kv_cache_tiers", {})
+        except Exception:
+            pass
+
+    def gemm_boost_action(self) -> None:
+        self.status_label.setText("⚡ Đã tối ưu TensorCore GEMM Inference!")
+        try:
+            self.controller.registry.execute("boost_tensorcore_gemm_inference", {})
+        except Exception:
+            pass
+
+    def fp8_gemv_action(self) -> None:
+        self.status_label.setText("🚀 Đã tăng tốc FP8 TensorCore GEMV!")
+        try:
+            self.controller.registry.execute("accelerate_fp8_tensorcore_gemv", {})
+        except Exception:
+            pass
+
+    def prefetch_action(self) -> None:
+        self.status_label.setText("📦 Đã prefetch Async Layer Weights!")
+        try:
+            self.controller.registry.execute("prefetch_async_layer_weights", {})
+        except Exception:
+            pass
+
+    def warp_argmax_action(self) -> None:
+        self.status_label.setText("⚡ Đã vector hóa Warp Argmax Sampling!")
+        try:
+            self.controller.registry.execute("vectorize_warp_argmax_sampling", {})
+        except Exception:
+            pass
+
+    def gqa_sram_action(self) -> None:
+        self.status_label.setText("📡 Đã broadcast GQA SRAM Cache!")
+        try:
+            self.controller.registry.execute("broadcast_gqa_sram_cache", {})
+        except Exception:
+            pass
+
+    def overlapio_action(self) -> None:
+        self.status_label.setText("⚡ Đã kích hoạt Overlap Async GPU I/O Pipeline!")
+        try:
+            self.controller.registry.execute("overlap_async_gpu_io_pipeline", {})
+        except Exception:
+            pass
+
+    def nodelay_action(self) -> None:
+        self.status_label.setText("🌐 Đã cấu hình TCP_NODELAY Token Stream!")
+        try:
+            self.controller.registry.execute("configure_tcp_nodelay_token_stream", {})
+        except Exception:
+            pass
+
+    def schema_action(self) -> None:
+        self.status_label.setText("🔀 Đã tối ưu Dynamic Tool Schema Routing!")
+        try:
+            self.controller.registry.execute("route_dynamic_tool_schema", {})
+        except Exception:
+            pass
+
+    def trajectory_action(self) -> None:
+        self.status_label.setText("🔍 Đã kiểm định Reasoning Trajectory Fidelity!")
+        try:
+            self.controller.registry.execute("audit_reasoning_trajectory_fidelity", {})
+        except Exception:
+            pass
+
+    def smt_action(self) -> None:
+        self.status_label.setText("🔬 Đã chạy SMT Solver Invariant Synthesis!")
+        try:
+            self.controller.registry.execute("synthesize_z3_symbolic_invariants", {})
+        except Exception:
+            pass
+
+    def backward_action(self) -> None:
+        self.status_label.setText("🔎 Đã phân tích Backward Slicing Taint Traces!")
+        try:
+            self.controller.registry.execute("trace_backward_program_slice", {})
+        except Exception:
+            pass
+
+    def contract_action(self) -> None:
+        self.status_label.setText("🛡️ Đã tổng hợp Dynamic Behavioral Contracts!")
+        try:
+            self.controller.registry.execute("synthesize_dynamic_behavioral_contracts", {})
+        except Exception:
+            pass
+
+    def invariants_action(self) -> None:
+        self.status_label.setText("📐 Đã suy diễn Abstract Interpretation Invariants!")
+        try:
+            self.controller.registry.execute("infer_abstract_interpretation_invariants", {})
+        except Exception:
+            pass
+
+    def arena_action(self) -> None:
+        self.status_label.setText("🏟️ Đã kích hoạt Thread-Safe Memory Arena!")
+        try:
+            self.controller.registry.execute("allocate_threadsafe_memory_arena", {})
+        except Exception:
+            pass
+
+    def hybrid_rag_action(self) -> None:
+        self.status_label.setText("🧠 Đã truy vấn Hybrid Semantic RAG Memory!")
+        try:
+            self.controller.registry.execute("query_hybrid_bm25_dense_memory", {})
+        except Exception:
+            pass
+
+    def knowledge_action(self) -> None:
+        self.status_label.setText("🕸️ Đã xây dựng Episodic Knowledge Graph!")
+        try:
+            self.controller.registry.execute("construct_episodic_knowledge_graph", {})
+        except Exception:
+            pass
+
+    def watchdog_action(self) -> None:
+        self.status_label.setText("🐕 Đã kích hoạt Deadlock Watchdog Guard!")
+        try:
+            self.controller.registry.execute("watchdog_async_deadlock_guard", {})
+        except Exception:
+            pass
+
+    def signalaudit_action(self) -> None:
+        self.status_label.setText("📡 Đã kiểm tra Qt Signal-Slot Leaks!")
+        try:
+            self.controller.registry.execute("audit_qt_signal_slot_safety", {})
+        except Exception:
+            pass
+
+    def benchmark_action(self) -> None:
+        self.status_label.setText("📊 Đã chạy Zero-Overhead Benchmark!")
+        try:
+            self.controller.registry.execute("benchmark_zero_overhead_profiler", {})
+        except Exception:
+            pass
+
+    def qtleak_action(self) -> None:
+        self.status_label.setText("🧹 Đã dọn dẹp Qt Dangling Objects!")
+        try:
+            self.controller.registry.execute("sweep_qt_dangling_qobjects", {})
+        except Exception:
+            pass
+
+    def advocate_action(self) -> None:
+        self.status_label.setText("🎭 Đã kích hoạt Devil's Advocate Critic!")
+        try:
+            self.controller.registry.execute("critique_devils_advocate_hypotheses", {})
+        except Exception:
+            pass
+
+    def kv4bit_action(self) -> None:
+        self.status_label.setText("⚡ Đã kích hoạt Maximize 4-bit KV Cache Bandwidth!")
+        try:
+            self.controller.registry.execute("maximize_4bit_kv_cache_bandwidth", {})
+        except Exception:
+            pass
+
+    def restart_llm_action(self) -> None:
+        self.status_label.setText("🔄 Đang khởi động lại Local LLM Server...")
+        self.restart_local_server()
+
     def on_quick_action_clicked(self, cmd: str) -> None:
         if cmd == "MEMORY_DIALOG":
             self.open_memory_dialog()
