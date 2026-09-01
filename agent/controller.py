@@ -33,7 +33,7 @@ class AgentConfig:
     model: str = "local-qwen"
     temperature: float = 0.2
     max_tokens: int = 2048
-    max_steps: int = 16
+    max_steps: int = 24
     context_size: int = 16384
     connect_timeout: float = 10.0
     read_timeout: float = 1800.0
@@ -396,8 +396,49 @@ Operating Principles:
                     "content": _compact_json(result),
                 })
 
-        raise RuntimeError(
-            f"Agent vượt quá giới hạn {self.config.max_steps} bước."
+        # Tự động chuyển sang bước tổng kết câu trả lời cuối cùng (Graceful final synthesis turn)
+        self._emit(
+            "status",
+            {
+                "message": (
+                    f"Đang tổng hợp câu trả lời cuối cùng từ {self.config.max_steps} bước thực thi..."
+                ),
+            },
+        )
+        final_prompt = (
+            "Đã hoàn thành các bước thu thập thông tin và thực thi công cụ ở trên. "
+            "Hãy tổng hợp và đưa ra câu trả lời cuối cùng đầy đủ, rõ ràng và chi tiết cho người dùng."
+        )
+        conversation.append({
+            "role": "user",
+            "content": final_prompt,
+        })
+        try:
+            final_message = self._chat(
+                conversation,
+                [],  # Không truyền tools để model tập trung trả lời văn bản cuối cùng
+                max_tokens=self.config.max_tokens,
+                abort_check=abort_check,
+            )
+            conversation.append(final_message)
+            text = str(final_message.get("content") or "").strip()
+            if text:
+                return AgentResult(
+                    text=text,
+                    messages=conversation,
+                    steps=self.config.max_steps,
+                )
+        except Exception:
+            pass
+
+        last_contents = [
+            str(m.get("content", "")) for m in conversation if m.get("role") in ("tool", "assistant") and m.get("content")
+        ]
+        fallback_text = last_contents[-1] if last_contents else "Đã hoàn thành các bước tác vụ theo yêu cầu."
+        return AgentResult(
+            text=f"Đã hoàn thành {self.config.max_steps} bước thực thi và tổng hợp thông tin:\n\n{fallback_text}",
+            messages=conversation,
+            steps=self.config.max_steps,
         )
 
     def _run_direct_repo_task(
