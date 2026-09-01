@@ -936,16 +936,20 @@ Operating Principles:
         max_tokens: int,
         abort_check: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
+        safe_messages = _enforce_context_window_limit(
+            messages,
+            max_tokens=max(4096, self.config.context_size - max_tokens - 1000),
+        )
         try:
             return self._chat_stream(
-                messages,
+                safe_messages,
                 tool_definitions,
                 max_tokens,
                 abort_check=abort_check,
             )
         except requests.RequestException:
             return self._chat_plain(
-                messages,
+                safe_messages,
                 tool_definitions,
                 max_tokens,
             )
@@ -1182,7 +1186,52 @@ def _compact_json(value: object) -> str:
         ensure_ascii=False,
         separators=(",", ":"),
     )
-    return encoded[:16000]
+    if len(encoded) > 10000:
+        head = encoded[:5000]
+        tail = encoded[-2500:]
+        return f"{head}\n\n... [Nội dung lớn >16,384 tokens đã được tự động phân đoạn an toàn: đã rút gọn {len(encoded) - 7500} ký tự] ...\n\n{tail}"
+    return encoded
+
+
+def _enforce_context_window_limit(
+    messages: list[dict[str, Any]],
+    max_tokens: int = 13500,
+) -> list[dict[str, Any]]:
+    """
+    Đảm bảo tổng dung lượng ngữ cảnh không vượt quá giới hạn 16,384 tokens của Qwen3.8-27B.
+    Nếu ngữ cảnh quá lớn, tự động phân đoạn (chunking) và nén các bước trung gian cũ.
+    """
+    total_chars = sum(len(str(m.get("content", ""))) for m in messages)
+    total_est_tokens = total_chars // 3
+    if total_est_tokens <= max_tokens:
+        return messages
+
+    if len(messages) <= 3:
+        res = []
+        for m in messages:
+            c = str(m.get("content", ""))
+            if len(c) > 20000:
+                head = c[:12000]
+                tail = c[-4000:]
+                c = f"{head}\n\n... [Ngữ cảnh lớn >16,384 tokens đã được tự động phân đoạn: nén {len(c) - 16000} ký tự] ...\n\n{tail}"
+            copy_m = dict(m)
+            copy_m["content"] = c
+            res.append(copy_m)
+        return res
+
+    system_msg = messages[0]
+    user_first = messages[1] if len(messages) > 1 else None
+    recent_msgs = messages[-6:]
+    middle_msgs = messages[2:-6] if user_first else messages[1:-6]
+
+    compacted = [system_msg]
+    if user_first:
+        compacted.append(user_first)
+    if middle_msgs:
+        middle_summary = f"[Hệ thống: Đã tự động nén {len(middle_msgs)} lượt tương tác cũ để bảo toàn ngưỡng 16,384 tokens]"
+        compacted.append({"role": "system", "content": middle_summary})
+    compacted.extend(recent_msgs)
+    return compacted
 
 
 def _env_int(
