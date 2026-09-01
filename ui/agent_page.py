@@ -9346,6 +9346,16 @@ class AgentPage(QWidget):
             chosen_path = Path(chosen).resolve()
             os.environ["M_AUTO_PILOT_ROOT"] = str(chosen_path)
             os.environ["M_AUTO_PILOT_TARGET_ROOT"] = str(chosen_path)
+            try:
+                import core.project
+                core.project.APP_ROOT = chosen_path
+            except Exception:
+                pass
+            try:
+                import agent.tools
+                agent.tools.APP_ROOT = chosen_path
+            except Exception:
+                pass
             self.workspace_btn.setText(f"📂 {chosen_path.name}")
             self.workspace_btn.setToolTip(f"Thư mục làm việc: {chosen_path}\nBấm để đổi thư mục")
             self.status_label.setText(f"Đã chuyển workspace sang: {chosen_path.name}")
