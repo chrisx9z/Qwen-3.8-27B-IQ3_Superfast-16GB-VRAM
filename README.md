@@ -1,63 +1,64 @@
-# Auto Pilot Qwen 3.8 27B IQ3_Superfast
+# Auto Pilot Qwen 3.8 27B IQ3_Superfast 🚀
 
-**Auto Pilot Qwen 3.8 27B IQ3_Superfast** là trợ lý cá nhân và Coding Agent chạy hoàn toàn cục bộ trên máy tính: trò chuyện tiếng Việt thông minh, lập trình tự động (Coding Agent), nghiên cứu web, điều khiển hệ điều hành Windows Win32 Native, tự động hóa trình duyệt Chrome DevTools Protocol (CDP) và điều khiển AI Video Localizer — tối ưu hóa trên mô hình **Qwen3.8-27B-UD-IQ3_S** qua `llama.cpp` (cổng 8080).
+**Auto Pilot Qwen 3.8 27B IQ3_Superfast** is an autonomous, fully local AI Assistant, Coding Agent, and Computer Use automation system. Powered by the high-speed **Qwen3.8-27B-UD-IQ3_S** model via `llama.cpp` (or any OpenAI-compatible endpoint), it provides high-performance local intelligence without relying on cloud APIs.
 
 ---
 
-## 🌟 Điểm Nổi Bật & Tính Năng Đột Phá (283 Tools Chuyên Sâu)
+## 🌟 Key Features & Innovations
 
-1. **Hệ Sinh Thái 283 Tools Tự Động Hóa**:
-   - **Computer Use & Windows Native**: Điều khiển chuột Bézier mượt mà như người thật, gõ tiếng Việt Unicode SendInput API, quản lý cây HWND và chuyển đổi Virtual Desktops ngầm không chiếm chuột.
-   - **Chrome CDP Mastery**: Điều khiển đa tab, tiêm Userscript/Extension trực tiếp (`inject_chrome_userscript_extension`), quản lý Cookie, quan sát biến đổi DOM Mutation & Network Idle.
-   - **Vision OCR & AI Screen Grounding**: Dự đoán Bounding Box tọa độ màn hình High-DPI/2K/4K, tìm kiếm văn bản qua OCR và tự động điền Form ngữ nghĩa thông minh.
-   - **Safety Sandbox Firewall**: Tường lửa bảo vệ hệ thống (`enforce_computer_action_safety_firewall`), ngăn chặn 100% các hành vi xóa file hệ thống hoặc format ổ đĩa.
+1. **283 Comprehensive Automation Tools**:
+   - **Computer Use & Windows Native**: Human-like Bézier mouse movements, Unicode SendInput typing, window hierarchy control (HWND), and background Virtual Desktops.
+   - **Chrome CDP Automation**: Direct Chrome DevTools Protocol interaction, multi-tab coordination, instant userscript/extension injection (`inject_chrome_userscript_extension`), DOM mutation, and network idle observation.
+   - **AI Vision OCR & Screen Grounding**: Pixel-accurate bounding box prediction on High-DPI/2K/4K displays, OCR text search & click, and semantic form auto-filling.
+   - **Safety Sandbox Firewall**: Real-time action intent audit (`enforce_computer_action_safety_firewall`), preventing destructive OS actions.
+
 2. **Dynamic Semantic Tool Router**:
-   - Tự động nạp động các công cụ cốt lõi (chỉ ~6-22 tools tương đương 790-2,000 tokens), triệt tiêu hoàn toàn lỗi tràn Context Window 8,192 tokens của LLM.
-3. **Chuẩn Hóa UTF-8 Streaming 100%**:
-   - Khắc phục triệt để lỗi vỡ font tiếng Việt (Mojibake), render markdown và suy luận mượt mà.
-4. **Giao Diện Trực Quan & Tinh Gọn**:
-   - Tự động co giãn bong bóng chat theo nội dung văn bản (`AutoResizingTextBrowser`).
-   - Tự động thu gọn khối suy luận (Reasoning Card) và Terminal Logs.
-   - Bộ studio chuyên sâu: `AllToolsCatalogDialog` (/tools), `ComputerUseStudioDialog`, `ComputerSafetyStudioDialog`, `ComputerMissionStudioDialog`.
+   - Dynamically loads only 6–22 relevant tool schemas (~790–2,000 tokens) based on user intent.
+   - Eliminates context window overflow errors and leaves 6,000+ tokens for deep reasoning (Chain-of-Thought).
+
+3. **Multi-Language Support (i18n)**:
+   - **Default UI Language**: English (`en`).
+   - **Supported Languages**: English (`en`), Vietnamese (`vi`), Simplified Chinese (`zh`).
+   - Instant language switching via the UI header bar.
+   - **Intelligent Multi-lingual Response**: Automatically detects query language and responds in the exact same language.
+
+4. **Refined & Responsive UI**:
+   - Auto-resizing message bubbles with zero internal scrollbars.
+   - Auto-collapsing reasoning blocks and execution terminal cards.
+   - Built-in studio dialogs: `AllToolsCatalogDialog` (`/tools`), `ComputerUseStudioDialog`, `ComputerSafetyStudioDialog`, `ComputerMissionStudioDialog`.
 
 ---
 
-## 🛠️ Vị Trí Thư Mục & Cấu Trúc Dự Án
+## 🚀 Quick Start
 
-| Thành phần | Đường dẫn |
-|---|---|
-| Mã nguồn (GitHub Repo) | `https://github.com/chrisx9z/Auto-Pilot-Qwen-3.8-27B-IQ3_Superfast` |
-| Thư mục làm việc Local | `D:\Vibe Code\M-Auto-Pilot` |
-| Runtime state (Logs, Chats, Checkpoints) | `work\auto_pilot\` |
-| Model GGUF | `D:\AI-Video-Localizer\models\Qwen3.8-27B-UD-IQ3_S.gguf` |
-| Llama Server | `http://127.0.0.1:8080/v1/chat/completions` |
-| File EXE đóng gói | `dist\Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe` |
-| Shortcut Desktop | `D:\OneDrive\Desktop\Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe` |
+### 1. Requirements
+- Python 3.10+
+- PySide6, requests, psutil, rapidocr_onnxruntime, playwright, pywinauto
+- `llama-server` (or any OpenAI-compatible server at `http://127.0.0.1:8080/v1/chat/completions`)
 
----
-
-## 🚀 Hướng Dẫn Khởi Chạy
-
-### 1. Chạy từ mã nguồn:
+### 2. Run from Source:
 ```powershell
-Set-Location "D:\Vibe Code\M-Auto-Pilot"
-& "D:\AI-Video-Localizer\.venv\Scripts\python.exe" scripts\run_auto_pilot_gui.py
+# Install dependencies
+pip install -r requirements.txt
+
+# Start Auto Pilot GUI
+python scripts/run_auto_pilot_gui.py
 ```
 
-### 2. Chạy từ File thực thi EXE:
-Mở file **`Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe`** ngay trên màn hình Desktop (hoặc nhấn phím tắt toàn hệ thống **`Alt + Shift + M`** để ẩn/hiện cửa sổ).
+### 3. Run Pre-built Executable:
+Launch `Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe`. Use **`Alt + Shift + M`** to show/hide the window globally.
 
-### 3. Kiểm thử tự động:
+### 4. Run Automated Verification Tests:
 ```powershell
-& "D:\AI-Video-Localizer\.venv\Scripts\python.exe" scripts\test_local_agent.py
+python scripts/test_local_agent.py
 ```
 
 ---
 
-## 📦 Đóng Gói Thành Bản EXE Độc Lập
+## 📦 Build Standalone Windows EXE
 
 ```powershell
-Set-Location "D:\Vibe Code\M-Auto-Pilot"
-& "D:\AI-Video-Localizer\.venv\Scripts\python.exe" -m PyInstaller "M Auto Pilot.spec" --noconfirm
-Copy-Item "dist\Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe" "D:\OneDrive\Desktop\Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe" -Force
+python -m PyInstaller "M Auto Pilot.spec" --noconfirm
 ```
+
+Output binary will be located at `dist/Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe`.
