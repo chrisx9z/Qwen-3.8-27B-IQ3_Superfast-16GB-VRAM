@@ -234,9 +234,9 @@ QMainWindow {
     background-color: #3b6ef5;
     color: #ffffff;
     border-radius: 14px;
-    padding: 10px 14px;
-    max-width: 620px;
-    font-size: 13px;
+    padding: 10px 15px;
+    max-width: 650px;
+    font-size: 13.5px;
 }
 
 #StepText {
@@ -261,13 +261,36 @@ QMainWindow {
 #ChatInput {
     background-color: transparent;
     border: none;
-    color: #e6e6eb;
-    padding: 6px 4px;
-    font-size: 13px;
+    color: #f2f2f6;
+    padding: 8px 6px;
+    font-size: 13.5px;
+    selection-background-color: #3b6ef5;
+    selection-color: #ffffff;
 }
 
 #ChatInput:focus {
     border: none;
+}
+
+#ChatInput QScrollBar:vertical {
+    background: transparent;
+    width: 6px;
+    margin: 2px;
+}
+
+#ChatInput QScrollBar::handle:vertical {
+    background: #333848;
+    border-radius: 3px;
+    min-height: 20px;
+}
+
+#ChatInput QScrollBar::handle:vertical:hover {
+    background: #4d7cf8;
+}
+
+#ChatInput QScrollBar::add-line:vertical,
+#ChatInput QScrollBar::sub-line:vertical {
+    height: 0;
 }
 
 /* ---------- Stop Button ---------- */
