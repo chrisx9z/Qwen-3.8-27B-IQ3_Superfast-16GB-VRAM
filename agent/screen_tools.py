@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -7,7 +8,6 @@ from typing import Any
 from PIL import ImageGrab
 
 from core.project import APP_ROOT
-
 
 SCREENSHOT_ROOT = APP_ROOT / "work" / "auto_pilot" / "screenshots"
 _OCR_ENGINE: Any = None
@@ -25,14 +25,16 @@ def screen_capture(
     if any(value is not None for value in (x, y, width, height)):
         values = (x, y, width, height)
         if any(value is None for value in values):
-            raise ValueError("Cần cung cấp đủ x, y, width và height.")
+            raise ValueError("All x, y, width, and height values must be provided.")
         if width <= 0 or height <= 0:
-            raise ValueError("width và height phải lớn hơn 0.")
+            raise ValueError("width and height must be positive integers.")
         bbox = (x, y, x + width, y + height)
+    
     try:
         image = ImageGrab.grab(bbox=bbox, all_screens=True)
     except Exception:
         image = ImageGrab.grab(bbox=bbox)
+
     path = SCREENSHOT_ROOT / (
         datetime.now().strftime("%Y%m%d-%H%M%S-%f") + ".png"
     )
@@ -57,9 +59,9 @@ def screen_ocr(
     if image_path.strip():
         path = Path(image_path).expanduser().resolve()
         if not path.is_relative_to(APP_ROOT.resolve()):
-            raise ValueError("Ảnh OCR phải nằm trong workspace.")
+            raise ValueError("Image must be located inside the workspace.")
         if not path.is_file():
-            raise FileNotFoundError(f"Không tìm thấy ảnh: {path}")
+            raise FileNotFoundError(f"Image file not found: {path}")
     else:
         capture = screen_capture(
             x=x,
@@ -95,7 +97,7 @@ def _ocr_engine() -> Any:
     if _OCR_ENGINE is None:
         try:
             from rapidocr_onnxruntime import RapidOCR
-        except ImportError as error:
-            raise RuntimeError("Chưa cài RapidOCR.") from error
-        _OCR_ENGINE = RapidOCR()
+            _OCR_ENGINE = RapidOCR()
+        except Exception as error:
+            raise RuntimeError(f"RapidOCR initialization error: {error}") from error
     return _OCR_ENGINE
