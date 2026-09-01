@@ -929,6 +929,19 @@ Operating Principles:
             return min(self.config.max_tokens, 768)
         return self.config.max_tokens
 
+    def _detect_server_context_size(self) -> int:
+        try:
+            props_url = f"http://{self.config.server_host}:{self.config.server_port}/props"
+            resp = self._http_session.get(props_url, timeout=1.0)
+            if resp.status_code == 200:
+                data = resp.json()
+                n_ctx = data.get("default_generation_settings", {}).get("n_ctx")
+                if isinstance(n_ctx, int) and n_ctx > 0:
+                    return n_ctx
+        except Exception:
+            pass
+        return self.config.context_size
+
     def _chat(
         self,
         messages: list[dict[str, Any]],
@@ -936,10 +949,15 @@ Operating Principles:
         max_tokens: int,
         abort_check: Callable[[], bool] | None = None,
     ) -> dict[str, Any]:
-        safe_messages = _enforce_context_window_limit(
-            messages,
-            max_tokens=max(4096, self.config.context_size - max_tokens - 1000),
-        )
+        ctx_limit = getattr(self, "_actual_context_size", None)
+        if ctx_limit is None:
+            ctx_limit = self._detect_server_context_size()
+            self._actual_context_size = ctx_limit
+
+        tools_overhead = len(json.dumps(tool_definitions)) // 3
+        safe_budget = max(2048, ctx_limit - max_tokens - tools_overhead - 600)
+        safe_messages = _enforce_context_window_limit(messages, max_tokens=safe_budget)
+
         try:
             return self._chat_stream(
                 safe_messages,
@@ -947,7 +965,20 @@ Operating Principles:
                 max_tokens,
                 abort_check=abort_check,
             )
-        except requests.RequestException:
+        except requests.RequestException as err:
+            err_text = str(err)
+            if hasattr(err, "response") and err.response is not None:
+                err_text += " " + getattr(err.response, "text", "")
+
+            if "exceed" in err_text.lower() or "context" in err_text.lower():
+                self._emit("status", {"message": "⚡ Ngữ cảnh lớn: Tự động phân đoạn và tối ưu hoá ngữ cảnh..."})
+                halved_messages = _enforce_context_window_limit(messages, max_tokens=max(1500, safe_budget // 2))
+                return self._chat_plain(
+                    halved_messages,
+                    tool_definitions,
+                    max_tokens,
+                )
+
             return self._chat_plain(
                 safe_messages,
                 tool_definitions,
@@ -1122,10 +1153,27 @@ Operating Principles:
             detail = str(error)
             if getattr(error.response, "text", ""):
                 detail = error.response.text[:1000]
-            raise RuntimeError(
-                "Không thể gọi endpoint Local LLM: "
-                f"{detail}"
-            ) from error
+
+            if ("exceed" in detail.lower() or "context" in detail.lower()) and len(messages) > 2:
+                self._emit("status", {"message": "⚡ Ngữ cảnh lớn: Tự động phân đoạn và rút gọn hội thoại..."})
+                compacted = _enforce_context_window_limit(messages, max_tokens=2200)
+                body["messages"] = compacted
+                try:
+                    retry_resp = self._http_session.post(
+                        self.config.endpoint,
+                        json=body,
+                        timeout=(self.config.connect_timeout, self.config.read_timeout),
+                    )
+                    retry_resp.raise_for_status()
+                    retry_resp.encoding = "utf-8"
+                    payload = retry_resp.json()
+                except Exception as retry_err:
+                    raise RuntimeError(f"Không thể gọi endpoint Local LLM sau khi rút gọn: {retry_err}") from retry_err
+            else:
+                raise RuntimeError(
+                    "Không thể gọi endpoint Local LLM: "
+                    f"{detail}"
+                ) from error
         except ValueError as error:
             raise RuntimeError(
                 "Endpoint Local LLM trả về JSON không hợp lệ."
@@ -1186,51 +1234,68 @@ def _compact_json(value: object) -> str:
         ensure_ascii=False,
         separators=(",", ":"),
     )
-    if len(encoded) > 10000:
-        head = encoded[:5000]
-        tail = encoded[-2500:]
-        return f"{head}\n\n... [Nội dung lớn >16,384 tokens đã được tự động phân đoạn an toàn: đã rút gọn {len(encoded) - 7500} ký tự] ...\n\n{tail}"
+    # Tự động phân đoạn kết quả tool nếu lớn hơn 3,500 ký tự (~1,100 tokens)
+    if len(encoded) > 3500:
+        head = encoded[:2200]
+        tail = encoded[-1000:]
+        return f"{head}\n\n... [Nội dung lớn đã tự động phân đoạn an toàn: rút gọn {len(encoded) - 3200} ký tự] ...\n\n{tail}"
     return encoded
 
 
 def _enforce_context_window_limit(
     messages: list[dict[str, Any]],
-    max_tokens: int = 13500,
+    max_tokens: int = 6500,
 ) -> list[dict[str, Any]]:
     """
-    Đảm bảo tổng dung lượng ngữ cảnh không vượt quá giới hạn 16,384 tokens của Qwen3.8-27B.
-    Nếu ngữ cảnh quá lớn, tự động phân đoạn (chunking) và nén các bước trung gian cũ.
+    Đảm bảo tổng dung lượng ngữ cảnh không vượt quá giới hạn n_ctx của server.
+    Nếu ngữ cảnh quá lớn, tự động nén các kết quả tool cũ trong khi vẫn bảo toàn 100% role pairing.
     """
     total_chars = sum(len(str(m.get("content", ""))) for m in messages)
     total_est_tokens = total_chars // 3
     if total_est_tokens <= max_tokens:
         return messages
 
-    if len(messages) <= 3:
-        res = []
-        for m in messages:
-            c = str(m.get("content", ""))
-            if len(c) > 20000:
-                head = c[:12000]
-                tail = c[-4000:]
-                c = f"{head}\n\n... [Ngữ cảnh lớn >16,384 tokens đã được tự động phân đoạn: nén {len(c) - 16000} ký tự] ...\n\n{tail}"
-            copy_m = dict(m)
-            copy_m["content"] = c
-            res.append(copy_m)
-        return res
+    # Nén các tool results ở các lượt cũ (trừ 4 lượt gần nhất)
+    compacted: list[dict[str, Any]] = []
+    cutoff_index = max(1, len(messages) - 4)
 
-    system_msg = messages[0]
-    user_first = messages[1] if len(messages) > 1 else None
-    recent_msgs = messages[-6:]
-    middle_msgs = messages[2:-6] if user_first else messages[1:-6]
+    for idx, msg in enumerate(messages):
+        copy_m = dict(msg)
+        content = str(copy_m.get("content", ""))
+        role = copy_m.get("role")
 
-    compacted = [system_msg]
-    if user_first:
-        compacted.append(user_first)
-    if middle_msgs:
-        middle_summary = f"[Hệ thống: Đã tự động nén {len(middle_msgs)} lượt tương tác cũ để bảo toàn ngưỡng 16,384 tokens]"
-        compacted.append({"role": "system", "content": middle_summary})
-    compacted.extend(recent_msgs)
+        if idx < cutoff_index:
+            if role == "tool" and len(content) > 600:
+                # Nén gọn kết quả tool cũ nhưng giữ nguyên tool_call_id
+                copy_m["content"] = content[:500] + "... [Đã tóm lược kết quả bước cũ]"
+            elif role == "assistant" and len(content) > 1000:
+                copy_m["content"] = content[:800] + "... [Đã tóm lược]"
+            elif role == "user" and idx > 1 and len(content) > 1000:
+                copy_m["content"] = content[:800] + "... [Đã tóm lược]"
+        else:
+            # Ở 4 lượt gần nhất, chỉ phân đoạn nếu nội dung đơn lẻ cực lớn (>10,000 chars)
+            if len(content) > 10000:
+                copy_m["content"] = content[:6000] + "\n\n... [Phân đoạn nội dung lớn] ...\n\n" + content[-2000:]
+
+        compacted.append(copy_m)
+
+    # Nếu sau khi nén từng tin nhắn mà vẫn vượt quá, trượt cửa sổ giữ System prompt + User first + 6 turns gần nhất
+    total_chars_after = sum(len(str(m.get("content", ""))) for m in compacted)
+    if (total_chars_after // 3) > max_tokens and len(compacted) > 8:
+        system_msg = compacted[0]
+        user_first = compacted[1] if len(compacted) > 1 and compacted[1].get("role") == "user" else None
+        
+        # Lấy 6 lượt gần nhất, đảm bảo nếu tin nhắn đầu tiên trong cụm là 'tool' thì lấy thêm assistant gọi nó
+        recent = compacted[-6:]
+        while recent and recent[0].get("role") == "tool":
+            recent.pop(0)
+            
+        final_list = [system_msg]
+        if user_first and user_first not in recent:
+            final_list.append(user_first)
+        final_list.extend(recent)
+        return final_list
+
     return compacted
 
 
