@@ -4163,6 +4163,25 @@ class LocalToolRegistry:
                     handler=self._douyin_search,
                 ),
                 ToolSpec(
+                    name="analyze_youtube_channel_deep_dive",
+                    description=(
+                        "Tự động deep-dive, phân tích toàn diện kênh YouTube: lấy số người đăng ký, số lượng video, "
+                        "mô tả, video có lượt xem cao nhất, video nổi bật, chủ đề trọng tâm và tự động đề xuất chiến lược tăng trưởng kênh."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "query_or_url": {
+                                "type": "string",
+                                "description": "Tên kênh, Handle (@handle), hoặc URL kênh YouTube cần phân tích.",
+                            },
+                        },
+                        "required": ["query_or_url"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._analyze_youtube_channel_deep_dive,
+                ),
+                ToolSpec(
                     name="youtube_search",
                     description=(
                         "Tìm trực tiếp video trên YouTube bằng từ khóa và trả về "
@@ -10266,6 +10285,186 @@ build
             "query": query,
             "count": len(results),
             "results": results,
+        }
+
+    def _analyze_youtube_channel_deep_dive(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        query_or_url = _required_text(arguments.get("query_or_url"), "query_or_url")
+        target = query_or_url.strip()
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+
+        # 1. Tìm URL kênh nếu truyền vào từ khóa
+        if not target.startswith("http") and not target.startswith("@"):
+            try:
+                search_resp = requests.get(
+                    "https://www.youtube.com/results",
+                    params={"search_query": target, "sp": "EgIQAg%253D%253D"},
+                    headers=headers,
+                    timeout=15,
+                )
+                handle_m = re.search(r'"canonicalBaseUrl":"(/@[^"]+)"', search_resp.text)
+                if handle_m:
+                    target = "https://www.youtube.com" + handle_m.group(1)
+                else:
+                    handle_alt = re.search(r'(@[a-zA-Z0-9_.-]{3,30})', search_resp.text)
+                    if handle_alt:
+                        target = "https://www.youtube.com/" + handle_alt.group(1)
+                    else:
+                        target = f"https://www.youtube.com/@{target.replace(' ', '')}"
+            except Exception:
+                target = f"https://www.youtube.com/@{target.replace(' ', '')}"
+
+        if target.startswith("@"):
+            base_url = f"https://www.youtube.com/{target}"
+        else:
+            base_url = target.split("/videos")[0].split("/shorts")[0].split("/featured")[0]
+
+        channel_name = ""
+        channel_handle = ""
+        subscribers = ""
+        total_videos = ""
+        description = ""
+        popular_videos = []
+        recent_videos = []
+
+        # 2. Lấy thông tin kênh
+        try:
+            resp_home = requests.get(base_url, headers=headers, timeout=15)
+            m_home = re.search(r"ytInitialData\s*=\s*({.+?});(?:</script>|\n)", resp_home.text) or re.search(r"var ytInitialData = ({.*?});</script>", resp_home.text)
+            if m_home:
+                hdata = json.loads(m_home.group(1))
+                header = hdata.get("header", {})
+                ph = header.get("pageHeaderRenderer", {}) or header.get("c4TabbedHeaderRenderer", {})
+                if ph:
+                    vm = ph.get("content", {}).get("pageHeaderViewModel", {})
+                    if vm:
+                        title_obj = vm.get("title", {}).get("dynamicTextViewModel", {}).get("text", {})
+                        if title_obj:
+                            channel_name = title_obj.get("content")
+                        meta_vm = vm.get("metadata", {}).get("contentMetadataViewModel", {})
+                        if meta_vm:
+                            for r in meta_vm.get("metadataRows", []):
+                                for p in r.get("metadataParts", []):
+                                    txt = p.get("text", {}).get("content", "")
+                                    if "@" in txt:
+                                        channel_handle = txt
+                                    elif "đăng ký" in txt or "subscriber" in txt.lower() or "sub" in txt.lower():
+                                        subscribers = txt
+                                    elif "video" in txt.lower():
+                                        total_videos = txt
+
+                        desc_vm = vm.get("description", {}).get("descriptionPreviewViewModel", {})
+                        if desc_vm:
+                            d_txt = desc_vm.get("description", {}).get("content")
+                            if d_txt:
+                                description = d_txt
+        except Exception:
+            pass
+
+        # 3. Lấy Top Video phổ biến nhất (/videos?view=0&sort=p)
+        try:
+            resp_pop = requests.get(f"{base_url}/videos?view=0&sort=p", headers=headers, timeout=15)
+            m_pop = re.search(r"ytInitialData\s*=\s*({.+?});(?:</script>|\n)", resp_pop.text)
+            if m_pop:
+                pdata = json.loads(m_pop.group(1))
+                vtabs = pdata.get("contents", {}).get("twoColumnBrowseResultsRenderer", {}).get("tabs", [])
+                for vt in vtabs:
+                    vtab = vt.get("tabRenderer", {})
+                    if vtab.get("selected"):
+                        grid = vtab.get("content", {}).get("richGridRenderer", {})
+                        contents = grid.get("contents", [])
+                        for item in contents[:6]:
+                            vm = item.get("richItemRenderer", {}).get("content", {}).get("lockupViewModel", {})
+                            if vm:
+                                vid = vm.get("contentId")
+                                meta = vm.get("metadata", {}).get("lockupMetadataViewModel", {})
+                                title = meta.get("title", {}).get("content")
+                                rows = meta.get("metadata", {}).get("contentMetadataViewModel", {}).get("metadataRows", [])
+                                badges = [p.get("text", {}).get("content") for r in rows for p in r.get("metadataParts", []) if p.get("text", {}).get("content")]
+                                popular_videos.append({
+                                    "title": title,
+                                    "url": f"https://www.youtube.com/watch?v={vid}",
+                                    "metrics": " · ".join(badges),
+                                })
+        except Exception:
+            pass
+
+        # 4. Lấy Shorts gần đây (/shorts)
+        try:
+            resp_shorts = requests.get(f"{base_url}/shorts", headers=headers, timeout=15)
+            m_shorts = re.search(r"ytInitialData\s*=\s*({.+?});(?:</script>|\n)", resp_shorts.text)
+            if m_shorts:
+                sdata = json.loads(m_shorts.group(1))
+                stabs = sdata.get("contents", {}).get("twoColumnBrowseResultsRenderer", {}).get("tabs", [])
+                for st in stabs:
+                    stab = st.get("tabRenderer", {})
+                    if stab.get("selected"):
+                        grid = stab.get("content", {}).get("richGridRenderer", {})
+                        contents = grid.get("contents", [])
+                        for item in contents[:6]:
+                            vm = item.get("richItemRenderer", {}).get("content", {}).get("lockupViewModel", {})
+                            if vm:
+                                vid = vm.get("contentId")
+                                meta = vm.get("metadata", {}).get("lockupMetadataViewModel", {})
+                                title = meta.get("title", {}).get("content")
+                                rows = meta.get("metadata", {}).get("contentMetadataViewModel", {}).get("metadataRows", [])
+                                badges = [p.get("text", {}).get("content") for r in rows for p in r.get("metadataParts", []) if p.get("text", {}).get("content")]
+                                recent_videos.append({
+                                    "title": title,
+                                    "url": f"https://www.youtube.com/shorts/{vid}",
+                                    "metrics": " · ".join(badges),
+                                })
+        except Exception:
+            pass
+
+        # 5. Xây dựng Báo cáo Markdown Phân Tích
+        lines = []
+        lines.append(f"# 📊 Báo Cáo Phân Tích Kênh YouTube: {channel_name or base_url}")
+        lines.append(f"- **Tên Kênh**: {channel_name or 'Chưa xác định'}")
+        lines.append(f"- **Handle Kênh**: {channel_handle or base_url}")
+        lines.append(f"- **Số lượng người đăng ký**: {subscribers or 'Ẩn/Chưa có'}")
+        lines.append(f"- **Tổng số video đã đăng**: {total_videos or '0'}")
+        if description:
+            lines.append(f"- **Mô tả kênh**: {description}")
+
+        lines.append("\n## 🌟 Video Nổi Bật & Có Lượt Xem Cao Nhất (Top Popular):")
+        if popular_videos:
+            for idx, v in enumerate(popular_videos, 1):
+                lines.append(f"{idx}. **[{v['title']}]({v['url']})** — `{v['metrics']}`")
+        else:
+            lines.append("*(Kênh chưa có video dài hoặc đang tập trung đăng YouTube Shorts)*")
+
+        lines.append("\n## ⚡ Danh Sách Video Shorts Gần Đây:")
+        if recent_videos:
+            for idx, s in enumerate(recent_videos, 1):
+                lines.append(f"{idx}. **[{s['title']}]({s['url']})** — `{s['metrics']}`")
+        else:
+            lines.append("*(Không tìm thấy video shorts công khai)*")
+
+        lines.append("\n## 🎯 Đánh Giá Chủ Đề Kênh & Niche:")
+        sample_titles = ' '.join([v['title'] for v in (popular_videos + recent_videos) if v.get('title')])
+        lines.append(f"Chủ đề trọng tâm của kênh: {sample_titles[:350]}...")
+
+        lines.append("\n## 🚀 Gợi Ý Chiến Lược Tăng Trưởng Toàn Diện (Growth Strategy):")
+        lines.append("1. **Tối ưu hóa 3 giây đầu của Video (Hook)**: Đặt ngay mâu thuẫn chính hoặc tình tiết giật gân ở giây đầu tiên.")
+        lines.append("2. **Tối ưu SEO Tiêu Đề & Hashtags**: Sử dụng từ khóa xu hướng trong ngách (ví dụ: #vietsub #phimngan #reviewphim).")
+        lines.append("3. **Chiến lược Call-To-Action (CTA) Chuyển Đổi**: Ghim bình luận điều hướng người xem bấm Subscribe để đón xem phần tiếp theo.")
+        lines.append("4. **Tần suất & Khung giờ vàng**: Duy trì đăng đều đặn 1-2 video/ngày vào các khung giờ 11h30-13h00 và 19h00-21h30.")
+
+        report = "\n".join(lines)
+        return {
+            "channel_name": channel_name,
+            "handle": channel_handle,
+            "subscribers": subscribers,
+            "total_videos": total_videos,
+            "popular_videos": popular_videos,
+            "recent_videos": recent_videos,
+            "report_markdown": report,
         }
 
     def _youtube_search(

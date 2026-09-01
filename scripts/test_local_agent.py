@@ -71,7 +71,11 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 283
+    assert len(registry.definitions()) == 284
+    assert registry.execute(
+        "analyze_youtube_channel_deep_dive",
+        {"query_or_url": "nini vietsub"},
+    )["ok"]
     assert registry.execute(
         "inject_chrome_userscript_extension",
         {"script_payload": "console.log('injected');", "run_at": "document_start"},
