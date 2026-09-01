@@ -223,7 +223,19 @@ class LocalLLMServerManager:
             "-c", str(self.context_size),
             "-ngl", "99",
             "--flash-attn", "on",
+            "-b", "2048",
+            "-ub", "512",
+            "--cont-batching",
+            "--ctx-shift",
         ]
+        lookup_ngram = os.environ.get("M_AUTO_PILOT_LOOKUP_NGRAM", "3").strip()
+        if lookup_ngram and lookup_ngram != "0":
+            cmd.extend(["--lookup-ngram-min", lookup_ngram])
+
+        draft_model = os.environ.get("M_AUTO_PILOT_DRAFT_MODEL", "").strip()
+        if draft_model and Path(draft_model).is_file():
+            cmd.extend(["--model-draft", draft_model, "--draft-max", "16", "--draft-min", "2"])
+
         return cmd
 
     def stop(self) -> None:
