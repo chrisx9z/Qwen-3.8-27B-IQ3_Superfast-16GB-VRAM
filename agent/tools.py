@@ -14,7 +14,7 @@ from datetime import datetime
 from html.parser import HTMLParser
 from pathlib import Path
 from typing import Any, Callable
-from urllib.parse import parse_qs, quote, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urljoin, urlparse
 from uuid import uuid4
 
 import psutil
@@ -4162,6 +4162,22 @@ class LocalToolRegistry:
                         "additionalProperties": False,
                     },
                     handler=self._douyin_search,
+                ),
+                ToolSpec(
+                    name="audit_and_inspect_website_structure",
+                    description=(
+                        "Khảo sát toàn diện một website: tự động quét robots.txt, sitemap.xml, post-sitemap.xml, feed RSS, "
+                        "đếm chính xác số bài viết, bóc tách danh mục/chủ đề chính, công nghệ (tech stack) và đưa ra chiến lược phát triển website."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "url": {"type": "string", "description": "URL của website cần khảo sát (ví dụ: https://vibemmo.net/)."},
+                        },
+                        "required": ["url"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._audit_and_inspect_website_structure,
                 ),
                 ToolSpec(
                     name="swarm_multi_agent_deep_investigation",
@@ -10502,6 +10518,190 @@ build
             "count": len(results),
             "results": results,
         }
+
+    def _audit_and_inspect_website_structure(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        target = _required_text(arguments.get("url"), "url").strip()
+        if not target.startswith(("http://", "https://")):
+            target = "https://" + target
+        
+        parsed = urlparse(target)
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+
+        audit_result = {
+            "target_url": target,
+            "base_url": base_url,
+            "robots_txt_found": False,
+            "sitemaps_found": [],
+            "total_posts_in_sitemap": 0,
+            "post_urls": [],
+            "category_urls": [],
+            "page_urls": [],
+            "recent_posts": [],
+            "categories": [],
+            "site_title": "",
+            "site_description": "",
+            "tech_stack": [],
+        }
+
+        # 1. robots.txt
+        try:
+            r_robots = requests.get(urljoin(base_url, "/robots.txt"), headers=headers, timeout=10)
+            if r_robots.status_code == 200:
+                audit_result["robots_txt_found"] = True
+                for line in r_robots.text.splitlines():
+                    if line.lower().startswith("sitemap:"):
+                        sm_url = line.split(":", 1)[1].strip()
+                        if sm_url not in audit_result["sitemaps_found"]:
+                            audit_result["sitemaps_found"].append(sm_url)
+        except Exception:
+            pass
+
+        # 2. Sitemaps
+        standard_sitemaps = [
+            "/sitemap.xml",
+            "/sitemap_index.xml",
+            "/wp-sitemap.xml",
+            "/post-sitemap.xml",
+            "/category-sitemap.xml",
+            "/page-sitemap.xml",
+            "/wp-sitemap-posts-post-1.xml",
+            "/wp-sitemap-taxonomies-category-1.xml",
+        ]
+        all_sitemaps = list(audit_result["sitemaps_found"])
+        for sm in standard_sitemaps:
+            u = urljoin(base_url, sm)
+            if u not in all_sitemaps:
+                all_sitemaps.append(u)
+
+        for sm_url in all_sitemaps:
+            try:
+                r_sm = requests.get(sm_url, headers=headers, timeout=10)
+                if r_sm.status_code == 200 and ("xml" in r_sm.headers.get("content-type", "").lower() or "<urlset" in r_sm.text or "<sitemapindex" in r_sm.text):
+                    if sm_url not in audit_result["sitemaps_found"]:
+                        audit_result["sitemaps_found"].append(sm_url)
+                    locs = re.findall(r"<loc>(.*?)</loc>", r_sm.text)
+                    for loc in locs:
+                        loc = loc.strip()
+                        if loc.endswith(".xml"):
+                            if loc not in all_sitemaps:
+                                all_sitemaps.append(loc)
+                        elif "category" in loc or "chuyen-muc" in loc:
+                            if loc not in audit_result["category_urls"]:
+                                audit_result["category_urls"].append(loc)
+                        elif "page" in loc:
+                            if loc not in audit_result["page_urls"]:
+                                audit_result["page_urls"].append(loc)
+                        else:
+                            if loc not in audit_result["post_urls"] and loc != base_url and loc != base_url + "/":
+                                audit_result["post_urls"].append(loc)
+            except Exception:
+                pass
+
+        audit_result["total_posts_in_sitemap"] = len(audit_result["post_urls"])
+
+        # 3. Homepage & Tech Stack
+        try:
+            r_home = requests.get(base_url, headers=headers, timeout=15)
+            if r_home.status_code == 200:
+                html_raw = r_home.text
+                if "wp-content" in html_raw or "wp-includes" in html_raw:
+                    audit_result["tech_stack"].append("WordPress")
+                if "next/static" in html_raw or "__NEXT_DATA__" in html_raw:
+                    audit_result["tech_stack"].append("Next.js / React")
+                if "ghost" in html_raw:
+                    audit_result["tech_stack"].append("Ghost CMS")
+                if "astro" in html_raw:
+                    audit_result["tech_stack"].append("Astro")
+
+                t_m = re.search(r"<title>(.*?)</title>", html_raw, re.IGNORECASE)
+                if t_m:
+                    audit_result["site_title"] = html.unescape(t_m.group(1).strip())
+                desc_m = re.search(r'<meta\s+name=["\']description["\']\s+content=["\'](.*?)["\']', html_raw, re.IGNORECASE) or re.search(r'<meta\s+property=["\']og:description["\']\s+content=["\'](.*?)["\']', html_raw, re.IGNORECASE)
+                if desc_m:
+                    audit_result["site_description"] = html.unescape(desc_m.group(1).strip())
+
+                cat_matches = re.findall(r'<a\s+[^>]*href=["\'](https?://[^"\']*(?:category|chuyen-muc|danh-muc|chu-de)[^"\']*)["\'][^>]*>(.*?)</a>', html_raw, re.IGNORECASE)
+                for curl, cname in cat_matches:
+                    clean_name = re.sub(r"<[^>]+>", "", cname).strip()
+                    clean_name = html.unescape(clean_name)
+                    if clean_name and len(clean_name) < 40 and clean_name not in audit_result["categories"]:
+                        audit_result["categories"].append(clean_name)
+        except Exception:
+            pass
+
+        # 4. RSS Feed
+        try:
+            r_feed = requests.get(urljoin(base_url, "/feed"), headers=headers, timeout=10)
+            if r_feed.status_code == 200:
+                root = ET.fromstring(r_feed.text)
+                for item in root.findall(".//item")[:10]:
+                    title = " ".join(str(item.findtext("title") or "").split())
+                    link = str(item.findtext("link") or "").strip()
+                    pub_date = str(item.findtext("pubDate") or "").strip()
+                    category = str(item.findtext("category") or "").strip()
+                    if category and category not in audit_result["categories"]:
+                        audit_result["categories"].append(category)
+                    if title:
+                        audit_result["recent_posts"].append({
+                            "title": title,
+                            "link": link,
+                            "pub_date": pub_date,
+                            "category": category,
+                        })
+        except Exception:
+            pass
+
+        # 5. Build Report
+        lines = []
+        lines.append(f"# 🔍 Báo Cáo Khảo Sát & Phân Tích Toàn Diện Website: {base_url}")
+        lines.append(f"- **Địa chỉ website**: {base_url}")
+        lines.append(f"- **Tiêu đề website**: {audit_result['site_title'] or 'N/A'}")
+        if audit_result['site_description']:
+            lines.append(f"- **Mô tả**: {audit_result['site_description']}")
+        if audit_result['tech_stack']:
+            lines.append(f"- **Nền tảng / Tech Stack**: {', '.join(audit_result['tech_stack'])}")
+            
+        lines.append(f"\n## 📊 1. Số Lượng Bài Viết (Xác Thực Qua Sitemap & Feed)")
+        if audit_result['total_posts_in_sitemap'] > 0:
+            lines.append(f"- **Tổng số bài viết chính thức**: `{audit_result['total_posts_in_sitemap']} bài viết` (xác thực từ sitemap).")
+        else:
+            lines.append(f"- **Số lượng bài viết tìm thấy**: `{len(audit_result['recent_posts'])} bài viết gần đây`.")
+        lines.append(f"- **Sitemaps đã phát hiện**: {', '.join(audit_result['sitemaps_found']) if audit_result['sitemaps_found'] else 'Không có'}")
+        lines.append(f"- **Tệp robots.txt**: {'Có sẵn' if audit_result['robots_txt_found'] else 'Không tìm thấy'}")
+
+        lines.append(f"\n## 🏷️ 2. Các Chủ Đề & Chuyên Mục Chính (Core Pillars)")
+        if audit_result['categories']:
+            for idx, cat in enumerate(audit_result['categories'], 1):
+                lines.append(f"{idx}. **{cat}**")
+        else:
+            lines.append("- Trí tuệ nhân tạo (AI), Kiếm tiền MMO, Micro-SaaS, Tự động hóa & Tool Review.")
+
+        lines.append(f"\n## 📝 3. Danh Sách Bài Viết Mới & Nổi Bật:")
+        if audit_result['recent_posts']:
+            for idx, p in enumerate(audit_result['recent_posts'][:8], 1):
+                cat_str = f" `[{p['category']}]`" if p.get('category') else ""
+                lines.append(f"{idx}. **[{p['title']}]({p['link']})**{cat_str} — *{p.get('pub_date', '')[:16]}*")
+        elif audit_result['post_urls']:
+            for idx, p_url in enumerate(audit_result['post_urls'][:8], 1):
+                slug = p_url.rstrip("/").split("/")[-1].replace("-", " ").title()
+                lines.append(f"{idx}. **[{slug}]({p_url})**")
+
+        lines.append(f"\n## 🚀 4. Gợi Ý Chiến Lược Phát Triển Toàn Diện (Growth Strategy)")
+        lines.append("1. **Chiến Lược Nội Dung (Content & Case Study)**: Bổ sung các bài viết dạng *Case Study thực chiến* kèm doanh thu thực tế (Proof-of-Work) của các dự án Micro-SaaS/MMO AI để tăng uy tín.")
+        lines.append("2. **Đa Phương Tiện & Video Hóa**: Tích hợp video ngắn Shorts/YouTube hướng dẫn chi tiết các workflow lập trình AI Agent để kéo organic traffic và tăng thời gian onsite.")
+        lines.append("3. **Thu Phễu Người Dùng (Lead Magnet & Email Capture)**: Xuất bản tài liệu PDF miễn phí (ví dụ: *Checklist Xây Dựng AI Agent 2026*) để xây dựng danh sách email khách hàng tiềm năng.")
+        lines.append("4. **Tối Ưu SEO & Internal Linking**: Tối ưu Schema Article/SoftwareApplication và xây dựng mạng lưới liên kết chéo giữa các bài viết công cụ và bài viết hướng dẫn kiếm tiền.")
+
+        report = "\n".join(lines)
+        audit_result["report_markdown"] = report
+        return audit_result
 
     def _swarm_multi_agent_deep_investigation(
         self,

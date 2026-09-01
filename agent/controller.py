@@ -264,6 +264,12 @@ Core Operating Principles:
 
         if (
             _normalise_task_mode(task_mode) != "coding"
+            and _is_direct_website_audit_task(user_prompt)
+        ):
+            return self._run_direct_website_audit_task(user_prompt, messages)
+
+        if (
+            _normalise_task_mode(task_mode) != "coding"
             and _is_direct_youtube_search_task(user_prompt)
         ):
             return self._run_direct_youtube_search_task(user_prompt, messages)
@@ -539,6 +545,37 @@ Core Operating Principles:
             text = f"Đã xác minh {selected} nhưng cài đặt thất bại: {install_result.get('error', 'lỗi không rõ')}."
         conversation.append({"role": "assistant", "content": text})
         return AgentResult(text=text, messages=conversation, steps=1)
+
+    def _run_direct_website_audit_task(
+        self,
+        prompt: str,
+        messages: list[dict[str, Any]] | None,
+    ) -> AgentResult:
+        url = _extract_url_from_prompt(prompt)
+        self._emit(
+            "status",
+            {"message": f"Đang trực tiếp khảo sát cấu trúc website, sitemaps và bài viết: {url}..."},
+        )
+        res = self.registry.execute("audit_and_inspect_website_structure", {"url": url})
+        report = res.get("result", {}).get("report_markdown", "")
+        if not report:
+            report = f"Đã hoàn thành khảo sát website {url}."
+            
+        conversation = list(messages or [])
+        if not conversation:
+            conversation.append({
+                "role": "system",
+                "content": self.system_prompt,
+            })
+        conversation.extend([
+            {"role": "user", "content": prompt},
+            {"role": "assistant", "content": report},
+        ])
+        return AgentResult(
+            text=report,
+            messages=conversation,
+            steps=1,
+        )
 
     def _run_direct_youtube_search_task(
         self,
@@ -867,6 +904,7 @@ Core Operating Principles:
 
         # 1. Base Core Tools (Always useful for general assistance & navigation)
         base_tools = {
+            "audit_and_inspect_website_structure",
             "swarm_multi_agent_deep_investigation",
             "track_trending_industry_topics_radar",
             "generate_executive_research_briefing_pdf_md",
@@ -1446,6 +1484,24 @@ def _is_direct_repo_task(prompt: str) -> bool:
         return False
     return has_target and has_install
 
+
+
+def _is_direct_website_audit_task(prompt: str) -> bool:
+    lowered = prompt.lower()
+    has_url = "http://" in lowered or "https://" in lowered or ".net" in lowered or ".com" in lowered or ".org" in lowered or ".vn" in lowered or ".io" in lowered
+    audit_intent = any(k in lowered for k in ["bài viết", "sitemap", "chuyên mục", "chủ đề", "website", "trang web", "phân tích web", "bao nhiêu bài", "hướng phát triển", "audit"])
+    return has_url and audit_intent
+
+
+def _extract_url_from_prompt(prompt: str) -> str:
+    m = re.search(r'(https?://[^\s]+)', prompt)
+    if m:
+        return m.group(1).rstrip(".,;)>'\"")
+    # domain fallback
+    m_dom = re.search(r'([a-zA-Z0-9-]+\.(?:net|com|org|vn|io|ai|dev|co|xyz))', prompt)
+    if m_dom:
+        return f"https://{m_dom.group(1)}"
+    return ""
 
 def _is_direct_youtube_search_task(prompt: str) -> bool:
     lowered = prompt.lower()
