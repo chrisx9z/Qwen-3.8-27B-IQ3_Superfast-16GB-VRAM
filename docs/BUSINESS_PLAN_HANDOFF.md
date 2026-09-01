@@ -6,7 +6,7 @@ Build a local-first computer-use and coding agent powered by Qwen3.8 27B, with Q
 
 ## Architecture decision
 
-- `D:\M-Auto-Pilot` is the controller application.
+- The repository root is the controller application.
 - `D:\AI-Video-Localizer` is an independent target application.
 - M Auto Pilot must control the target through adapters, UI Automation, browser tools, APIs, or approved commands; it must not import or modify the target source tree.
 
@@ -15,14 +15,14 @@ Build a local-first computer-use and coding agent powered by Qwen3.8 27B, with Q
 1. Web research: search the Internet, use fallback providers, open sources, extract relevant text, and return URLs/source excerpts.
 2. Computer control: inspect Windows/browser state and perform approved actions.
 3. Coding agent: inspect, edit, test, checkpoint, and verify changes.
-4. Application adapters: launch, inspect, and control AI Video Localizer without coupling its code.
-5. Runtime: chat history, progress narration, resumable state, Q4/Q6 profiles, and clear errors.
+4. Application adapters: launch, inspect, and control external apps without coupling their code.
+5. Runtime: chat history, progress narration, resumable state, IQ3_S profile, and clear errors.
 
 ## Current implementation
 
 - Generic Internet search and source extraction are implemented and tested.
 - Direct Bilibili, YouTube, and Douyin paths are optimizations only; they are not the web architecture.
-- A standalone executable is built from `D:\M-Auto-Pilot`.
+- A standalone executable is built from the repository root.
 - AI Video Localizer worktree is clean after removing the previous embedded Auto Pilot changes.
 
 ## Next priorities
