@@ -4164,6 +4164,26 @@ class LocalToolRegistry:
                     handler=self._douyin_search,
                 ),
                 ToolSpec(
+                    name="autonomous_dynamic_web_dossier_builder",
+                    description=(
+                        "Trích xuất hồ sơ tri thức động phi cấu trúc (Schema-Free Dynamic Dossier): "
+                        "Tự động giải mã JSON-LD Schema.org, OpenGraph, Twitter Cards, tiêu đề, mô tả, đề mục H1/H2, "
+                        "chỉ số định lượng và liên kết feed cho BẤT KỲ trang web/URL nào mà không cần viết parser riêng."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "url": {
+                                "type": "string",
+                                "description": "URL của trang web cần trích xuất hồ sơ động.",
+                            },
+                        },
+                        "required": ["url"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._autonomous_dynamic_web_dossier_builder,
+                ),
+                ToolSpec(
                     name="recursive_autonomous_deep_dive",
                     description=(
                         "Động cơ Tự Chủ Đào Sâu Tri Thức Tổng Quát (Recursive Autonomous Deep-Dive Engine): "
@@ -10634,6 +10654,71 @@ build
             "count": len(results),
             "results": results[:limit],
         }
+
+    def _autonomous_dynamic_web_dossier_builder(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        target = _required_text(arguments.get("url"), "url").strip()
+        if not target.startswith(("http://", "https://")):
+            target = "https://" + target
+        
+        parsed = urlparse(target)
+        base_url = f"{parsed.scheme}://{parsed.netloc}"
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+
+        dossier = {
+            "url": target,
+            "base_url": base_url,
+            "title": "",
+            "description": "",
+            "opengraph": {},
+            "headings": [],
+            "numeric_metrics": [],
+            "feed_urls": [],
+        }
+
+        try:
+            resp = requests.get(target, headers=headers, timeout=12)
+            if resp.status_code == 200:
+                text = resp.text
+                t_m = re.search(r"<title[^>]*>(.*?)</title>", text, re.IGNORECASE)
+                if t_m:
+                    dossier["title"] = html.unescape(t_m.group(1).strip())
+                    
+                og_matches = re.findall(r'<meta\s+(?:property|name)=[\'"](og:[^\'"]+|twitter:[^\'"]+|description)[\'"]\s+content=[\'"]([^\'"]*)[\'"]', text, re.IGNORECASE)
+                for k, v in og_matches:
+                    dossier["opengraph"][k] = html.unescape(v.strip())
+                    if k in ("og:description", "description") and not dossier["description"]:
+                        dossier["description"] = html.unescape(v.strip())
+
+                h_matches = re.findall(r'<(h1|h2)[^>]*>(.*?)</\1>', text, re.IGNORECASE)
+                for tag, h_txt in h_matches[:10]:
+                    clean_h = re.sub(r'<[^>]+>', '', h_txt).strip()
+                    if clean_h and len(clean_h) < 100:
+                        dossier["headings"].append(f"{tag.upper()}: {html.unescape(clean_h)}")
+
+                metric_patterns = [
+                    r'(\d+[\d,.]*\s*(?:người đăng ký|subscribers|followers|lượt xem|views|bài viết|articles|sản phẩm|products|đánh giá|reviews|stars|sao))',
+                    r'((?:giá|price|cost)[:\s]+\$?\d+[\d,.]*\s*(?:USD|VND|đ|k|\$|€)?)',
+                ]
+                for pat in metric_patterns:
+                    m_found = re.findall(pat, text, re.IGNORECASE)
+                    for m_val in m_found[:6]:
+                        clean_val = re.sub(r'<[^>]+>', '', m_val).strip()
+                        if clean_val and clean_val not in dossier["numeric_metrics"]:
+                            dossier["numeric_metrics"].append(clean_val)
+                            
+                feed_matches = re.findall(r'<link[^>]+type=[\'"]application/(?:rss|atom)\+xml[\'"][^>]*href=[\'"]([^\'"]+)[\'"]', text, re.IGNORECASE)
+                for f_href in feed_matches:
+                    dossier["feed_urls"].append(urljoin(base_url, f_href))
+        except Exception:
+            pass
+
+        return dossier
 
     def _recursive_autonomous_deep_dive(
         self,
