@@ -9476,14 +9476,15 @@ class AgentPage(QWidget):
         q = query.strip().lower()
         for i in range(self.chat_list.count()):
             item = self.chat_list.item(i)
-            chat_id = item.data(Qt.ItemDataRole.UserRole)
-            chat = next((c for c in self.chats if c["id"] == chat_id), None)
+            chat_id = item.data(32) or item.data(Qt.ItemDataRole.UserRole)
+            chat = next((c for c in self.chats if c["id"] == str(chat_id)), None)
             if not q:
                 item.setHidden(False)
             elif chat is not None:
                 title = str(chat.get("title", "")).lower()
-                hist_text = " ".join(str(m.get("content", "")) for m in chat.get("history", [])).lower()
-                item.setHidden(q not in title and q not in hist_text)
+                hist_text = " ".join(str(m.get("content", "")) for m in self.history(chat)).lower()
+                prompt_text = str(chat.get("prompt", "")).lower()
+                item.setHidden(q not in title and q not in hist_text and q not in prompt_text)
             else:
                 item.setHidden(True)
 
