@@ -7378,21 +7378,35 @@ class GitCommitDialog(QDialog):
         if not msg:
             QMessageBox.warning(self, "Thiếu thông điệp", "Vui lòng nhập thông điệp commit!")
             return
-        from agent.tools import LocalToolRegistry
-        res = LocalToolRegistry().execute("git_commit", {"message": msg, "add_all": True})
-        if res.get("ok"):
-            QMessageBox.information(self, "Thành công", f"Đã commit thành công:\n{res.get('output')}")
-            self.load_git_status()
-        else:
-            QMessageBox.warning(self, "Lỗi commit", f"Không thể commit:\n{res.get('output') or res.get('error')}")
+        self.commit_btn.setEnabled(False)
+        self.status_view.setPlainText("Đang commit thay đổi...")
+        QApplication.processEvents()
+        try:
+            from agent.tools import LocalToolRegistry
+            res = LocalToolRegistry().execute("git_commit", {"message": msg, "add_all": True})
+            if res.get("ok"):
+                QMessageBox.information(self, "Thành công", f"Đã commit thành công:\n{res.get('output')}")
+                self.msg_input.clear()
+                self.load_git_status()
+            else:
+                QMessageBox.warning(self, "Lỗi commit", f"Không thể commit:\n{res.get('output') or res.get('error')}")
+        finally:
+            self.commit_btn.setEnabled(True)
 
     def do_push(self) -> None:
-        from agent.tools import LocalToolRegistry
-        res = LocalToolRegistry().execute("git_push", {"remote": "origin"})
-        if res.get("ok"):
-            QMessageBox.information(self, "Thành công", f"Đã push thành công:\n{res.get('output')}")
-        else:
-            QMessageBox.warning(self, "Lỗi push", f"Không thể push:\n{res.get('output') or res.get('error')}")
+        self.push_btn.setEnabled(False)
+        self.status_view.setPlainText("Đang push lên Remote origin...")
+        QApplication.processEvents()
+        try:
+            from agent.tools import LocalToolRegistry
+            res = LocalToolRegistry().execute("git_push", {"remote": "origin"})
+            if res.get("ok"):
+                QMessageBox.information(self, "Thành công", f"Đã push thành công:\n{res.get('output')}")
+            else:
+                QMessageBox.warning(self, "Lỗi push", f"Không thể push:\n{res.get('output') or res.get('error')}")
+        finally:
+            self.push_btn.setEnabled(True)
+            self.load_git_status()
 
 class CheckpointDialog(QDialog):
     """Hộp thoại quản lý và khôi phục điểm Checkpoint."""
