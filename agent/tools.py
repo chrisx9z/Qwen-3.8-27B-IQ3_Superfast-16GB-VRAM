@@ -10658,6 +10658,16 @@ build
                     "target": raw_url,
                     "report_markdown": yt_res.get("report_markdown", f"Đã hoàn thành phân tích {raw_url}."),
                 }
+
+            # TikTok / Twitter / Facebook Profiles
+            if any(plat in raw_url.lower() for plat in ["tiktok.com", "twitter.com", "x.com", "facebook.com", "instagram.com"]):
+                clean_target = re.sub(r'https?://(?:www\.)?', '', raw_url).rstrip('/')
+                swarm_res = self._swarm_multi_agent_deep_investigation({"topic": f"Thông tin phân tích kênh {clean_target}", "focus": "Social Media Metrics"})
+                return {
+                    "category": "social_media_channel",
+                    "target": raw_url,
+                    "report_markdown": swarm_res.get("report_markdown", f"Đã hoàn thành phân tích kênh {raw_url}."),
+                }
             
             # GitHub Repository URL
             if "github.com" in raw_url:
