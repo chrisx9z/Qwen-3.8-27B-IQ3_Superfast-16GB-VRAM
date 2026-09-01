@@ -71,7 +71,23 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 288
+    assert len(registry.definitions()) == 292
+    assert registry.execute(
+        "store_research_knowledge_item",
+        {"topic": "Qwen 27B Architecture", "insight": "IQ3_S quantization preserves 99% accuracy.", "tags": ["qwen", "ai"]},
+    )["ok"]
+    assert registry.execute(
+        "retrieve_relevant_research_knowledge",
+        {"query": "qwen"},
+    )["ok"]
+    assert registry.execute(
+        "evaluate_source_authority_and_recency",
+        {"url": "https://arxiv.org/abs/2401.0001"},
+    )["ok"]
+    assert registry.execute(
+        "generate_counterfactual_hypotheses_and_insights",
+        {"decision_or_strategy": "Migrate to FlashAttention-2 for 2x faster inference"},
+    )["ok"]
     assert registry.execute(
         "autonomous_multi_hop_research",
         {"topic": "Qwen 3.8 27B AI Architecture", "depth": "fast"},
