@@ -1,6 +1,6 @@
-# Auto Pilot Qwen 3.8 27B IQ3_Superfast 🚀
+# Qwen 3.8 27B IQ3_Superfast 16GB VRAM 🚀
 
-**Auto Pilot Qwen 3.8 27B IQ3_Superfast** is an autonomous, fully local AI Assistant, Coding Agent, and Computer Use automation system. Powered by the high-speed **Qwen3.8-27B-UD-IQ3_S** model via `llama.cpp` (or any OpenAI-compatible endpoint), it provides high-performance local intelligence without relying on cloud APIs.
+**Qwen 3.8 27B IQ3_Superfast 16GB VRAM** is an autonomous, fully local AI Assistant, Coding Agent, and Computer Use automation system. Powered by the high-speed **Qwen3.8-27B-UD-IQ3_S** model via `llama.cpp` (or any OpenAI-compatible endpoint), it provides high-performance local intelligence (~50.4 tokens/s on 16GB GPUs) without relying on cloud APIs.
 
 ---
 
