@@ -9930,7 +9930,7 @@ class AgentPage(QWidget):
         sidebar_layout.addLayout(brand_row)
 
         # Primary Pill Button: + New chat
-        self.new_chat_button = QPushButton("＋ " + t("new_chat"))
+        self.new_chat_button = QPushButton(t("new_chat"))
         self.new_chat_button.setObjectName("PrimaryButton")
         self.new_chat_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.new_chat_button.clicked.connect(self.new_chat)
@@ -9939,7 +9939,7 @@ class AgentPage(QWidget):
         # Quick Search Box
         self.search_input = QLineEdit()
         self.search_input.setObjectName("SearchInput")
-        self.search_input.setPlaceholderText("🔍 " + t("search_chats_placeholder"))
+        self.search_input.setPlaceholderText(t("search_chats_placeholder"))
         self.search_input.textChanged.connect(self.filter_chat_list)
         sidebar_layout.addWidget(self.search_input)
 
