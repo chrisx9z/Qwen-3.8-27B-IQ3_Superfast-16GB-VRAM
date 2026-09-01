@@ -71,7 +71,11 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 284
+    assert len(registry.definitions()) == 285
+    assert registry.execute(
+        "deep_dive_internet_research",
+        {"topic_or_query": "Chiến lược tăng trưởng YouTube 2026", "max_sources": 2},
+    )["ok"]
     assert registry.execute(
         "analyze_youtube_channel_deep_dive",
         {"query_or_url": "nini vietsub"},

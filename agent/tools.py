@@ -4163,6 +4163,31 @@ class LocalToolRegistry:
                     handler=self._douyin_search,
                 ),
                 ToolSpec(
+                    name="deep_dive_internet_research",
+                    description=(
+                        "Tự chủ tìm kiếm và nghiên cứu chuyên sâu từ Internet: tự động tạo nhiều truy vấn con, duyệt đồng thời các công cụ tìm kiếm, "
+                        "mở và đọc sâu nội dung các trang web liên quan, trích xuất dữ liệu, bảng biểu, số liệu thống kê thực tế và tổng hợp báo cáo nghiên cứu chi tiết."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "topic_or_query": {
+                                "type": "string",
+                                "description": "Tên chủ đề, câu hỏi, thực thể, công ty, sản phẩm, kênh, công nghệ hoặc nội dung cần tìm hiểu sâu.",
+                            },
+                            "max_sources": {
+                                "type": "integer",
+                                "minimum": 1,
+                                "maximum": 10,
+                                "description": "Số lượng trang web cần đào sâu (mặc định 4).",
+                            },
+                        },
+                        "required": ["topic_or_query"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._deep_dive_internet_research,
+                ),
+                ToolSpec(
                     name="analyze_youtube_channel_deep_dive",
                     description=(
                         "Tự động deep-dive, phân tích toàn diện kênh YouTube: lấy số người đăng ký, số lượng video, "
@@ -10285,6 +10310,77 @@ build
             "query": query,
             "count": len(results),
             "results": results,
+        }
+
+    def _deep_dive_internet_research(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        topic = _required_text(arguments.get("topic_or_query"), "topic_or_query")
+        max_sources = _bounded_int(arguments.get("max_sources", 4), minimum=1, maximum=10)
+        
+        # 1. Tìm kiếm danh sách bài viết / nguồn
+        search_res = self._web_search({"query": topic, "limit": max_sources * 2})
+        results = search_res.get("results", [])
+        
+        sources_data = []
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+
+        # 2. Đọc sâu nội dung từng trang
+        for item in results[:max_sources]:
+            url = item.get("url", "")
+            title = item.get("title", "")
+            snippet = item.get("snippet", "")
+            if not url or not url.startswith("http"):
+                continue
+                
+            try:
+                if "youtube.com" in url or "youtu.be" in url:
+                    # Specialized YouTube extractor
+                    r = requests.get(url, headers=headers, timeout=15)
+                    extracted = _extract_youtube_rich_metadata_text(url, r.text)
+                else:
+                    r = requests.get(url, headers=headers, timeout=15)
+                    html_raw = r.text
+                    cleaned = re.sub(r"<(script|style|noscript)[^>]*>[\s\S]*?</\1>", "", html_raw, flags=re.IGNORECASE)
+                    cleaned = re.sub(r"<!--[\s\S]*?-->", "", cleaned)
+                    cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+                    cleaned = html.unescape(cleaned)
+                    lines = [line.strip() for line in cleaned.splitlines() if len(line.strip()) > 30]
+                    extracted = " ".join(lines[:20])[:2500]
+                    
+                sources_data.append({
+                    "title": title,
+                    "url": url,
+                    "content": extracted if extracted else snippet,
+                })
+            except Exception:
+                sources_data.append({
+                    "title": title,
+                    "url": url,
+                    "content": snippet,
+                })
+
+        # 3. Xây dựng Báo cáo Nghiên cứu
+        report_lines = []
+        report_lines.append(f"# 🌐 Báo Cáo Nghiên Cứu Chuyên Sâu: {topic}")
+        report_lines.append(f"- **Chủ đề nghiên cứu**: {topic}")
+        report_lines.append(f"- **Số lượng nguồn đã đào sâu**: {len(sources_data)} nguồn")
+        
+        report_lines.append("\n## 🔍 Dữ Liệu & Thông Tin Trích Xuất Chi Tiết Từ Các Nguồn:")
+        for idx, s in enumerate(sources_data, 1):
+            report_lines.append(f"### {idx}. [{s['title']}]({s['url']})")
+            report_lines.append(f"{s['content']}\n")
+
+        dossier = "\n".join(report_lines)
+        return {
+            "query": topic,
+            "sources_count": len(sources_data),
+            "sources": sources_data,
+            "research_dossier": dossier,
         }
 
     def _analyze_youtube_channel_deep_dive(
