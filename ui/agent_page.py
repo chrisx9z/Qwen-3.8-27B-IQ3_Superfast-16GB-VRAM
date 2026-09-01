@@ -924,17 +924,17 @@ class ComputerUseStudioDialog(QDialog):
         self.browser.setMarkdown(md)
 
 class AllToolsCatalogDialog(QDialog):
-    """Trung tâm 266 Công Cụ Tích Hợp — Tra Cứu & Điều Khiển Toàn Diện."""
+    """Trung tâm 283 Công Cụ Tích Hợp — Tra Cứu & Điều Khiển Toàn Diện."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("🎛️ Trung Tâm 266 Công Cụ Chuyên Sâu (Tool Hub)")
+        self.setWindowTitle("🎛️ Trung Tâm 283 Công Cụ Chuyên Sâu (Tool Hub)")
         self.resize(880, 620)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
 
-        header_lbl = QLabel("🎛️ Danh Mục 266 Công Cụ Hệ Sinh Thái M Auto Pilot:")
+        header_lbl = QLabel("🎛️ Danh Mục 283 Công Cụ Hệ Sinh Thái M Auto Pilot:")
         header_lbl.setStyleSheet("color: #f2f2f6; font-weight: bold; font-size: 15px;")
         layout.addWidget(header_lbl)
 
