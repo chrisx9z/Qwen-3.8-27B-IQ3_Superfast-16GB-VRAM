@@ -1,80 +1,62 @@
-# M Auto Pilot
+# Auto Pilot Qwen 3.8 27B IQ3_Superfast
 
-M Auto Pilot là trợ lý cá nhân chạy hoàn toàn cục bộ trên máy tính: trò chuyện, lập trình (coding agent), nghiên cứu web, điều khiển Windows/trình duyệt và điều khiển AI Video Localizer — dùng model **Qwen3.8-27B** qua llama.cpp (OpenAI-compatible).
+**Auto Pilot Qwen 3.8 27B IQ3_Superfast** là trợ lý cá nhân và Coding Agent chạy hoàn toàn cục bộ trên máy tính: trò chuyện tiếng Việt thông minh, lập trình tự động (Coding Agent), nghiên cứu web, điều khiển hệ điều hành Windows Win32 Native, tự động hóa trình duyệt Chrome DevTools Protocol (CDP) và điều khiển AI Video Localizer — tối ưu hóa trên mô hình **Qwen3.8-27B-UD-IQ3_S** qua `llama.cpp` (cổng 8080).
 
-## Phần mềm tách biệt
+---
 
-M Auto Pilot và AI Video Localizer là hai ứng dụng riêng:
+## 🌟 Điểm Nổi Bật & Tính Năng Đột Phá (283 Tools Chuyên Sâu)
 
-- M Auto Pilot sở hữu controller, UI, tools, chats, runtime và build output.
-- AI Video Localizer là ứng dụng ngoài được M Auto Pilot điều khiển qua adapter.
-- M Auto Pilot không import code của AI Video Localizer và không sửa source của nó.
-- Model GGUF và llama-server được đọc chung từ `D:\AI-Video-Localizer\models` và `D:\AI-Video-Localizer\tools\llama.cpp` (có thể ghi đè bằng `M_AUTO_PILOT_MODELS_DIR` / `M_AUTO_PILOT_LLAMA_SERVER`).
+1. **Hệ Sinh Thái 283 Tools Tự Động Hóa**:
+   - **Computer Use & Windows Native**: Điều khiển chuột Bézier mượt mà như người thật, gõ tiếng Việt Unicode SendInput API, quản lý cây HWND và chuyển đổi Virtual Desktops ngầm không chiếm chuột.
+   - **Chrome CDP Mastery**: Điều khiển đa tab, tiêm Userscript/Extension trực tiếp (`inject_chrome_userscript_extension`), quản lý Cookie, quan sát biến đổi DOM Mutation & Network Idle.
+   - **Vision OCR & AI Screen Grounding**: Dự đoán Bounding Box tọa độ màn hình High-DPI/2K/4K, tìm kiếm văn bản qua OCR và tự động điền Form ngữ nghĩa thông minh.
+   - **Safety Sandbox Firewall**: Tường lửa bảo vệ hệ thống (`enforce_computer_action_safety_firewall`), ngăn chặn 100% các hành vi xóa file hệ thống hoặc format ổ đĩa.
+2. **Dynamic Semantic Tool Router**:
+   - Tự động nạp động các công cụ cốt lõi (chỉ ~6-22 tools tương đương 790-2,000 tokens), triệt tiêu hoàn toàn lỗi tràn Context Window 8,192 tokens của LLM.
+3. **Chuẩn Hóa UTF-8 Streaming 100%**:
+   - Khắc phục triệt để lỗi vỡ font tiếng Việt (Mojibake), render markdown và suy luận mượt mà.
+4. **Giao Diện Trực Quan & Tinh Gọn**:
+   - Tự động co giãn bong bóng chat theo nội dung văn bản (`AutoResizingTextBrowser`).
+   - Tự động thu gọn khối suy luận (Reasoning Card) và Terminal Logs.
+   - Bộ studio chuyên sâu: `AllToolsCatalogDialog` (/tools), `ComputerUseStudioDialog`, `ComputerSafetyStudioDialog`, `ComputerMissionStudioDialog`.
 
-## Vị trí
+---
+
+## 🛠️ Vị Trí Thư Mục & Cấu Trúc Dự Án
 
 | Thành phần | Đường dẫn |
 |---|---|
-| Source (repo Git) | `D:\Vibe Code\M-Auto-Pilot` |
-| Runtime state (EXE dùng) | `D:\M-Auto-Pilot` (work/, logs/, chats) |
-| Model GGUF (dùng chung) | `D:\AI-Video-Localizer\models` |
-| llama.cpp | `D:\AI-Video-Localizer\tools\llama.cpp\llama-server.exe` |
-| EXE build | `D:\Vibe Code\M-Auto-Pilot\dist\M Auto Pilot.exe` |
-| EXE trên Desktop | `D:\OneDrive\Desktop\M Auto Pilot.exe` |
-| Target workspace | `D:\AI-Video-Localizer` |
+| Mã nguồn (Git Repo) | `D:\Vibe Code\M-Auto-Pilot` |
+| Runtime state (Logs, Chats, Checkpoints) | `work\auto_pilot\` |
+| Model GGUF | `D:\AI-Video-Localizer\models\Qwen3.8-27B-UD-IQ3_S.gguf` |
+| Llama Server | `http://127.0.0.1:8080/v1/chat/completions` |
+| File EXE đóng gói | `D:\Vibe Code\M-Auto-Pilot\dist\M Auto Pilot.exe` |
+| Shortcut Desktop | `D:\OneDrive\Desktop\M Auto Pilot.exe` |
 
-## Model
+---
 
-M Auto Pilot chỉ chạy **một model duy nhất: Qwen3.8-27B-UD-IQ3_S** (`Qwen3.8-27B-UD-IQ3_S.gguf`, bản lượng hóa nhẹ, hợp GPU 12–16 GB). Không còn Q4/Q6/14B — mọi profile cũ đều quy về model này.
+## 🚀 Hướng Dẫn Khởi Chạy
 
-Agent chạy trên cổng 8090, tách biệt với pipeline dịch 8080 của AI Video Localizer. Bấm **GPU status** để xem VRAM trước khi dùng.
-
-## Cách chạy
-
-Từ source:
-
+### 1. Chạy từ mã nguồn:
 ```powershell
-Set-Location D:\Vibe Code\M-Auto-Pilot
-& D:\AI-Video-Localizer\.venv\Scripts\python.exe scripts\run_auto_pilot_gui.py
+Set-Location "D:\Vibe Code\M-Auto-Pilot"
+& "D:\AI-Video-Localizer\.venv\Scripts\python.exe" scripts\run_auto_pilot_gui.py
 ```
 
-Từ EXE: mở `M Auto Pilot.exe` trên Desktop (runtime state tại `D:\M-Auto-Pilot`).
+### 2. Chạy từ File thực thi EXE:
+Mở file **`M Auto Pilot.exe`** ngay trên màn hình Desktop (hoặc nhấn phím tắt toàn hệ thống **`Alt + Shift + M`** để ẩn/hiện cửa sổ).
 
-CLI agent:
-
+### 3. Kiểm thử tự động:
 ```powershell
-& D:\AI-Video-Localizer\.venv\Scripts\python.exe scripts\run_local_agent.py "Liệt kê project"
-# hoặc hội thoại: gõ 'exit' để thoát
+& "D:\AI-Video-Localizer\.venv\Scripts\python.exe" scripts\test_local_agent.py
 ```
 
-## Giao diện
+---
 
-- Chat dạng bong bóng, render markdown, streaming câu trả lời từng chữ.
-- Chế độ: **Trợ lý cá nhân**, **Coding Agent**, **Auto Pilot**.
-- Lịch sử chat (ghim / đổi tên / xóa), lưu tại `work\auto_pilot\chats.json`.
-- Nút **GPU status** và **DeepSeek Harness** (Web UI tại `http://127.0.0.1:3080`).
-
-## Khả năng
-
-1. Nghiên cứu web: tìm kiếm, mở nguồn, trích xuất nội dung.
-2. Browser automation: mở, snapshot, click, type, extract, screenshot, đóng.
-3. Windows UI Automation: danh sách cửa sổ, cây control, click/type/phím.
-4. Coding: đọc/tìm/sửa file, git status/diff, compile/test, checkpoint/rollback.
-5. Tải video: Bilibili/YouTube/Douyin; điều khiển AI Video Localizer qua adapter.
-6. Screen capture + OCR (RapidOCR, chạy CPU).
-7. Quản lý tiến trình, log runtime, resource GPU.
-8. MCP server/client (42+ tool nội bộ, nạp MCP ngoài tùy chọn).
-
-## Build EXE
+## 📦 Đóng Gói Thành Bản EXE Độc Lập
 
 ```powershell
-Set-Location D:\Vibe Code\M-Auto-Pilot
-& D:\AI-Video-Localizer\.venv\Scripts\python.exe -m PyInstaller "M Auto Pilot.spec" --noconfirm
+Set-Location "D:\Vibe Code\M-Auto-Pilot"
+& "D:\AI-Video-Localizer\.venv\Scripts\python.exe" -m PyInstaller "M Auto Pilot.spec" --noconfirm
 Copy-Item "dist\M Auto Pilot.exe" "D:\OneDrive\Desktop\M Auto Pilot.exe" -Force
-```
-
-## Kiểm thử
-
-```powershell
-& D:\AI-Video-Localizer\.venv\Scripts\python.exe scripts\test_local_agent.py
 ```

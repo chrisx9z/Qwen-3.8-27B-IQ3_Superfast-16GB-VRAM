@@ -268,3 +268,291 @@ QMainWindow {
 #ChatInput:focus {
     border: none;
 }
+
+/* ---------- Stop Button ---------- */
+#StopButton {
+    background-color: #e5484d;
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 14px;
+    font-weight: 600;
+}
+
+#StopButton:hover {
+    background-color: #f2555a;
+}
+
+#StopButton:pressed {
+    background-color: #d13d42;
+}
+
+/* ---------- Reasoning Card & Progress ---------- */
+#ReasoningCard {
+    background-color: #171922;
+    border: 1px solid #2d3345;
+    border-radius: 10px;
+    margin: 4px 0;
+}
+
+#ReasoningHeader {
+    background-color: transparent;
+    border: none;
+    color: #9aa2b6;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 6px;
+}
+
+#ReasoningHeader:hover {
+    color: #d0d7e8;
+}
+
+#ReasoningBody {
+    background-color: #111319;
+    border: 1px solid #232733;
+    border-radius: 6px;
+    color: #b0b6c6;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 11.5px;
+    padding: 6px;
+}
+
+/* ---------- Terminal Card ---------- */
+#TerminalCard {
+    background-color: #0d1117;
+    border: 1px solid #21262d;
+    border-radius: 10px;
+    margin: 4px 0;
+}
+
+#TerminalHeader {
+    background-color: transparent;
+    border: none;
+    color: #58a6ff;
+    text-align: left;
+    font-size: 12px;
+    font-weight: 600;
+    padding: 3px 6px;
+}
+
+#TerminalHeader:hover {
+    color: #79c0ff;
+}
+
+#TerminalBody {
+    background-color: #05070a;
+    border: 1px solid #161b22;
+    border-radius: 6px;
+    color: #3fb950;
+    font-family: Consolas, "Courier New", monospace;
+    font-size: 11.5px;
+    padding: 6px;
+}
+
+/* ---------- Search Input & Attachments ---------- */
+#SearchInput {
+    background-color: #181b22;
+    border: 1px solid #2d3345;
+    border-radius: 8px;
+    color: #e6e6eb;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+#SearchInput:focus {
+    border: 1px solid #3b6ef5;
+}
+
+#AttachmentChip {
+    background-color: #1c202c;
+    border: 1px solid #333a4d;
+    border-radius: 6px;
+    padding: 2px 8px;
+}
+
+#AttachmentChip QLabel {
+    color: #8bb2ff;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+#ChipRemoveBtn {
+    background-color: transparent;
+    border: none;
+    color: #8b949e;
+    font-weight: bold;
+    font-size: 11px;
+    padding: 0 2px;
+}
+
+#ChipRemoveBtn:hover {
+    color: #ff7b7b;
+}
+
+/* ---------- Task Checklist Card ---------- */
+#TaskChecklistCard {
+    background-color: #151821;
+    border: 1px solid #2d3345;
+    border-radius: 10px;
+    margin: 6px 0;
+}
+
+#TaskChecklistHeader {
+    background-color: transparent;
+    border: none;
+    color: #58a6ff;
+    text-align: left;
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 4px 8px;
+}
+
+#TaskChecklistHeader:hover {
+    color: #79c0ff;
+}
+
+#TaskProgressBar {
+    background-color: #212633;
+    border-radius: 4px;
+    height: 6px;
+    text-align: center;
+}
+
+#TaskProgressBar::chunk {
+    background-color: #238636;
+    border-radius: 4px;
+}
+
+/* ---------- Quick Action Chips ---------- */
+#QuickActionChip {
+    background-color: #1c202b;
+    border: 1px solid #2e3547;
+    border-radius: 12px;
+    color: #9aa2b6;
+    font-size: 11.5px;
+    font-weight: 500;
+    padding: 3px 10px;
+}
+
+#QuickActionChip:hover {
+    background-color: #262c3b;
+    color: #ffffff;
+    border-color: #4d7cf8;
+}
+
+#QuickActionChip:pressed {
+    background-color: #1e2433;
+}
+
+/* ---------- Workspace Badge ---------- */
+#WorkspaceBadge {
+    background-color: #1b1f2b;
+    border: 1px solid #2e3547;
+    border-radius: 6px;
+    color: #8b949e;
+    font-size: 11px;
+    padding: 2px 8px;
+}
+
+#WorkspaceBadge:hover {
+    color: #58a6ff;
+    border-color: #3b6ef5;
+}
+
+/* ---------- Resource Monitor in Footer ---------- */
+#ResourceMonitor {
+    background-color: #141720;
+    border: 1px solid #232836;
+    border-radius: 6px;
+    padding: 4px 8px;
+}
+
+#ResourcePill {
+    font-size: 11px;
+    font-family: Consolas, monospace;
+    color: #8b949e;
+}
+
+#CheckpointItem {
+    background-color: #161922;
+    border: 1px solid #272d3d;
+    border-radius: 8px;
+    padding: 8px 10px;
+    margin: 4px 0;
+}
+
+/* ---------- Voice Button & File Tree ---------- */
+#VoiceButton {
+    background-color: #1f2430;
+    color: #58a6ff;
+    border: 1px solid #2e3547;
+    border-radius: 8px;
+    padding: 8px 12px;
+    font-size: 14px;
+}
+
+#VoiceButton:hover {
+    background-color: #2b3242;
+    border-color: #3b6ef5;
+}
+
+#VoiceButton:pressed {
+    background-color: #1a1e29;
+}
+
+#FileTreeView {
+    background-color: #12151d;
+    border: 1px solid #272d3d;
+    border-radius: 6px;
+    color: #e6e6eb;
+    font-size: 12px;
+}
+
+#FileTreeView::item:hover {
+    background-color: #1c212e;
+}
+
+#FileTreeView::item:selected {
+    background-color: #2b3859;
+    color: #ffffff;
+}
+
+
+
+
+
+
+
+#TokenEstimator {
+    color: #8b949e;
+    font-size: 11px;
+    font-family: Consolas, "Courier New", monospace;
+    padding: 2px 6px;
+}
+
+#InputCard {
+    background-color: #21242c;
+    border: 1px solid #2d3345;
+    border-radius: 12px;
+}
+
+#UserBubble {
+    background-color: #2b56cc;
+    color: #ffffff;
+    border-radius: 14px;
+    padding: 10px 15px;
+    max-width: 680px;
+    font-size: 13.5px;
+}
+
+#ChatBrowser {
+    background-color: #21242d;
+    border: 1px solid #2b303d;
+    border-radius: 14px;
+    padding: 12px 16px;
+    color: #e6e6eb;
+    selection-background-color: #3b6ef5;
+    font-size: 13.5px;
+}

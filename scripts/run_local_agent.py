@@ -33,7 +33,7 @@ def main() -> int:
         "--port",
         type=int,
         default=None,
-        help="Cổng agent, mặc định 8090.",
+        help="Cổng agent, mặc định 8080.",
     )
     parser.add_argument(
         "--model",

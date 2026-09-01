@@ -4,7 +4,7 @@ llm-pi-ai:
       displayName: M Auto Pilot Qwen3.8 Local
       apiKeyEnv: M_AUTO_PILOT_LOCAL_API_KEY
       api: openai-completions
-      baseURL: http://127.0.0.1:8090/v1
+      baseURL: http://127.0.0.1:8080/v1
       compat:
         supportsDeveloperRole: false
         maxTokensField: max_tokens

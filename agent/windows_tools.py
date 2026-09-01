@@ -136,6 +136,85 @@ def ui_press_key(
     return {"pressed": normalized}
 
 
+def ui_click_text(
+    text: str,
+    *,
+    window_title: str = "",
+    occurrence: int = 1,
+    case_sensitive: bool = False,
+    min_confidence: float = 0.35,
+) -> dict[str, Any]:
+    """Tìm text trên màn hình/cửa sổ qua OCR và kích chuột vào tọa độ tìm được."""
+    query = str(text or "").strip()
+    if not query:
+        raise ValueError("text không được để trống.")
+
+    from agent.screen_tools import screen_ocr
+
+    offset_x, offset_y = 0, 0
+    bbox_kwargs: dict[str, Any] = {}
+    if window_title.strip():
+        win = _window(window_title)
+        rect = win.rectangle()
+        bbox_kwargs = {
+            "x": max(0, rect.left),
+            "y": max(0, rect.top),
+            "width": max(10, rect.width()),
+            "height": max(10, rect.height()),
+        }
+        offset_x, offset_y = max(0, rect.left), max(0, rect.top)
+
+    ocr_res = screen_ocr(min_confidence=min_confidence, **bbox_kwargs)
+    items = ocr_res.get("items", [])
+
+    matches = []
+    needle = query if case_sensitive else query.lower()
+    for item in items:
+        item_text = item["text"] if case_sensitive else item["text"].lower()
+        if needle in item_text:
+            matches.append(item)
+
+    if not matches:
+        raise RuntimeError(
+            f"Không tìm thấy text '{query}' trên "
+            f"{'cửa sổ ' + window_title if window_title else 'màn hình'} qua OCR."
+        )
+
+    idx = max(1, min(occurrence, len(matches))) - 1
+    target = matches[idx]
+    box = target["box"]
+
+    if isinstance(box, (list, tuple)) and len(box) >= 4 and isinstance(box[0], (list, tuple)):
+        cx = int(sum(pt[0] for pt in box[:4]) / 4) + offset_x
+        cy = int(sum(pt[1] for pt in box[:4]) / 4) + offset_y
+    elif isinstance(box, (list, tuple)) and len(box) == 4:
+        cx = int((box[0] + box[2]) / 2) + offset_x
+        cy = int((box[1] + box[3]) / 2) + offset_y
+    else:
+        raise ValueError("Định dạng bounding box không hợp lệ.")
+
+    try:
+        from pywinauto import mouse
+
+        mouse.click(button="left", coords=(cx, cy))
+    except Exception:
+        import ctypes
+
+        ctypes.windll.user32.SetCursorPos(cx, cy)
+        ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
+        ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+
+    return {
+        "clicked": True,
+        "matched_text": target["text"],
+        "coords": [cx, cy],
+        "confidence": target.get("confidence", 1.0),
+        "occurrence": idx + 1,
+        "total_matches": len(matches),
+    }
+
+
+
 def _desktop() -> Any:
     try:
         from pywinauto import Desktop

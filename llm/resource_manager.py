@@ -57,11 +57,9 @@ class GPUResourceManager:
             gpu = _gpu_status()
             warnings: list[str] = []
             ports = {server["port"] for server in servers if server.get("port")}
-            if 8080 in ports and 8090 in ports:
-                warnings.append(
-                    "Pipeline 8080 và Auto Pilot 8090 đang cùng chạy; "
-                    "hai model lớn có thể tranh VRAM."
-                )
+            if 8080 in ports:
+                # Cả 2 ứng dụng dùng chung port 8080
+                pass
             if gpu.get("available") and gpu.get("free_bytes", 0) < 2 * 1024**3:
                 warnings.append("VRAM trống dưới 2 GB.")
             return {

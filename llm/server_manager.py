@@ -113,7 +113,7 @@ QWEN38_MODEL_PATH = Path(
 )
 
 SERVER_HOST = "127.0.0.1"
-AGENT_SERVER_PORT = 8090
+AGENT_SERVER_PORT = 8080
 
 LOG_PATH = APP_ROOT / "logs" / "llama-server.log"
 
@@ -249,9 +249,13 @@ class LocalLLMServerManager:
             return True
 
         try:
-            return Path(running_path).resolve() == self.model_path.resolve()
+            return (
+                Path(running_path).name.lower() == self.model_path.name.lower()
+                or "qwen" in running_path.lower()
+                or Path(running_path).resolve() == self.model_path.resolve()
+            )
         except OSError:
-            return running_path.lower() == str(self.model_path).lower()
+            return "qwen" in running_path.lower() or running_path.lower() == str(self.model_path).lower()
 
     def stop(self) -> None:
         """
@@ -393,6 +397,7 @@ class LocalLLMServerManager:
         self._process = process
 
     def _build_command(self) -> list[str]:
+        cpu_threads = max(4, min(16, (os.cpu_count() or 8) - 2))
         return [
             str(self.server_path),
 
@@ -409,17 +414,26 @@ class LocalLLMServerManager:
             str(self.context_size),
 
             "--parallel",
-            "1",
+            "2",
 
             "--cont-batching",
 
             "--cache-prompt",
 
             "--n-gpu-layers",
-            "auto",
+            "99",
 
             "--flash-attn",
             "on",
+
+            "--batch-size",
+            "2048",
+
+            "--ubatch-size",
+            "512",
+
+            "--threads",
+            str(cpu_threads),
 
             "--cache-type-k",
             "q8_0",

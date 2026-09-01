@@ -7,7 +7,7 @@ from typing import Any
 from core.project import APP_ROOT
 
 
-_SESSION: dict[str, Any] | None = None
+DEFAULT_BROWSER_PROFILE = APP_ROOT / "work" / "auto_pilot" / "browser_profile"
 
 
 def browser_open(
@@ -15,6 +15,7 @@ def browser_open(
     *,
     headless: bool = False,
     wait_ms: int = 1000,
+    persistent: bool = True,
 ) -> dict[str, Any]:
     global _SESSION
     _validate_url(url)
@@ -22,30 +23,51 @@ def browser_open(
         from playwright.sync_api import sync_playwright
 
         playwright = sync_playwright().start()
+        context = None
         browser = None
         errors: list[str] = []
-        for channel in ("msedge", "chrome"):
-            try:
-                browser = playwright.chromium.launch(
-                    channel=channel,
-                    headless=headless,
-                )
-                break
-            except Exception as error:
-                errors.append(f"{channel}: {error}")
-        if browser is None:
+
+        if persistent:
+            DEFAULT_BROWSER_PROFILE.mkdir(parents=True, exist_ok=True)
+            for channel in ("msedge", "chrome", "chromium"):
+                try:
+                    context = playwright.chromium.launch_persistent_context(
+                        user_data_dir=str(DEFAULT_BROWSER_PROFILE),
+                        channel=channel if channel != "chromium" else None,
+                        headless=headless,
+                        viewport={"width": 1440, "height": 900},
+                    )
+                    break
+                except Exception as error:
+                    errors.append(f"persistent-{channel}: {error}")
+
+        if context is None:
+            for channel in ("msedge", "chrome", "chromium"):
+                try:
+                    browser = playwright.chromium.launch(
+                        channel=channel if channel != "chromium" else None,
+                        headless=headless,
+                    )
+                    context = browser.new_context(
+                        viewport={"width": 1440, "height": 900}
+                    )
+                    break
+                except Exception as error:
+                    errors.append(f"standard-{channel}: {error}")
+
+        if context is None:
             playwright.stop()
             raise RuntimeError(
                 "Không mở được Edge/Chrome qua Playwright. "
                 "Hãy cài Edge/Chrome hoặc chạy playwright install chromium. "
                 + " | ".join(errors)[-1000:]
             )
-        context = browser.new_context(viewport={"width": 1440, "height": 900})
+        page = context.pages[0] if context.pages else context.new_page()
         _SESSION = {
             "playwright": playwright,
             "browser": browser,
             "context": context,
-            "page": context.new_page(),
+            "page": page,
         }
     page = _SESSION["page"]
     page.goto(url, wait_until="domcontentloaded", timeout=30000)
