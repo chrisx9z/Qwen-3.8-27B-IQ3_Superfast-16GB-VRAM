@@ -71,7 +71,19 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 292
+    assert len(registry.definitions()) == 295
+    assert registry.execute(
+        "swarm_multi_agent_deep_investigation",
+        {"topic": "Qwen 3.8 27B Local Performance Optimization", "focus": "Technical Architecture"},
+    )["ok"]
+    assert registry.execute(
+        "track_trending_industry_topics_radar",
+        {"category": "ai_tech"},
+    )["ok"]
+    assert registry.execute(
+        "generate_executive_research_briefing_pdf_md",
+        {"topic": "Test Briefing", "summary": "Summary", "findings": "Findings", "recommendations": "Recs"},
+    )["ok"]
     assert registry.execute(
         "store_research_knowledge_item",
         {"topic": "Qwen 27B Architecture", "insight": "IQ3_S quantization preserves 99% accuracy.", "tags": ["qwen", "ai"]},

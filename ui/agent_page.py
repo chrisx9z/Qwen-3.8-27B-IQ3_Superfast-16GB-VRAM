@@ -932,6 +932,95 @@ class ComputerUseStudioDialog(QDialog):
 
 
 
+
+class ResearchSwarmStudioDialog(QDialog):
+    """Studio Swarm Đa Tác Nhân Tự Chủ Nghiên Cứu (Multi-Agent Research Swarm)"""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("🐝 Studio Swarm Đa Tác Nhân Nghiên Cứu (Multi-Agent Swarm)")
+        self.resize(880, 640)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        header_lbl = QLabel("🐝 Hệ Thống Swarm 4 Tác Nhân Nghiên Cứu Song Song")
+        header_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #f0883e;")
+        layout.addWidget(header_lbl)
+
+        # Team Cards Row
+        team_row = QHBoxLayout()
+        agents_info = [
+            ("🕵️ Explorer", "Khai thác dữ liệu web"),
+            ("📊 Analyst", "Bóc tách số liệu & bảng biểu"),
+            ("⚖️ Critic", "Phản biện & tìm rủi ro"),
+            ("📝 Synthesizer", "Tổng hợp báo cáo điều hành"),
+        ]
+        for name, role in agents_info:
+            c = QFrame()
+            c.setStyleSheet("background: #161b22; border: 1px solid #30363d; border-radius: 6px; padding: 6px;")
+            cl = QVBoxLayout(c)
+            cl.setContentsMargins(4, 4, 4, 4)
+            n_lbl = QLabel(name)
+            n_lbl.setStyleSheet("font-weight: 700; color: #58a6ff; font-size: 12px;")
+            r_lbl = QLabel(role)
+            r_lbl.setStyleSheet("color: #8b949e; font-size: 11px;")
+            cl.addWidget(n_lbl)
+            cl.addWidget(r_lbl)
+            team_row.addWidget(c)
+        layout.addLayout(team_row)
+
+        # Input Row
+        input_box = QHBoxLayout()
+        self.topic_input = QLineEdit()
+        self.topic_input.setPlaceholderText("Nhập bài toán hoặc chủ đề phức tạp cần đội ngũ Swarm giải quyết...")
+        self.topic_input.setStyleSheet("padding: 8px; font-size: 13px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #fff;")
+        input_box.addWidget(self.topic_input, 1)
+
+        self.focus_input = QLineEdit()
+        self.focus_input.setPlaceholderText("Trọng tâm (ví dụ: Kỹ thuật, Thị trường, ROI)...")
+        self.focus_input.setStyleSheet("padding: 8px; font-size: 12px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #fff; max-width: 200px;")
+        input_box.addWidget(self.focus_input)
+
+        self.start_btn = QPushButton("🚀 Kích Hoạt Swarm")
+        self.start_btn.setStyleSheet("background: #f0883e; color: #000; font-weight: 700; padding: 8px 16px; border-radius: 6px;")
+        self.start_btn.clicked.connect(self.run_swarm)
+        input_box.addWidget(self.start_btn)
+        layout.addLayout(input_box)
+
+        # Result Display Area
+        self.result_view = QTextBrowser()
+        self.result_view.setOpenExternalLinks(True)
+        self.result_view.setStyleSheet("background: #0d1117; border: 1px solid #30363d; border-radius: 8px; color: #c9d1d9; padding: 12px; font-size: 12.5px;")
+        self.result_view.setMarkdown("*(Nhập chủ đề và bấm 'Kích Hoạt Swarm' để 4 tác nhân chuyên gia bắt đầu phân tích đa chiều)*")
+        layout.addWidget(self.result_view, 1)
+
+    def run_swarm(self) -> None:
+        topic = self.topic_input.text().strip()
+        focus = self.focus_input.text().strip() or "Toàn diện"
+        if not topic:
+            return
+            
+        self.start_btn.setEnabled(False)
+        self.start_btn.setText("⏳ Swarm đang phân tích...")
+        self.result_view.setMarkdown(f"⏳ **Đội ngũ 4 tác nhân Swarm đang phối hợp khai thác dữ liệu, bóc tách số liệu, phản biện và tổng kết cho:** *{topic}*...")
+        QApplication.processEvents()
+
+        try:
+            from agent.tools import LocalToolRegistry
+            reg = LocalToolRegistry()
+            res = reg.execute("swarm_multi_agent_deep_investigation", {"topic": topic, "focus": focus})
+            if res.get("ok"):
+                report = res.get("result", {}).get("report_markdown", "Không có dữ liệu.")
+                self.result_view.setMarkdown(report)
+            else:
+                self.result_view.setMarkdown(f"❌ Lỗi Swarm: {res.get('error')}")
+        except Exception as err:
+            self.result_view.setMarkdown(f"❌ Ngoại lệ: {err}")
+        finally:
+            self.start_btn.setEnabled(True)
+            self.start_btn.setText("🚀 Kích Hoạt Swarm")
+
 class KnowledgeVaultStudioDialog(QDialog):
     """Studio Kho Lưu Trữ Tri Thức & Tra Cứu Nghiên Cứu (Knowledge Vault Studio)"""
 
@@ -8929,6 +9018,10 @@ class AgentPage(QWidget):
     # =========================================================================
     # DIALOG LAUNCHERS & STUDIO ACTION HANDLERS
     # =========================================================================
+    def open_research_swarm_dialog(self) -> None:
+        dlg = ResearchSwarmStudioDialog(self)
+        dlg.exec()
+
     def open_knowledge_vault_dialog(self) -> None:
         dlg = KnowledgeVaultStudioDialog(self)
         dlg.exec()

@@ -867,6 +867,9 @@ Core Operating Principles:
 
         # 1. Base Core Tools (Always useful for general assistance & navigation)
         base_tools = {
+            "swarm_multi_agent_deep_investigation",
+            "track_trending_industry_topics_radar",
+            "generate_executive_research_briefing_pdf_md",
             "store_research_knowledge_item",
             "retrieve_relevant_research_knowledge",
             "evaluate_source_authority_and_recency",
