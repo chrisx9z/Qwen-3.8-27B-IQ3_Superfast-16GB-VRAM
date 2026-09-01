@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,13 @@ MANAGED_PROCESS_NAMES = {
     "ffmpeg.exe",
     "ffprobe.exe",
     "llama-server.exe",
+    "ffmpeg",
+    "ffprobe",
+    "llama-server",
+    "node",
+    "node.exe",
+    "pnpm",
+    "pnpm.exe",
 }
 
 
@@ -40,7 +48,7 @@ def list_processes(
                 "exe": info.get("exe"),
                 "memory_bytes": getattr(memory_info, "rss", None),
             })
-        except (psutil.NoSuchProcess, psutil.AccessDenied):
+        except (psutil.NoSuchProcess, psutil.AccessDenied, psutil.ZombieProcess):
             continue
     return {"count": len(processes), "processes": processes}
 
@@ -55,11 +63,11 @@ def read_log(
         candidate = APP_ROOT / candidate
     resolved = candidate.resolve()
     if not resolved.is_relative_to(APP_ROOT.resolve()):
-        raise ValueError("Log phải nằm trong workspace.")
+        raise ValueError("Log must be located inside the workspace.")
     if resolved.suffix.lower() not in {".log", ".txt"}:
-        raise ValueError("Chỉ được đọc file .log hoặc .txt.")
+        raise ValueError("Only .log or .txt files are allowed.")
     if not resolved.is_file():
-        raise FileNotFoundError(f"Không tìm thấy log: {resolved}")
+        raise FileNotFoundError(f"Log file not found: {resolved}")
     content = resolved.read_text(encoding="utf-8", errors="replace").splitlines()
     tail = content[-max(1, min(lines, 1000)):]
     return {
@@ -73,18 +81,18 @@ def stop_managed_process(pid: int) -> dict[str, Any]:
     try:
         process = psutil.Process(int(pid))
         name = process.name().lower()
-        if name not in MANAGED_PROCESS_NAMES:
+        if name not in MANAGED_PROCESS_NAMES and not any(name.startswith(m) for m in MANAGED_PROCESS_NAMES):
             raise ValueError(
-                f"Chỉ được dừng runtime allowlist: {sorted(MANAGED_PROCESS_NAMES)}"
+                f"Only runtime allowlist processes can be stopped: {sorted(MANAGED_PROCESS_NAMES)}"
             )
         process.terminate()
         try:
-            process.wait(timeout=10)
+            process.wait(timeout=5)
         except psutil.TimeoutExpired:
             process.kill()
-            process.wait(timeout=5)
+            process.wait(timeout=3)
         return {"stopped": True, "pid": pid, "name": name}
     except psutil.NoSuchProcess as error:
-        raise FileNotFoundError(f"Không tìm thấy process: {pid}") from error
+        raise FileNotFoundError(f"Process not found: {pid}") from error
     except psutil.AccessDenied as error:
-        raise PermissionError(f"Không có quyền dừng process: {pid}") from error
+        raise PermissionError(f"Access denied stopping process: {pid}") from error
