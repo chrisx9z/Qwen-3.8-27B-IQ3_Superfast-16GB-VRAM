@@ -9178,6 +9178,9 @@ class AgentPage(QWidget):
         elif cmd == "UITEST_DIALOG":
             self.open_uitest_dialog()
             return
+        elif cmd == "SAFETY_DIALOG":
+            self.open_safety_dialog()
+            return
         elif cmd == "SIGNALAUDIT_ACTION":
             self.signalaudit_action()
             return
