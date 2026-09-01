@@ -132,6 +132,119 @@ class ToolSpec:
         }
 
 
+
+def _extract_youtube_rich_metadata_text(url: str, html_raw: str) -> str:
+    import html as html_module
+    lines = []
+    channel_name = ""
+    channel_handle = ""
+    subscribers = ""
+    videos_count = ""
+    total_views = ""
+    description = ""
+
+    # 1. Meta tags
+    og_title = re.search(r'<meta\s+property=["\']og:title["\']\s+content=["\'](.*?)["\']', html_raw)
+    og_desc = re.search(r'<meta\s+property=["\']og:description["\']\s+content=["\'](.*?)["\']', html_raw)
+    
+    if og_title:
+        channel_name = html_module.unescape(og_title.group(1))
+    if og_desc:
+        description = html_module.unescape(og_desc.group(1))
+
+    # 2. ytInitialData
+    m = re.search(r"ytInitialData\s*=\s*({.+?});(?:</script>|\n)", html_raw) or re.search(r"var ytInitialData = ({.*?});</script>", html_raw)
+    if m:
+        try:
+            data = json.loads(m.group(1))
+            header = data.get("header", {})
+            ph = header.get("pageHeaderRenderer", {}) or header.get("c4TabbedHeaderRenderer", {})
+            if ph:
+                vm = ph.get("content", {}).get("pageHeaderViewModel", {})
+                if vm:
+                    title_obj = vm.get("title", {}).get("dynamicTextViewModel", {}).get("text", {})
+                    if title_obj:
+                        channel_name = title_obj.get("content")
+                    meta_vm = vm.get("metadata", {}).get("contentMetadataViewModel", {})
+                    if meta_vm:
+                        for r in meta_vm.get("metadataRows", []):
+                            for p in r.get("metadataParts", []):
+                                txt = p.get("text", {}).get("content", "")
+                                if "@" in txt:
+                                    channel_handle = txt
+                                elif "đăng ký" in txt or "subscriber" in txt.lower() or "sub" in txt.lower():
+                                    subscribers = txt
+                                elif "video" in txt.lower():
+                                    videos_count = txt
+
+            text_raw = json.dumps(data, ensure_ascii=False)
+            if not subscribers:
+                subs_match = re.search(r'"subscriberCountText":\{"simpleText":"(.*?)"\}', text_raw)
+                if subs_match:
+                    subscribers = subs_match.group(1)
+            if not videos_count:
+                videos_match = re.search(r'"videosCountText":\{"runs":\[\{"text":"(.*?)"\}', text_raw)
+                if videos_match:
+                    videos_count = videos_match.group(1)
+            if not total_views:
+                views_match = re.search(r'"viewCountText":\{"simpleText":"(.*?)"\}', text_raw)
+                if views_match:
+                    total_views = views_match.group(1)
+        except Exception:
+            pass
+
+    # 3. ytInitialPlayerResponse for Video/Shorts
+    m_player = re.search(r"ytInitialPlayerResponse\s*=\s*({.+?});(?:</script>|\n|var )", html_raw)
+    video_details = {}
+    if m_player:
+        try:
+            pdata = json.loads(m_player.group(1))
+            video_details = pdata.get("videoDetails", {})
+        except Exception:
+            pass
+
+    lines.append(f"# 📺 Thông Tin YouTube: {channel_name or url}")
+    if channel_name:
+        lines.append(f"- **Tên Kênh / Tiêu Đề**: {channel_name}")
+    if channel_handle:
+        lines.append(f"- **Handle Kênh**: {channel_handle}")
+    if subscribers:
+        lines.append(f"- **Số người đăng ký (Subscribers)**: {subscribers}")
+    if videos_count:
+        lines.append(f"- **Tổng số video**: {videos_count}")
+    if total_views:
+        lines.append(f"- **Tổng lượt xem kênh**: {total_views}")
+    if video_details:
+        if video_details.get("author"):
+            lines.append(f"- **Tác giả video**: {video_details.get('author')}")
+        if video_details.get("viewCount"):
+            try:
+                cnt = f"{int(video_details.get('viewCount', 0)):,} lượt xem"
+            except Exception:
+                cnt = str(video_details.get("viewCount"))
+            lines.append(f"- **Lượt xem video**: {cnt}")
+        if video_details.get("lengthSeconds"):
+            lines.append(f"- **Thời lượng**: {video_details.get('lengthSeconds')} giây")
+    if description:
+        lines.append(f"- **Mô tả**: {description}")
+
+    return "\n".join(lines)
+
+
+def _extract_opengraph_and_schema(html_raw: str) -> str:
+    import html as html_module
+    lines = []
+    og_title = re.search(r'<meta\s+property=["\']og:title["\']\s+content=["\'](.*?)["\']', html_raw)
+    og_desc = re.search(r'<meta\s+property=["\']og:description["\']\s+content=["\'](.*?)["\']', html_raw)
+    tw_desc = re.search(r'<meta\s+name=["\']twitter:description["\']\s+content=["\'](.*?)["\']', html_raw)
+    
+    if og_title:
+        lines.append(f"# {html_module.unescape(og_title.group(1))}")
+    desc = og_desc.group(1) if og_desc else (tw_desc.group(1) if tw_desc else "")
+    if desc:
+        lines.append(f"**Mô tả**: {html_module.unescape(desc)}")
+    return "\n\n".join(lines)
+
 class LocalToolRegistry:
     def __init__(self) -> None:
         self._specs = {
@@ -10344,19 +10457,34 @@ build
             minimum=500,
             maximum=50000,
         )
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
         response = requests.get(
             url,
-            headers={"User-Agent": "M-Auto-Pilot/1.0"},
+            headers=headers,
             timeout=30,
         )
         response.raise_for_status()
         content_type = response.headers.get("content-type", "")
-        if "html" in content_type.lower():
+        
+        # Xử lý chuyên sâu cho YouTube & các nền tảng mạng xã hội động (SPA)
+        if "youtube.com" in url.lower() or "youtu.be" in url.lower():
+            content = _extract_youtube_rich_metadata_text(url, response.text)
+        elif "html" in content_type.lower():
             parser = _WebTextParser()
             parser.feed(response.text)
             content = parser.text()
+            
+            # Trích xuất thêm OpenGraph & Schema JSON nếu nội dung thô quá ít
+            if len(content.strip()) < 300:
+                og_info = _extract_opengraph_and_schema(response.text)
+                if og_info:
+                    content = og_info + "\n\n" + content
         else:
             content = response.text
+
         return {
             "url": response.url,
             "status_code": response.status_code,
