@@ -71,7 +71,11 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 295
+    assert len(registry.definitions()) == 296
+    assert registry.execute(
+        "audit_and_inspect_website_structure",
+        {"url": "https://vibemmo.net/"},
+    )["ok"]
     assert registry.execute(
         "swarm_multi_agent_deep_investigation",
         {"topic": "Qwen 3.8 27B Local Performance Optimization", "focus": "Technical Architecture"},
