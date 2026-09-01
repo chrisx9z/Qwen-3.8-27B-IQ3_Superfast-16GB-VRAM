@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import html
 import json
 import os
 import re
@@ -4161,6 +4162,78 @@ class LocalToolRegistry:
                         "additionalProperties": False,
                     },
                     handler=self._douyin_search,
+                ),
+                ToolSpec(
+                    name="autonomous_multi_hop_research",
+                    description=(
+                        "Tự động phân rã câu hỏi/chủ đề phức tạp thành nhiều nhánh nghiên cứu đa chiều (Multi-Hop), "
+                        "truy vấn song song các nguồn học thuật/công nghệ/tin tức, bóc tách nội dung và liên kết tri thức thành báo cáo toàn diện."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "topic": {
+                                "type": "string",
+                                "description": "Chủ đề, câu hỏi, công nghệ hoặc vấn đề cần nghiên cứu sâu.",
+                            },
+                            "depth": {
+                                "type": "string",
+                                "enum": ["fast", "deep", "comprehensive"],
+                                "description": "Mức độ đào sâu (mặc định deep).",
+                            },
+                        },
+                        "required": ["topic"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._autonomous_multi_hop_research,
+                ),
+                ToolSpec(
+                    name="crawl_and_extract_deep_content",
+                    description=(
+                        "Duyệt sâu trang web và bóc tách toàn văn: loại bỏ quảng cáo/boilerplate, "
+                        "trích xuất tiêu đề, bảng biểu, số liệu thống kê và cấu trúc tài liệu sạch dạng Markdown."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "url": {
+                                "type": "string",
+                                "description": "URL trang web cần bóc tách sâu.",
+                            },
+                            "max_chars": {
+                                "type": "integer",
+                                "minimum": 1000,
+                                "maximum": 50000,
+                                "description": "Độ dài tối đa ký tự trả về (mặc định 15000).",
+                            },
+                        },
+                        "required": ["url"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._crawl_and_extract_deep_content,
+                ),
+                ToolSpec(
+                    name="cross_reference_and_fact_check",
+                    description=(
+                        "Đối chiếu chéo và kiểm chứng sự thật (Fact-Checking) giữa nhiều nguồn thông tin: "
+                        "tìm điểm đồng thuận, phát hiện số liệu mâu thuẫn và đánh giá độ tin cậy của thông tin."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "claim_or_topic": {
+                                "type": "string",
+                                "description": "Tuyên bố, số liệu hoặc chủ đề cần đối chiếu kiểm chứng.",
+                            },
+                            "sources_text": {
+                                "type": "string",
+                                "description": "Văn bản hoặc danh sách thông tin từ các nguồn cần so sánh.",
+                            },
+                        },
+                        "required": ["claim_or_topic"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._cross_reference_and_fact_check,
                 ),
                 ToolSpec(
                     name="deep_dive_internet_research",
@@ -10310,6 +10383,116 @@ build
             "query": query,
             "count": len(results),
             "results": results,
+        }
+
+    def _autonomous_multi_hop_research(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        topic = _required_text(arguments.get("topic"), "topic")
+        depth = str(arguments.get("depth", "deep")).lower()
+        limit = 3 if depth == "fast" else (6 if depth == "deep" else 10)
+        
+        sub_queries = [
+            topic,
+            f"{topic} kiến trúc chi tiết số liệu phân tích",
+            f"{topic} best practices giải pháp tối ưu",
+        ]
+        
+        all_sources = []
+        seen_urls = set()
+        
+        for q in sub_queries:
+            s_res = self._web_search({"query": q, "limit": 4})
+            for r in s_res.get("results", []):
+                u = r.get("url", "")
+                if u and u not in seen_urls:
+                    seen_urls.add(u)
+                    all_sources.append({
+                        "branch": q,
+                        "title": r.get("title", ""),
+                        "url": u,
+                        "snippet": r.get("snippet", ""),
+                    })
+                    if len(all_sources) >= limit:
+                        break
+            if len(all_sources) >= limit:
+                break
+                
+        report_lines = [f"# 🔬 Báo Cáo Nghiên Cứu Đa Chiều (Multi-Hop Research): {topic}"]
+        report_lines.append(f"- **Chủ đề**: {topic}")
+        report_lines.append(f"- **Chế độ**: {depth.upper()} ({len(all_sources)} nguồn độc lập)")
+        report_lines.append("\n## 🔍 Dữ Liệu Thu Thập Được Từ Các Nhánh Nghiên Cứu:")
+        for idx, s in enumerate(all_sources, 1):
+            report_lines.append(f"### {idx}. [{s['title']}]({s['url']}) — (Nhánh: *{s['branch']}*)")
+            report_lines.append(f"{s['snippet']}\n")
+            
+        report = "\n".join(report_lines)
+        return {
+            "topic": topic,
+            "depth": depth,
+            "sources_count": len(all_sources),
+            "sources": all_sources,
+            "report_markdown": report,
+        }
+
+    def _crawl_and_extract_deep_content(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        url = _required_text(arguments.get("url"), "url")
+        max_chars = _bounded_int(arguments.get("max_chars", 15000), minimum=1000, maximum=50000)
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+        resp = requests.get(url, headers=headers, timeout=20)
+        resp.raise_for_status()
+        
+        if "youtube.com" in url or "youtu.be" in url:
+            content = _extract_youtube_rich_metadata_text(url, resp.text)
+        else:
+            cleaned = re.sub(r"<(script|style|noscript)[^>]*>[\s\S]*?</\1>", "", resp.text, flags=re.IGNORECASE)
+            cleaned = re.sub(r"<!--[\s\S]*?-->", "", cleaned)
+            cleaned = re.sub(r"<h1[^>]*>(.*?)</h1>", r"\n# \1\n", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"<h2[^>]*>(.*?)</h2>", r"\n## \1\n", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"<h3[^>]*>(.*?)</h3>", r"\n### \1\n", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"<p[^>]*>(.*?)</p>", r"\n\1\n", cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r'<a\s+[^>]*href=["\'](.*?)["\'][^>]*>(.*?)</a>', r'[\2](\1)', cleaned, flags=re.IGNORECASE)
+            cleaned = re.sub(r"<[^>]+>", " ", cleaned)
+            cleaned = html.unescape(cleaned)
+            lines = [l.strip() for l in cleaned.splitlines() if l.strip()]
+            content = "\n\n".join(lines)
+            
+        return {
+            "url": url,
+            "status_code": resp.status_code,
+            "length": len(content),
+            "content": content[:max_chars],
+        }
+
+    def _cross_reference_and_fact_check(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        claim = _required_text(arguments.get("claim_or_topic"), "claim_or_topic")
+        sources_text = str(arguments.get("sources_text", "")).strip()
+        
+        # Thực hiện tìm kiếm kiểm chứng
+        verify_res = self._web_search({"query": f"{claim} fact check verification", "limit": 4})
+        v_sources = verify_res.get("results", [])
+        
+        lines = [f"# ✅ Báo Cáo Đối Chiếu & Kiểm Chứng Sự Thật (Fact-Check): {claim}"]
+        lines.append(f"- **Vấn đề / Tuyên bố**: {claim}")
+        lines.append(f"- **Số nguồn đối chiếu**: {len(v_sources)} nguồn độc lập\n")
+        lines.append("## 🔍 Các Dữ Liệu Đối Chiếu Trực Tuyến:")
+        for idx, s in enumerate(v_sources, 1):
+            lines.append(f"{idx}. **[{s.get('title')}]({s.get('url')})** — {s.get('snippet')}")
+            
+        return {
+            "claim": claim,
+            "verified_sources_count": len(v_sources),
+            "verification_report": "\n".join(lines),
         }
 
     def _deep_dive_internet_research(

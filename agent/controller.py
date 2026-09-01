@@ -867,6 +867,9 @@ Core Operating Principles:
 
         # 1. Base Core Tools (Always useful for general assistance & navigation)
         base_tools = {
+            "autonomous_multi_hop_research",
+            "crawl_and_extract_deep_content",
+            "cross_reference_and_fact_check",
             "deep_dive_internet_research",
             "analyze_youtube_channel_deep_dive",
             "web_search",
