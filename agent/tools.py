@@ -4164,6 +4164,26 @@ class LocalToolRegistry:
                     handler=self._douyin_search,
                 ),
                 ToolSpec(
+                    name="recursive_autonomous_deep_dive",
+                    description=(
+                        "Động cơ Tự Chủ Đào Sâu Tri Thức Tổng Quát (Recursive Autonomous Deep-Dive Engine): "
+                        "Tự động phân loại 8 nhóm đối tượng (Websites, Social Media, Code Repos, Academic Papers, Sản phẩm/SaaS, Khái niệm kỹ thuật, Thị trường), "
+                        "tự đặt câu hỏi mở rộng, thực hiện các bước đào sâu ngầm đa tầng và tổng hợp báo cáo chuyên sâu hoàn chỉnh."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "target_or_prompt": {
+                                "type": "string",
+                                "description": "Bất kỳ URL, tên kênh, repo, thực thể, bài toán hoặc câu hỏi mở cần đào sâu.",
+                            },
+                        },
+                        "required": ["target_or_prompt"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._recursive_autonomous_deep_dive,
+                ),
+                ToolSpec(
                     name="universal_autonomous_entity_discovery",
                     description=(
                         "Động cơ Tự Chủ Khám Phá Tri Thức Phổ Quát (Universal Autonomous Discovery Engine): "
@@ -10613,6 +10633,100 @@ build
             "default_engine": "Google",
             "count": len(results),
             "results": results[:limit],
+        }
+
+    def _recursive_autonomous_deep_dive(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        p = _required_text(arguments.get("target_or_prompt"), "target_or_prompt").strip()
+        lowered = p.lower()
+
+        # Step 1: Autonomous Multi-Modal Classification
+        url_m = re.search(r'(https?://[^\s]+)', p)
+        dom_m = re.search(r'([a-zA-Z0-9-]+\.(?:net|com|org|vn|io|ai|dev|co|xyz|edu|gov)[^\s]*)', p)
+
+        if url_m or dom_m:
+            target_match = url_m.group(1) if url_m else f"https://{dom_m.group(1)}"
+            raw_url = target_match.rstrip(".,;)>'\"")
+            
+            # YouTube / Social Media URL
+            if "youtube.com" in raw_url or "youtu.be" in raw_url:
+                yt_res = self._analyze_youtube_channel_deep_dive({"query_or_url": raw_url})
+                return {
+                    "category": "social_media_channel",
+                    "target": raw_url,
+                    "report_markdown": yt_res.get("report_markdown", f"Đã hoàn thành phân tích {raw_url}."),
+                }
+            
+            # GitHub Repository URL
+            if "github.com" in raw_url:
+                repo_m = re.search(r'github\.com/([a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+)', raw_url)
+                repo_name = repo_m.group(1) if repo_m else raw_url
+                insp_res = self._inspect_github_repository({"repository": repo_name})
+                r_md = f"# 📦 Báo Cáo Phân Tích Mã Nguồn GitHub: {repo_name}\n"
+                r_md += f"- **Mô tả**: {insp_res.get('description', 'N/A')}\n"
+                r_md += f"- **Ngôn ngữ**: {insp_res.get('language', 'N/A')}\n"
+                r_md += f"- **Stars**: {insp_res.get('stars', 0)} ⭐ · **Forks**: {insp_res.get('forks', 0)}\n"
+                r_md += f"- **Cấu trúc thư mục**: {', '.join(insp_res.get('top_level_items', [])[:10])}\n"
+                return {
+                    "category": "code_repository",
+                    "target": repo_name,
+                    "report_markdown": r_md,
+                }
+                
+            # Academic Paper (ArXiv, etc.)
+            if "arxiv.org" in raw_url or ".edu" in raw_url:
+                crawl_res = self._crawl_and_extract_deep_content({"url": raw_url, "max_chars": 6000})
+                r_md = f"# 📄 Báo Cáo Phân Tích Nghiên Cứu Học Thuật: {raw_url}\n\n"
+                r_md += f"## 🔬 Tóm Tắt & Nội Dung Cốt Lõi:\n{crawl_res.get('content', '')[:3000]}\n"
+                return {
+                    "category": "academic_paper",
+                    "target": raw_url,
+                    "report_markdown": r_md,
+                }
+
+            # Standard Website Domain
+            audit_res = self._audit_and_inspect_website_structure({"url": raw_url})
+            return {
+                "category": "website",
+                "target": raw_url,
+                "report_markdown": audit_res.get("report_markdown", f"Đã khảo sát website {raw_url}."),
+            }
+
+        # Handle Social Media Handles (@...)
+        if any(k in lowered for k in ["youtube", "kênh", "channel", "@"]):
+            handle_m = re.search(r'(@[a-zA-Z0-9_.-]+)', p)
+            ch_target = handle_m.group(1) if handle_m else p
+            yt_res = self._analyze_youtube_channel_deep_dive({"query_or_url": ch_target})
+            return {
+                "category": "social_media_channel",
+                "target": ch_target,
+                "report_markdown": yt_res.get("report_markdown", f"Đã hoàn tất phân tích kênh {ch_target}."),
+            }
+
+        # Handle Code Repositories
+        if "github" in lowered or ("/" in p and len(p.split("/")) == 2 and not " " in p):
+            repo_m = re.search(r'github\.com/([a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+)', p)
+            repo_name = repo_m.group(1) if repo_m else p.strip("/")
+            insp_res = self._inspect_github_repository({"repository": repo_name})
+            r_md = f"# 📦 Báo Cáo Phân Tích Mã Nguồn GitHub: {repo_name}\n"
+            r_md += f"- **Mô tả**: {insp_res.get('description', 'N/A')}\n"
+            r_md += f"- **Ngôn ngữ**: {insp_res.get('language', 'N/A')}\n"
+            r_md += f"- **Stars**: {insp_res.get('stars', 0)} ⭐ · **Forks**: {insp_res.get('forks', 0)}\n"
+            return {
+                "category": "code_repository",
+                "target": repo_name,
+                "report_markdown": r_md,
+            }
+
+        # General Concept / Market / Technical Question (Swarm Deep-Dive)
+        clean_q = re.sub(r'^(tìm hiểu|phân tích|nghiên cứu|hãy cho tôi biết|cho tôi hỏi|giải thích|hướng dẫn)\s+', '', p, flags=re.IGNORECASE)
+        swarm_res = self._swarm_multi_agent_deep_investigation({"topic": clean_q or p, "focus": "Toàn diện"})
+        return {
+            "category": "concept_or_market_research",
+            "target": p,
+            "report_markdown": swarm_res.get("report_markdown", ""),
         }
 
     def _universal_autonomous_entity_discovery(

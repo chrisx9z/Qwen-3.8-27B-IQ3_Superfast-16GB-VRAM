@@ -559,9 +559,9 @@ Core Operating Principles:
     ) -> AgentResult:
         self._emit(
             "status",
-            {"message": "Đang kích hoạt Động Cơ Tự Chủ Khám Phá Phổ Quát (Universal Autonomous Discovery)..."},
+            {"message": "Đang kích hoạt Động Cơ Tự Chủ Đào Sâu Tri Thức Tổng Quát (Recursive Autonomous Deep-Dive)..."},
         )
-        res = self.registry.execute("universal_autonomous_entity_discovery", {"target_or_question": prompt})
+        res = self.registry.execute("recursive_autonomous_deep_dive", {"target_or_prompt": prompt})
         report = (res.get("result") or {}).get("report_markdown", "")
         if not report:
             report = f"Đã hoàn thành khám phá tự chủ cho yêu cầu: {prompt}"
@@ -940,6 +940,7 @@ Core Operating Principles:
 
         # 1. Base Core Tools (Always useful for general assistance & navigation)
         base_tools = {
+            "recursive_autonomous_deep_dive",
             "universal_autonomous_entity_discovery",
             "audit_and_inspect_website_structure",
             "swarm_multi_agent_deep_investigation",

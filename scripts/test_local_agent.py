@@ -71,7 +71,11 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 297
+    assert len(registry.definitions()) == 298
+    assert registry.execute(
+        "recursive_autonomous_deep_dive",
+        {"target_or_prompt": "https://vibemmo.net/"},
+    )["ok"]
     assert registry.execute(
         "universal_autonomous_entity_discovery",
         {"target_or_question": "https://vibemmo.net/"},
