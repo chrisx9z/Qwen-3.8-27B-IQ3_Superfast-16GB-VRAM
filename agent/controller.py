@@ -893,18 +893,14 @@ Operating Principles:
                 "search_github_repositories",
             })
 
-        # 5. Video & Media intent
-        video_keywords = ("bilibili", "video", "project", "phụ đề", "subtitle", "localizer", "youtube")
-        if any(kw in lowered for kw in video_keywords):
+        # 5. Advanced System & Safety Analysis intent
+        system_keywords = ("tối ưu", "safety", "bảo mật", "benchmark", "hiệu năng", "audit", "system", "ram", "gpu", "vram", "performance")
+        if any(kw in lowered for kw in system_keywords):
             selected_names.update({
-                "download_bilibili",
-                "bilibili_search",
-                "youtube_search",
-                "get_project",
-                "list_projects",
-                "run_project_stage",
-                "ai_video_localizer_status",
-                "ai_video_localizer_launch",
+                "enforce_computer_action_safety_firewall",
+                "execute_resilient_computer_action_loop",
+                "get_system_status",
+                "get_resource_status",
             })
 
         # Filter and cap at max 22 tools to guarantee prompt tokens stay around 1,500 - 2,500 tokens
