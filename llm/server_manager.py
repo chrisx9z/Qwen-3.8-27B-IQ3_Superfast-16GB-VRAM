@@ -174,6 +174,8 @@ class LocalLLMServerManager:
         except Exception:
             return False
 
+    is_ready = is_running
+
     def ensure_running(self) -> None:
         if self.is_running():
             return
