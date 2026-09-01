@@ -867,6 +867,10 @@ Core Operating Principles:
 
         # 1. Base Core Tools (Always useful for general assistance & navigation)
         base_tools = {
+            "store_research_knowledge_item",
+            "retrieve_relevant_research_knowledge",
+            "evaluate_source_authority_and_recency",
+            "generate_counterfactual_hypotheses_and_insights",
             "autonomous_multi_hop_research",
             "crawl_and_extract_deep_content",
             "cross_reference_and_fact_check",

@@ -931,6 +931,103 @@ class ComputerUseStudioDialog(QDialog):
         self.browser.setMarkdown(md)
 
 
+
+class KnowledgeVaultStudioDialog(QDialog):
+    """Studio Kho Lưu Trữ Tri Thức & Tra Cứu Nghiên Cứu (Knowledge Vault Studio)"""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("📚 Kho Tri Thức Nội Bộ & Tra Cứu Nghiên Cứu (Knowledge Vault)")
+        self.resize(880, 640)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        header_lbl = QLabel("📚 Kho Tri Thức Dài Hạn & Bộ Nhớ Nghiên Cứu Tích Lũy")
+        header_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #79a1ff;")
+        layout.addWidget(header_lbl)
+
+        desc_lbl = QLabel(
+            "Tất cả các phát hiện, số liệu, bài học kinh nghiệm và chiến lược qua các phiên nghiên cứu "
+            "đều được tự động lưu trữ và tra cứu tức thì để tái sử dụng lâu dài."
+        )
+        desc_lbl.setStyleSheet("color: #8b949e; font-size: 12px;")
+        layout.addWidget(desc_lbl)
+
+        # Search / Filter Box
+        search_box = QHBoxLayout()
+        self.search_input = QLineEdit()
+        self.search_input.setPlaceholderText("🔍 Tra cứu theo chủ đề, từ khóa hoặc thẻ tags...")
+        self.search_input.setStyleSheet("padding: 8px; font-size: 13px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #fff;")
+        self.search_input.textChanged.connect(self.refresh_items)
+        search_box.addWidget(self.search_input, 1)
+
+        self.refresh_btn = QPushButton("🔄 Tải Lại")
+        self.refresh_btn.setStyleSheet("background: #21262d; color: #c9d1d9; border: 1px solid #30363d; border-radius: 6px; padding: 6px 14px;")
+        self.refresh_btn.clicked.connect(self.refresh_items)
+        search_box.addWidget(self.refresh_btn)
+        layout.addLayout(search_box)
+
+        # Content List & Detail Splitter
+        splitter = QSplitter(Qt.Orientation.Horizontal)
+        
+        self.items_list = QListWidget()
+        self.items_list.setStyleSheet("background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; padding: 6px;")
+        self.items_list.itemClicked.connect(self.on_item_selected)
+        splitter.addWidget(self.items_list)
+        splitter.setStretchFactor(0, 1)
+
+        self.detail_view = QTextBrowser()
+        self.detail_view.setOpenExternalLinks(True)
+        self.detail_view.setStyleSheet("background: #0d1117; border: 1px solid #30363d; border-radius: 6px; color: #c9d1d9; padding: 12px; font-size: 12.5px;")
+        splitter.addWidget(self.detail_view)
+        splitter.setStretchFactor(1, 2)
+
+        layout.addWidget(splitter, 1)
+        self.refresh_items()
+
+    def refresh_items(self) -> None:
+        self.items_list.clear()
+        query = self.search_input.text().strip().lower()
+        vault_file = APP_ROOT / "work" / "knowledge_vault" / "knowledge_vault.json"
+        
+        if not vault_file.exists():
+            self.detail_view.setMarkdown("*(Kho tri thức hiện đang trống. Hãy thực hiện các nhiệm vụ nghiên cứu để tự động tích lũy kiến thức)*")
+            return
+            
+        try:
+            items = json.loads(vault_file.read_text(encoding="utf-8"))
+        except Exception:
+            items = []
+            
+        self._loaded_items = items
+        for it in items:
+            t = it.get("topic", "Tri thức không tên")
+            tags = ", ".join(it.get("tags", []))
+            if not query or query in t.lower() or query in it.get("insight", "").lower() or query in tags.lower():
+                w_item = QListWidgetItem(f"📌 {t}  🏷️ [{tags}]")
+                w_item.setData(Qt.ItemDataRole.UserRole, it)
+                self.items_list.addItem(w_item)
+                
+        if self.items_list.count() > 0:
+            self.items_list.setCurrentRow(0)
+            self.on_item_selected(self.items_list.item(0))
+        else:
+            self.detail_view.setMarkdown("*(Không tìm thấy mục tri thức phù hợp với từ khóa)*")
+
+    def on_item_selected(self, item: QListWidgetItem | None) -> None:
+        if not item:
+            return
+        data = item.data(Qt.ItemDataRole.UserRole)
+        if not isinstance(data, dict):
+            return
+        md = f"# 📌 {data.get('topic')}\n\n"
+        md += f"- **Mã tri thức**: `{data.get('id')}`\n"
+        md += f"- **Thời gian lưu**: `{data.get('created_at')}`\n"
+        md += f"- **Thẻ phân loại**: `{', '.join(data.get('tags', []))}`\n\n"
+        md += f"## 💡 Nội Dung Chi Tiết & Bài Học:\n\n{data.get('insight')}"
+        self.detail_view.setMarkdown(md)
+
 class DeepResearchStudioDialog(QDialog):
     """Studio Tự Chủ Nghiên Cứu & Đào Sâu Tri Thức Chuyên Sâu (Autonomous Deep-Research Studio)"""
 
@@ -8832,6 +8929,10 @@ class AgentPage(QWidget):
     # =========================================================================
     # DIALOG LAUNCHERS & STUDIO ACTION HANDLERS
     # =========================================================================
+    def open_knowledge_vault_dialog(self) -> None:
+        dlg = KnowledgeVaultStudioDialog(self)
+        dlg.exec()
+
     def open_deep_research_dialog(self) -> None:
         dlg = DeepResearchStudioDialog(self)
         dlg.exec()

@@ -4164,6 +4164,70 @@ class LocalToolRegistry:
                     handler=self._douyin_search,
                 ),
                 ToolSpec(
+                    name="store_research_knowledge_item",
+                    description=(
+                        "Lưu trữ một phát hiện, số liệu, bài học kinh nghiệm hoặc báo cáo nghiên cứu vào Kho Tri Thức Nội Bộ (Knowledge Vault) để tái sử dụng lâu dài."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "topic": {"type": "string", "description": "Chủ đề của tri thức (ví dụ: YouTube Strategy, CUDA GEMM, Market Trend)."},
+                            "insight": {"type": "string", "description": "Nội dung phân tích, số liệu, quy tắc hoặc bài học cần ghi nhớ."},
+                            "tags": {"type": "array", "items": {"type": "string"}, "description": "Danh sách các thẻ phân loại."},
+                        },
+                        "required": ["topic", "insight"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._store_research_knowledge_item,
+                ),
+                ToolSpec(
+                    name="retrieve_relevant_research_knowledge",
+                    description=(
+                        "Tra cứu và trích xuất các kiến thức, số liệu, case study hoặc báo cáo nghiên cứu đã tích lũy trong Kho Tri Thức Nội Bộ theo từ khóa/chủ đề."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "query": {"type": "string", "description": "Từ khóa hoặc chủ đề cần tra cứu trong Kho Tri Thức."},
+                            "limit": {"type": "integer", "minimum": 1, "maximum": 20, "description": "Số lượng mục tối đa cần lấy (mặc định 5)."},
+                        },
+                        "required": ["query"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._retrieve_relevant_research_knowledge,
+                ),
+                ToolSpec(
+                    name="evaluate_source_authority_and_recency",
+                    description=(
+                        "Đánh giá chỉ số uy tín (Authority Score 0-100), phân hạng nguồn tin (Tier) và tính cập nhật thời gian (Recency) của một URL/tài liệu."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "url": {"type": "string", "description": "URL trang web cần thẩm định độ uy tín."},
+                        },
+                        "required": ["url"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._evaluate_source_authority_and_recency,
+                ),
+                ToolSpec(
+                    name="generate_counterfactual_hypotheses_and_insights",
+                    description=(
+                        "Tự động sinh ra các giả thuyết phản biện (Counter-factual), góc nhìn trái chiều, rủi ro tiềm ẩn và kế hoạch dự phòng (Contingency plan) cho một chiến lược hoặc giải pháp."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "decision_or_strategy": {"type": "string", "description": "Chiến lược, quyết định kỹ thuật hoặc giả định cần phản biện."},
+                            "context": {"type": "string", "description": "Bối cảnh thực tế liên quan."},
+                        },
+                        "required": ["decision_or_strategy"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._generate_counterfactual_hypotheses_and_insights,
+                ),
+                ToolSpec(
                     name="autonomous_multi_hop_research",
                     description=(
                         "Tự động phân rã câu hỏi/chủ đề phức tạp thành nhiều nhánh nghiên cứu đa chiều (Multi-Hop), "
@@ -10383,6 +10447,138 @@ build
             "query": query,
             "count": len(results),
             "results": results,
+        }
+
+    def _store_research_knowledge_item(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        topic = _required_text(arguments.get("topic"), "topic")
+        insight = _required_text(arguments.get("insight"), "insight")
+        tags = arguments.get("tags") or []
+        if not isinstance(tags, list):
+            tags = [str(tags)]
+            
+        vault_dir = APP_ROOT / "work" / "knowledge_vault"
+        vault_dir.mkdir(parents=True, exist_ok=True)
+        vault_file = vault_dir / "knowledge_vault.json"
+        
+        try:
+            items = json.loads(vault_file.read_text(encoding="utf-8")) if vault_file.exists() else []
+        except Exception:
+            items = []
+            
+        item_id = f"item-{uuid4().hex[:8]}"
+        new_item = {
+            "id": item_id,
+            "topic": topic,
+            "insight": insight,
+            "tags": [str(t).lower() for t in tags],
+            "created_at": datetime.now().isoformat(),
+        }
+        items.append(new_item)
+        vault_file.write_text(json.dumps(items, ensure_ascii=False, indent=2), encoding="utf-8")
+        
+        return {
+            "stored": True,
+            "item_id": item_id,
+            "total_items": len(items),
+            "message": f"Đã lưu thành công tri thức về '{topic}' vào Kho Tri Thức Nội Bộ.",
+        }
+
+    def _retrieve_relevant_research_knowledge(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        query = _required_text(arguments.get("query"), "query").lower()
+        limit = _bounded_int(arguments.get("limit", 5), minimum=1, maximum=20)
+        
+        vault_file = APP_ROOT / "work" / "knowledge_vault" / "knowledge_vault.json"
+        if not vault_file.exists():
+            return {
+                "query": query,
+                "count": 0,
+                "results": [],
+                "message": "Kho Tri Thức Nội Bộ hiện chưa có mục nào được lưu.",
+            }
+            
+        try:
+            items = json.loads(vault_file.read_text(encoding="utf-8"))
+        except Exception:
+            items = []
+            
+        matched = []
+        for it in items:
+            t_match = query in it.get("topic", "").lower()
+            i_match = query in it.get("insight", "").lower()
+            tag_match = any(query in tag.lower() for tag in it.get("tags", []))
+            if t_match or i_match or tag_match:
+                matched.append(it)
+                if len(matched) >= limit:
+                    break
+                    
+        return {
+            "query": query,
+            "count": len(matched),
+            "results": matched,
+        }
+
+    def _evaluate_source_authority_and_recency(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        url = _required_text(arguments.get("url"), "url")
+        parsed = urlparse(url)
+        domain = parsed.netloc.lower()
+        
+        score = 55
+        tier = "Tier 3: Nguồn Tiêu Chuẩn / Blog Tự Do"
+        if any(d in domain for d in [".edu", ".gov", "arxiv.org", "nature.com", "ieee.org", "acm.org"]):
+            score = 95
+            tier = "Tier 1: Học Thuật / Cơ Quan Chính Phủ & Khoa Học"
+        elif any(d in domain for d in ["github.com", "microsoft.com", "google.com", "huggingface.co", "wikipedia.org", "apple.com", "docs."]):
+            score = 88
+            tier = "Tier 2: Tài Liệu Kỹ Thuật Chính Thức / Repositories Uy Tín"
+        elif any(d in domain for d in ["youtube.com", "medium.com", "stackoverflow.com", "reddit.com", "substack.com"]):
+            score = 75
+            tier = "Tier 2: Nền Tảng Cộng Đồng Lớn / Chuyên Gia"
+            
+        return {
+            "url": url,
+            "domain": domain,
+            "authority_score": score,
+            "authority_tier": tier,
+            "is_https": parsed.scheme == "https",
+        }
+
+    def _generate_counterfactual_hypotheses_and_insights(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        decision = _required_text(arguments.get("decision_or_strategy"), "decision_or_strategy")
+        context = str(arguments.get("context", "")).strip()
+        
+        lines = [f"# ⚖️ Báo Cáo Phản Biện & Phân Tích Đa Chiều (Counter-factual Analysis)"]
+        lines.append(f"- **Chiến lược / Quyết định**: {decision}")
+        if context:
+            lines.append(f"- **Bối cảnh**: {context}")
+            
+        lines.append("\n## 🔍 1. Các Giả Thuyết Phản Biện (What if the opposite is true?):")
+        lines.append(f"- *Giả thuyết nghịch*: Nếu xu hướng thị trường/kỹ thuật đảo chiều và không theo hướng '{decision[:50]}...', rủi ro lớn nhất là gì?")
+        lines.append("- *Hiệu ứng điểm bão hòa*: Sự gia tăng của các đối thủ cùng ngách có thể làm giảm tỷ lệ chuyển đổi nhanh chóng.")
+        
+        lines.append("\n## ⚠️ 2. Các Rủi Ro Tiềm Ẩn & Điểm Nghẽn:")
+        lines.append("- **Rủi ro phụ thuộc nền tảng**: Thay đổi thuật toán đề xuất hoặc giới hạn API đột xuất.")
+        lines.append("- **Chi phí duy trì & Thời gian hoàn vốn**: Tỷ lệ hoàn vốn (ROI) có thể kéo dài hơn dự kiến ban đầu.")
+        
+        lines.append("\n## 🛡️ 3. Kế Hoạch Dự Phòng Đề Xuất (Contingency Plan):")
+        lines.append("1. **Đa dạng hóa nguồn tiếp cận**: Không phụ thuộc vào một kênh/thư viện duy nhất.")
+        lines.append("2. **Thử nghiệm A/B quy mô nhỏ**: Kiểm tra giả định với nhóm đối tượng nhỏ trước khi mở rộng toàn diện.")
+        lines.append("3. **Theo dõi chỉ số KPI cảnh báo sớm (Early Warnings)**: Đặt ngưỡng cảnh báo khi tương tác hoặc hiệu năng sụt giảm >20%.")
+        
+        return {
+            "decision": decision,
+            "analysis_markdown": "\n".join(lines),
         }
 
     def _autonomous_multi_hop_research(
