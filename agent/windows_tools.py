@@ -1,69 +1,118 @@
 from __future__ import annotations
 
+import sys
+import subprocess
+import json
 from typing import Any
 
-
 ALLOWED_KEYS = {
-    "ENTER",
-    "ESC",
-    "TAB",
-    "BACKSPACE",
-    "DELETE",
-    "SPACE",
-    "UP",
-    "DOWN",
-    "LEFT",
-    "RIGHT",
-    "CTRL+A",
-    "CTRL+C",
-    "CTRL+V",
-    "CTRL+S",
-    "ALT+F4",
+    "ENTER", "ESC", "TAB", "BACKSPACE", "DELETE", "SPACE",
+    "UP", "DOWN", "LEFT", "RIGHT",
+    "CTRL+A", "CTRL+C", "CTRL+V", "CTRL+S", "ALT+F4", "CMD+C", "CMD+V", "CMD+A", "CMD+S", "CMD+Q",
 }
+
+IS_MACOS = sys.platform == "darwin"
+IS_WINDOWS = sys.platform == "win32"
+
+
+def _run_applescript(script: str) -> str:
+    try:
+        res = subprocess.run(["osascript", "-e", script], capture_output=True, text=True, timeout=5)
+        return res.stdout.strip()
+    except Exception:
+        return ""
 
 
 def ui_list_windows(limit: int = 50) -> dict[str, Any]:
-    desktop = _desktop()
-    windows: list[dict[str, Any]] = []
-    for window in desktop.windows(visible_only=True):
-        if len(windows) >= max(1, min(limit, 100)):
-            break
-        title = _call(window, "window_text")
-        if not title:
-            continue
-        windows.append({
-            "title": title,
-            "class_name": _property(window, "class_name"),
-            "process_id": _property(window, "process_id"),
-        })
-    return {"count": len(windows), "windows": windows}
+    if IS_MACOS:
+        script = """
+        tell application "System Events"
+            set procList to every process whose visible is true
+            set winInfoList to {}
+            repeat with proc in procList
+                set procName to name of proc
+                set winList to every window of proc
+                repeat with win in winList
+                    set end of winInfoList to (procName & " - " & (name of win))
+                end repeat
+            end repeat
+            return winInfoList
+        end tell
+        """
+        raw = _run_applescript(script)
+        lines = [item.strip() for item in raw.split(",") if item.strip()]
+        windows = [{"title": title, "class_name": "NSWindow", "process_id": 0} for title in lines[:limit]]
+        return {"count": len(windows), "windows": windows}
+    
+    # Windows fallback
+    try:
+        desktop = _desktop()
+        windows: list[dict[str, Any]] = []
+        for window in desktop.windows(visible_only=True):
+            if len(windows) >= max(1, min(limit, 100)):
+                break
+            title = _call(window, "window_text")
+            if not title:
+                continue
+            windows.append({
+                "title": title,
+                "class_name": _property(window, "class_name"),
+                "process_id": _property(window, "process_id"),
+            })
+        return {"count": len(windows), "windows": windows}
+    except Exception as e:
+        return {"count": 0, "windows": [], "error": str(e)}
 
 
-def ui_snapshot(
-    window_title: str,
-    limit: int = 100,
-) -> dict[str, Any]:
-    window = _window(window_title)
-    controls: list[dict[str, Any]] = []
-    for control in window.descendants():
-        if len(controls) >= max(1, min(limit, 200)):
-            break
-        title = _call(control, "window_text")
-        control_type = _property(control, "control_type")
-        automation_id = _property(control, "automation_id")
-        if not title and not automation_id:
-            continue
-        controls.append({
-            "title": title,
-            "control_type": control_type,
-            "automation_id": automation_id,
-            "class_name": _property(control, "class_name"),
-        })
-    return {
-        "window_title": _call(window, "window_text"),
-        "count": len(controls),
-        "controls": controls,
-    }
+def ui_snapshot(window_title: str, limit: int = 100) -> dict[str, Any]:
+    if IS_MACOS:
+        script = f"""
+        tell application "System Events"
+            set winElemList to {{}}
+            try
+                tell process "{window_title}"
+                    set uieList to every UI element of front window
+                    repeat with elem in uieList
+                        set end of winElemList to (description of elem & ": " & (name of elem as text))
+                    end repeat
+                end tell
+            end try
+            return winElemList
+        end tell
+        """
+        raw = _run_applescript(script)
+        elems = [item.strip() for item in raw.split(",") if item.strip()]
+        controls = [{"title": e, "control_type": "NSControl", "automation_id": e} for e in elems[:limit]]
+        return {
+            "window_title": window_title,
+            "count": len(controls),
+            "controls": controls,
+        }
+
+    try:
+        window = _window(window_title)
+        controls: list[dict[str, Any]] = []
+        for control in window.descendants():
+            if len(controls) >= max(1, min(limit, 200)):
+                break
+            title = _call(control, "window_text")
+            control_type = _property(control, "control_type")
+            automation_id = _property(control, "automation_id")
+            if not title and not automation_id:
+                continue
+            controls.append({
+                "title": title,
+                "control_type": control_type,
+                "automation_id": automation_id,
+                "class_name": _property(control, "class_name"),
+            })
+        return {
+            "window_title": _call(window, "window_text"),
+            "count": len(controls),
+            "controls": controls,
+        }
+    except Exception as e:
+        return {"window_title": window_title, "count": 0, "controls": [], "error": str(e)}
 
 
 def ui_click(
@@ -73,6 +122,22 @@ def ui_click(
     automation_id: str = "",
     control_type: str = "",
 ) -> dict[str, Any]:
+    if IS_MACOS:
+        try:
+            import pyautogui
+            script = f"""
+            tell application "System Events"
+                tell process "{window_title}"
+                    set frontmost to true
+                    click button "{control_title or automation_id}" of front window
+                end tell
+            end tell
+            """
+            _run_applescript(script)
+            return {"clicked": True, "control": {"title": control_title or automation_id}}
+        except Exception:
+            return {"clicked": False, "error": "Could not click UI control on macOS"}
+
     control = _control(
         window_title,
         control_title=control_title,
@@ -95,6 +160,30 @@ def ui_type(
     control_type: str = "Edit",
     press_enter: bool = False,
 ) -> dict[str, Any]:
+    if IS_MACOS:
+        try:
+            import pyautogui
+            # Switch to app
+            subprocess.run(["open", "-a", window_title], capture_output=True)
+            pyautogui.write(value, interval=0.01)
+            if press_enter:
+                pyautogui.press("enter")
+            return {"typed": True, "value": value}
+        except Exception:
+            safe_val = value.replace('"', '\"')
+            enter_clause = 'keystroke return\n' if press_enter else ''
+            script = f"""
+            tell application "System Events"
+                tell process "{window_title}"
+                    set frontmost to true
+                    keystroke "{safe_val}"
+                    {enter_clause}
+                end tell
+            end tell
+            """
+            _run_applescript(script)
+            return {"typed": True, "value": value}
+
     control = _control(
         window_title,
         control_title=control_title,
@@ -122,6 +211,17 @@ def ui_press_key(
     normalized = str(key or "").strip().upper()
     if normalized not in ALLOWED_KEYS:
         raise ValueError(f"Phím không được phép: {normalized}")
+    
+    if IS_MACOS:
+        try:
+            import pyautogui
+            key_map = {"ENTER": "enter", "ESC": "esc", "TAB": "tab", "BACKSPACE": "backspace", "DELETE": "delete", "SPACE": "space"}
+            k = key_map.get(normalized, normalized.lower())
+            pyautogui.press(k)
+            return {"pressed": normalized}
+        except Exception:
+            pass
+
     target = (
         _control(
             window_title,
@@ -153,16 +253,19 @@ def ui_click_text(
 
     offset_x, offset_y = 0, 0
     bbox_kwargs: dict[str, Any] = {}
-    if window_title.strip():
-        win = _window(window_title)
-        rect = win.rectangle()
-        bbox_kwargs = {
-            "x": max(0, rect.left),
-            "y": max(0, rect.top),
-            "width": max(10, rect.width()),
-            "height": max(10, rect.height()),
-        }
-        offset_x, offset_y = max(0, rect.left), max(0, rect.top)
+    if window_title.strip() and not IS_MACOS:
+        try:
+            win = _window(window_title)
+            rect = win.rectangle()
+            bbox_kwargs = {
+                "x": max(0, rect.left),
+                "y": max(0, rect.top),
+                "width": max(10, rect.width()),
+                "height": max(10, rect.height()),
+            }
+            offset_x, offset_y = max(0, rect.left), max(0, rect.top)
+        except Exception:
+            pass
 
     ocr_res = screen_ocr(min_confidence=min_confidence, **bbox_kwargs)
     items = ocr_res.get("items", [])
@@ -193,16 +296,32 @@ def ui_click_text(
     else:
         raise ValueError("Định dạng bounding box không hợp lệ.")
 
-    try:
-        from pywinauto import mouse
-
-        mouse.click(button="left", coords=(cx, cy))
-    except Exception:
-        import ctypes
-
-        ctypes.windll.user32.SetCursorPos(cx, cy)
-        ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
-        ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+    if IS_MACOS:
+        try:
+            import pyautogui
+            screen_w, screen_h = pyautogui.size()
+            from PIL import ImageGrab
+            sample_img = ImageGrab.grab()
+            scale_x = sample_img.width / screen_w if screen_w > 0 else 1.0
+            scale_y = sample_img.height / screen_h if screen_h > 0 else 1.0
+            if scale_x > 1.2:
+                cx = int(cx / scale_x)
+                cy = int(cy / scale_y)
+            pyautogui.click(cx, cy)
+        except Exception:
+            pass
+    elif IS_WINDOWS:
+        try:
+            import pyautogui
+            pyautogui.click(cx, cy)
+        except Exception:
+            try:
+                import ctypes
+                ctypes.windll.user32.SetCursorPos(cx, cy)
+                ctypes.windll.user32.mouse_event(0x0002, 0, 0, 0, 0)
+                ctypes.windll.user32.mouse_event(0x0004, 0, 0, 0, 0)
+            except Exception:
+                pass
 
     return {
         "clicked": True,
@@ -214,20 +333,22 @@ def ui_click_text(
     }
 
 
-
 def _desktop() -> Any:
     try:
         from pywinauto import Desktop
-    except ImportError as error:
-        raise RuntimeError("Chưa cài pywinauto cho Windows UI Automation.") from error
-    return Desktop(backend="uia")
+        return Desktop(backend="uia")
+    except ImportError:
+        return None
 
 
 def _window(title: str) -> Any:
     value = str(title or "").strip()
     if not value:
         raise ValueError("window_title không được để trống.")
-    window = _desktop().window(title=value)
+    d = _desktop()
+    if d is None:
+        raise RuntimeError("Windows Desktop not available on this platform.")
+    window = d.window(title=value)
     window.wait("exists", timeout=10)
     return window.wrapper_object()
 
