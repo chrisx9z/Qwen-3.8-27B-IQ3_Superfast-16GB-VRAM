@@ -446,11 +446,11 @@ class TaskChecklistCard(QFrame):
 
 
 class ComputerSafetyStudioDialog(QDialog):
-    """Hộp thoại Tối Ưu Hóa An Toàn & Tiêm Extension Chrome: Computer Use Safety Sandbox (283 Tools)."""
+    """Hộp thoại Tối Ưu Hóa An Toàn & Tiêm Extension Chrome: Computer Use Safety Sandbox (300 Tools)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("Computer Safety Studio: Chrome Injector & Safety Sandbox (283 Tools)")
+        self.setWindowTitle("Computer Safety Studio: Chrome Injector & Safety Sandbox (300 Tools)")
         self.resize(860, 600)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
@@ -1193,17 +1193,17 @@ class DeepResearchStudioDialog(QDialog):
             self.start_btn.setText("🚀 Bắt Đầu Nghiên Cứu")
 
 class AllToolsCatalogDialog(QDialog):
-    """Trung tâm 283 Công Cụ Tích Hợp — Tra Cứu & Điều Khiển Toàn Diện."""
+    """Trung tâm 300 Công Cụ Tích Hợp — Tra Cứu & Điều Khiển Toàn Diện."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("🎛️ Trung Tâm 283 Công Cụ Chuyên Sâu (Tool Hub)")
+        self.setWindowTitle("🎛️ Trung Tâm 300 Công Cụ Chuyên Sâu (Tool Hub)")
         self.resize(880, 620)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(18, 18, 18, 18)
         layout.setSpacing(12)
 
-        header_lbl = QLabel("🎛️ Danh Mục 283 Công Cụ Hệ Sinh Thái M Auto Pilot:")
+        header_lbl = QLabel("🎛️ Danh Mục 300 Công Cụ Hệ Sinh Thái M Auto Pilot:")
         header_lbl.setStyleSheet("color: #f2f2f6; font-weight: bold; font-size: 15px;")
         layout.addWidget(header_lbl)
 
@@ -10266,7 +10266,7 @@ class AgentPage(QWidget):
 
         tools_icon_btn = QPushButton("🎛️")
         tools_icon_btn.setObjectName("GhostIconBtn")
-        tools_icon_btn.setToolTip("Mở danh mục 283 công cụ (Tool Hub)")
+        tools_icon_btn.setToolTip("Mở danh mục 300 công cụ (Tool Hub)")
         tools_icon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         tools_icon_btn.clicked.connect(self.open_all_tools_dialog)
         profile_layout.addWidget(tools_icon_btn)
@@ -10458,7 +10458,7 @@ class AgentPage(QWidget):
         main_layout.addWidget(input_card)
 
         # ---- Telemetry Status Footer ----
-        self.telemetry_footer_lbl = QLabel("⚡ 50.4 tok/s · TTFT 430ms · FlashAttention-2 · KV Cache 99% · 283 Tools Online")
+        self.telemetry_footer_lbl = QLabel("⚡ 50.4 tok/s · TTFT 430ms · FlashAttention-2 · KV Cache 99% · Google-Primary Search · 300 Tools Online")
         self.telemetry_footer_lbl.setObjectName("TelemetryFooter")
         main_layout.addWidget(self.telemetry_footer_lbl)
 
