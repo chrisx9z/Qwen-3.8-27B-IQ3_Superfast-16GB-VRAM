@@ -8647,11 +8647,26 @@ class AgentPage(QWidget):
         self._add_assistant_bubble(f"### 📄 Đã sinh tài liệu dự án thành công!\n- Quét {count} modules.\n- Lưu tại: `{saved}`")
 
     def update_token_estimate(self) -> None:
-        txt = self.prompt_input.toPlainText()
-        tok_count = len(txt) // 3
-        color = "#ff7b7b" if tok_count > 12000 else ("#e3b341" if tok_count > 8000 else "#8b949e")
+        chat = self.active_chat()
+        history_chars = 0
+        if chat:
+            for msg in self.history(chat):
+                history_chars += len(str(msg.get("content", "")))
+        prompt_chars = len(self.prompt_input.toPlainText())
+        total_chars = history_chars + prompt_chars
+        tok_count = max(0, total_chars // 3)
+        pct = min(100.0, (tok_count / 16384) * 100)
+        color = "#ff7b7b" if tok_count > 13000 else ("#e3b341" if tok_count > 9000 else "#8b949e")
         self.token_estimator_lbl.setStyleSheet(f"color: {color}; font-size: 11px; font-family: Consolas, monospace; padding: 2px 4px;")
-        self.token_estimator_lbl.setText(f"Tokens ước lượng: ~{tok_count:,} / 16,384 (Qwen3.8-27B)")
+        
+        lang = get_current_language()
+        if lang == "en":
+            lbl = f"Context: ~{tok_count:,} / 16,384 tokens ({pct:.1f}%)"
+        elif lang == "zh":
+            lbl = f"上下文 Tokens: ~{tok_count:,} / 16,384 ({pct:.1f}%)"
+        else:
+            lbl = f"Ngữ cảnh: ~{tok_count:,} / 16,384 tokens ({pct:.1f}%)"
+        self.token_estimator_lbl.setText(lbl)
 
     # ------------------------------------------------ Phase 7 Actions
     def open_database_viewer(self) -> None:
@@ -10211,7 +10226,7 @@ class AgentPage(QWidget):
                 clipboard.setText(code)
                 self.status_label.setText(t("copied") + " 📋")
                 QTimer.singleShot(2500, lambda: self.status_label.setText(t("status_ready")) if self.worker is None else None)
-        elif url_str.startswith(("http://", "https://")):
+        elif url_str.startswith(("http://", "https://", "file://")):
             QDesktopServices.openUrl(QUrl(url_str))
 
     def append_message(self, message: dict[str, Any]) -> None:
