@@ -7599,9 +7599,9 @@ class TerminalCard(QFrame):
 
     def finish(self, success: bool = True) -> None:
         self._finished = True
-        status = "✅ Lệnh hoàn thành" if success else "⚠️ Lệnh kết thúc có lỗi"
+        status = "✅ " + t("status_ready") if success else "⚠️ " + t("status_stopped")
         count = len(self._lines)
-        self.header_btn.setText(f"{status} ({count} dòng log) · Bấm để xem lại")
+        self.header_btn.setText(f"{status} ({count} lines) · " + t("show_details"))
         self._collapsed = True
         self.body.setVisible(False)
 
@@ -7619,7 +7619,7 @@ class ReasoningCard(QFrame):
         self._layout.setContentsMargins(10, 8, 10, 8)
         self._layout.setSpacing(6)
 
-        self.header_btn = QPushButton("🧠 Quá trình suy nghĩ & Tiến độ (Đang suy luận...)")
+        self.header_btn = QPushButton(t("reasoning_title") + " (" + t("status_thinking", step=1, max_steps=1) + ")")
         self.header_btn.setObjectName("ReasoningHeader")
         self.header_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.header_btn.clicked.connect(self.toggle_collapse)
@@ -7650,8 +7650,8 @@ class ReasoningCard(QFrame):
         preview = lines[-1][:65] if lines else ""
         if len(preview) > 65:
             preview = preview[:65] + "…"
-        summary = f"🧠 Đã hoàn tất suy luận Tiếng Việt ({preview})" if preview else "🧠 Đã hoàn tất suy luận Tiếng Việt"
-        self.header_btn.setText(summary + " · Bấm để xem lại")
+        summary = f"🧠 {t('reasoning_title')} ({preview})" if preview else f"🧠 {t('reasoning_title')}"
+        self.header_btn.setText(summary + " · " + t("show_details"))
         self._collapsed = True
         self.body.setVisible(False)
 
@@ -9475,6 +9475,40 @@ class AgentPage(QWidget):
         set_language(lang_code)
         self.retranslate_ui()
 
+    def _rebuild_quick_action_chips(self) -> None:
+        if not hasattr(self, "quick_action_layout"):
+            return
+        if hasattr(self, "quick_action_bar"):
+            for child in self.quick_action_bar.findChildren(QPushButton):
+                child.setParent(None)
+                child.deleteLater()
+        while self.quick_action_layout.count():
+            item = self.quick_action_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        actions = [
+            (t("chip_plan"), t("chip_plan_tip"), "/plan "),
+            (t("chip_fix"), t("chip_fix_tip"), "/fix "),
+            (t("chip_review"), t("chip_review_tip"), "/review "),
+            (t("chip_test"), t("chip_test_tip"), "/test "),
+            (t("chip_turbo"), t("chip_turbo_tip"), "TURBO_DIALOG"),
+            (t("chip_recovery"), t("chip_recovery_tip"), "CIRCUIT_DIALOG"),
+            (t("chip_memory"), t("chip_memory_tip"), "EMBEDDINGS_DIALOG"),
+            (t("chip_ram"), t("chip_ram_tip"), "GCTUNING_DIALOG"),
+            (t("chip_uitest"), t("chip_uitest_tip"), "UITEST_DIALOG"),
+            (t("chip_safety"), t("chip_safety_tip"), "SAFETY_DIALOG"),
+            (t("chip_all_tools"), t("chip_all_tools_tip"), "ALL_TOOLS_DIALOG"),
+        ]
+        for label, tip, act_cmd in actions:
+            chip_btn = QPushButton(label)
+            chip_btn.setObjectName("QuickActionChip")
+            chip_btn.setToolTip(tip)
+            chip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            chip_btn.clicked.connect(lambda _, cmd=act_cmd: self.on_quick_action_clicked(cmd))
+            self.quick_action_layout.addWidget(chip_btn)
+        self.quick_action_layout.addStretch(1)
+
     def retranslate_ui(self) -> None:
         if hasattr(self, "brand_lbl"):
             self.brand_lbl.setText(t("brand_name"))
@@ -9488,6 +9522,8 @@ class AgentPage(QWidget):
             self.delete_button.setText(t("delete"))
         if hasattr(self, "export_button"):
             self.export_button.setText(t("export_md"))
+        if hasattr(self, "resource_bar"):
+            self.resource_bar.setText(t("reading_resources"))
         if hasattr(self, "footer_lbl"):
             self.footer_lbl.setText(t("local_model_footer"))
         if hasattr(self, "page_title_lbl"):
@@ -9498,6 +9534,8 @@ class AgentPage(QWidget):
             self.mode_caption_lbl.setText(t("mode_label"))
         if hasattr(self, "mode_combo"):
             self._populate_mode_combo()
+        if hasattr(self, "status_label") and self.worker is None:
+            self.status_label.setText(t("status_ready"))
         if hasattr(self, "resource_button"):
             self.resource_button.setText(t("gpu_status"))
         if hasattr(self, "harness_button"):
@@ -9508,6 +9546,8 @@ class AgentPage(QWidget):
             self.send_button.setText(t("send_button") + " ➤")
         if hasattr(self, "pin_button"):
             self.pin_button.setText(t("pin"))
+        self._rebuild_quick_action_chips()
+        self.update_token_estimate()
 
     def build_ui(self) -> None:
         load_saved_language()
@@ -9663,26 +9703,10 @@ class AgentPage(QWidget):
         quick_action_layout.setContentsMargins(0, 0, 0, 0)
         quick_action_layout.setSpacing(8)
 
-        actions = [
-            ("💡 /plan", "Lập kế hoạch từng bước", "/plan "),
-            ("🐛 /fix", "Sửa lỗi và debug", "/fix "),
-            ("🔍 /review", "Review code chi tiết", "/review "),
-            ("🧪 /test", "Tạo và chạy test", "/test "),
-            ("🚀 Turbo Mode", "Kích hoạt 4 tầng tăng tốc", "TURBO_DIALOG"),
-            ("🛡️ Tự Hồi Phục", "LLM Circuit Breaker & Watchdog", "CIRCUIT_DIALOG"),
-            ("🧠 Bộ Nhớ RAG", "Vector Embeddings & Long-Term Memory", "EMBEDDINGS_DIALOG"),
-            ("💾 Tối Ưu RAM", "Zero GC Pause & Buffer Arena", "GCTUNING_DIALOG"),
-            ("🧪 Kiểm Thử UI", "Headless Snapshots & Benchmark", "UITEST_DIALOG"),
-            ("🎛️ Tất Cả Công Cụ (266 Tools)...", "Tra cứu toàn bộ 266 công cụ", "ALL_TOOLS_DIALOG"),
-        ]
-        for label, tip, act_cmd in actions:
-            chip_btn = QPushButton(label)
-            chip_btn.setObjectName("QuickActionChip")
-            chip_btn.setToolTip(tip)
-            chip_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            chip_btn.clicked.connect(lambda _, cmd=act_cmd: self.on_quick_action_clicked(cmd))
-            quick_action_layout.addWidget(chip_btn)
-        quick_action_layout.addStretch(1)
+        self.quick_action_layout = quick_action_layout
+        self.quick_action_scroll = quick_action_scroll
+        self.quick_action_bar = quick_action_bar
+        self._rebuild_quick_action_chips()
         quick_action_scroll.setWidget(quick_action_bar)
         main_layout.addWidget(quick_action_scroll)
 
@@ -9835,7 +9859,7 @@ class AgentPage(QWidget):
             return
         chat = {
             "id": uuid4().hex,
-            "title": "New chat",
+            "title": t("default_new_chat_title"),
             "pinned": False,
             "prompt": "",
             "history": [],
@@ -9847,7 +9871,7 @@ class AgentPage(QWidget):
         if hasattr(self, "chat_layout"):
             self.clear_chat_area()
             self.prompt_input.clear()
-            self.status_label.setText("Sẵn sàng · chat mới")
+            self.status_label.setText(t("status_ready"))
             self.refresh_chat_list()
         self.save_chats()
 
@@ -9867,7 +9891,7 @@ class AgentPage(QWidget):
         self.clear_chat_area()
         for message in self.history(chat):
             self.append_message(message)
-        self.status_label.setText("Sẵn sàng")
+        self.status_label.setText(t("status_ready"))
         for index in range(self.chat_list.count()):
             item = self.chat_list.item(index)
             if item.data(32) == chat_id:
