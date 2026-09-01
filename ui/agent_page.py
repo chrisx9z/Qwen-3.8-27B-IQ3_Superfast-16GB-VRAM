@@ -930,6 +930,82 @@ class ComputerUseStudioDialog(QDialog):
 """
         self.browser.setMarkdown(md)
 
+
+class DeepResearchStudioDialog(QDialog):
+    """Studio Tự Chủ Nghiên Cứu & Đào Sâu Tri Thức Chuyên Sâu (Autonomous Deep-Research Studio)"""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("🔬 Studio Nghiên Cứu & Đào Sâu Tri Thức (Deep Research Engine)")
+        self.resize(850, 620)
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(16, 16, 16, 16)
+        layout.setSpacing(12)
+
+        header_lbl = QLabel("🧠 Hệ Thống Tự Chủ Nghiên Cứu & Khám Phá Tri Thức Đa Chiều")
+        header_lbl.setStyleSheet("font-size: 15px; font-weight: 700; color: #58a6ff;")
+        layout.addWidget(header_lbl)
+
+        desc_lbl = QLabel(
+            "Tự động phân rã câu hỏi thành nhiều nhánh nghiên cứu, đào sâu dữ liệu đa nguồn từ Internet, "
+            "bóc tách số liệu, đối chiếu kiểm chứng sự thật và tạo báo cáo tri thức hoàn chỉnh."
+        )
+        desc_lbl.setStyleSheet("color: #8b949e; font-size: 12px;")
+        desc_lbl.setWordWrap(True)
+        layout.addWidget(desc_lbl)
+
+        # Input Row
+        input_box = QHBoxLayout()
+        self.topic_input = QLineEdit()
+        self.topic_input.setPlaceholderText("Nhập chủ đề, công nghệ, thực thể, hoặc câu hỏi cần nghiên cứu sâu...")
+        self.topic_input.setStyleSheet("padding: 8px; font-size: 13px; background: #161b22; border: 1px solid #30363d; border-radius: 6px; color: #fff;")
+        input_box.addWidget(self.topic_input, 1)
+
+        self.depth_combo = QComboBox()
+        self.depth_combo.addItem("⚡ Nhanh (Fast - 3 sources)", "fast")
+        self.depth_combo.addItem("🔍 Đào Sâu (Deep - 6 sources)", "deep")
+        self.depth_combo.addItem("🧠 Toàn Diện (Comprehensive - 10 sources)", "comprehensive")
+        self.depth_combo.setCurrentIndex(1)
+        input_box.addWidget(self.depth_combo)
+
+        self.start_btn = QPushButton("🚀 Bắt Đầu Nghiên Cứu")
+        self.start_btn.setStyleSheet("background: #238636; color: #fff; font-weight: 600; padding: 8px 16px; border-radius: 6px;")
+        self.start_btn.clicked.connect(self.run_research)
+        input_box.addWidget(self.start_btn)
+        layout.addLayout(input_box)
+
+        # Result Display Area
+        self.result_view = QTextBrowser()
+        self.result_view.setOpenExternalLinks(True)
+        self.result_view.setStyleSheet("background: #0d1117; border: 1px solid #30363d; border-radius: 8px; color: #c9d1d9; padding: 12px; font-size: 12.5px;")
+        self.result_view.setMarkdown("*(Nhập chủ đề và bấm 'Bắt Đầu Nghiên Cứu' để hệ thống tự động tìm kiếm, đọc sâu và tổng hợp báo cáo)*")
+        layout.addWidget(self.result_view, 1)
+
+    def run_research(self) -> None:
+        topic = self.topic_input.text().strip()
+        if not topic:
+            return
+        depth = self.depth_combo.currentData()
+        self.start_btn.setEnabled(False)
+        self.start_btn.setText("⏳ Đang nghiên cứu...")
+        self.result_view.setMarkdown(f"⏳ **Đang phân rã câu hỏi, truy vấn song song các nguồn Internet và đọc sâu nội dung cho:** *{topic}*...")
+        QApplication.processEvents()
+
+        try:
+            from agent.tools import LocalToolRegistry
+            reg = LocalToolRegistry()
+            res = reg.execute("autonomous_multi_hop_research", {"topic": topic, "depth": depth})
+            if res.get("ok"):
+                report = res.get("result", {}).get("report_markdown", "Không có dữ liệu.")
+                self.result_view.setMarkdown(report)
+            else:
+                self.result_view.setMarkdown(f"❌ Lỗi khi nghiên cứu: {res.get('error')}")
+        except Exception as err:
+            self.result_view.setMarkdown(f"❌ Ngoại lệ: {err}")
+        finally:
+            self.start_btn.setEnabled(True)
+            self.start_btn.setText("🚀 Bắt Đầu Nghiên Cứu")
+
 class AllToolsCatalogDialog(QDialog):
     """Trung tâm 283 Công Cụ Tích Hợp — Tra Cứu & Điều Khiển Toàn Diện."""
 
@@ -8756,6 +8832,10 @@ class AgentPage(QWidget):
     # =========================================================================
     # DIALOG LAUNCHERS & STUDIO ACTION HANDLERS
     # =========================================================================
+    def open_deep_research_dialog(self) -> None:
+        dlg = DeepResearchStudioDialog(self)
+        dlg.exec()
+
     def open_all_tools_dialog(self) -> None:
         dialog = AllToolsCatalogDialog(self)
         dialog.exec()

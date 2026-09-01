@@ -71,7 +71,19 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 285
+    assert len(registry.definitions()) == 288
+    assert registry.execute(
+        "autonomous_multi_hop_research",
+        {"topic": "Qwen 3.8 27B AI Architecture", "depth": "fast"},
+    )["ok"]
+    assert registry.execute(
+        "crawl_and_extract_deep_content",
+        {"url": "https://www.google.com"},
+    )["ok"]
+    assert registry.execute(
+        "cross_reference_and_fact_check",
+        {"claim_or_topic": "FlashAttention-2 improves memory throughput"},
+    )["ok"]
     assert registry.execute(
         "deep_dive_internet_research",
         {"topic_or_query": "Chiến lược tăng trưởng YouTube 2026", "max_sources": 2},
