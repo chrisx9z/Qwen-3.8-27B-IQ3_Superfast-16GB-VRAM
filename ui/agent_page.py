@@ -9888,6 +9888,7 @@ class AgentPage(QWidget):
 
     def select_chat(self, chat_id: str) -> None:
         if self.worker is not None:
+            self.status_label.setText(t("status_thinking", step=1, max_steps=1))
             return
         chat = next(
             (entry for entry in self.chats if entry["id"] == chat_id),
@@ -11225,10 +11226,10 @@ class AgentPage(QWidget):
             prompt = attach_tags + "\n" + prompt
             self.clear_attachments()
 
-        self.send_button.setText("Dừng ⏹")
+        self.send_button.setText(t("stop_button") + " ⏹")
         self.send_button.setObjectName("StopButton")
         self.send_button.setStyle(self.send_button.style())
-        self.status_label.setText("Đang xử lý…")
+        self.status_label.setText(t("status_thinking", step=1, max_steps=self.config.max_steps if hasattr(self, 'config') else 10))
         self.prompt_input.clear()
 
         if not self.active_chat_id:
@@ -11339,7 +11340,7 @@ class AgentPage(QWidget):
                 })
             chat["updated"] = datetime.now().isoformat(timespec="seconds")
             self.save_chats()
-        self.status_label.setText("Hoàn tất")
+        self.status_label.setText(t("status_ready"))
 
     def on_failed(self, message: str) -> None:
         self._finalize_stream()
@@ -11348,14 +11349,14 @@ class AgentPage(QWidget):
         if chat is not None:
             chat["updated"] = datetime.now().isoformat(timespec="seconds")
             self.save_chats()
-        self.status_label.setText("Có lỗi")
+        self.status_label.setText(t("status_error", error=message[:40]))
 
     def on_thread_finished(self) -> None:
         if self._terminal_card is not None and not getattr(self._terminal_card, "_finished", False):
             self._terminal_card.finish(success=True)
         self._terminal_card = None
         self.worker = None
-        self.send_button.setText("Gửi ➤")
+        self.send_button.setText(t("send_button") + " ➤")
         self.send_button.setObjectName("PrimaryButton")
         self.send_button.setStyle(self.send_button.style())
         self.send_button.setEnabled(True)
