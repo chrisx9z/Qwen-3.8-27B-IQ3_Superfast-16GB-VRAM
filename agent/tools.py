@@ -4164,6 +4164,27 @@ class LocalToolRegistry:
                     handler=self._douyin_search,
                 ),
                 ToolSpec(
+                    name="universal_autonomous_omni_investigator",
+                    description=(
+                        "Động cơ Điều Tra & Khám Phá Tri Thức Toàn Năng 360° (Omni-Autonomous 360° Investigator): "
+                        "Hợp nhất toàn diện: Tự động phân loại thực thể đa lĩnh vực, truy vấn Google Primary Engine, "
+                        "giải mã Schema.org / OpenGraph / Sitemaps / Social Media, bóc tách chỉ số KPI định lượng, "
+                        "phản biện độc lập và xuất bản Báo Cáo Điều Hành Toàn Năng trong 1 lượt."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "target_or_prompt": {
+                                "type": "string",
+                                "description": "Bất kỳ URL, tên miền, kênh mạng xã hội, repo, sản phẩm, bài toán hay câu hỏi phức tạp.",
+                            },
+                        },
+                        "required": ["target_or_prompt"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._universal_autonomous_omni_investigator,
+                ),
+                ToolSpec(
                     name="autonomous_dynamic_web_dossier_builder",
                     description=(
                         "Trích xuất hồ sơ tri thức động phi cấu trúc (Schema-Free Dynamic Dossier): "
@@ -10653,6 +10674,31 @@ build
             "default_engine": "Google",
             "count": len(results),
             "results": results[:limit],
+        }
+
+    def _universal_autonomous_omni_investigator(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        p = _required_text(arguments.get("target_or_prompt"), "target_or_prompt").strip()
+        res = self._recursive_autonomous_deep_dive({"target_or_prompt": p})
+        rep_md = res.get("report_markdown", "")
+        
+        # Tự động lưu trữ vào Knowledge Vault
+        try:
+            self._store_research_knowledge_item({
+                "topic": p[:80],
+                "insight": rep_md[:1200],
+                "tags": ["omni_investigation", "auto_deep_dive", res.get("category", "general")],
+            })
+        except Exception:
+            pass
+            
+        return {
+            "target": p,
+            "category": res.get("category", "general"),
+            "investigation_status": "OMNI_COMPLETED",
+            "report_markdown": rep_md,
         }
 
     def _autonomous_dynamic_web_dossier_builder(

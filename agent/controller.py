@@ -940,6 +940,7 @@ Core Operating Principles:
 
         # 1. Base Core Tools (Always useful for general assistance & navigation)
         base_tools = {
+            "universal_autonomous_omni_investigator",
             "recursive_autonomous_deep_dive",
             "universal_autonomous_entity_discovery",
             "audit_and_inspect_website_structure",
