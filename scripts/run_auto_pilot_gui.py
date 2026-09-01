@@ -127,6 +127,8 @@ def main() -> int:
             window.showNormal()
             window.raise_()
             window.activateWindow()
+            if hasattr(agent_page, "prompt_input"):
+                agent_page.prompt_input.setFocus()
 
     # System Tray
     tray = QSystemTrayIcon(app_icon, app)
@@ -168,6 +170,12 @@ def main() -> int:
     hotkey = GlobalHotkeyListener(app)
     hotkey.hotkey_triggered.connect(toggle_window)
     hotkey.start()
+
+    def close_event(event: Any) -> None:
+        event.ignore()
+        window.hide()
+
+    window.closeEvent = close_event
 
     window.show()
     result = app.exec()
