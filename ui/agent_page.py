@@ -44,6 +44,7 @@ from PySide6.QtWidgets import (
 )
 
 from agent.controller import AgentConfig, AgentResult, LocalAgent
+from core.i18n import t, get_current_language, set_language, load_saved_language, SUPPORTED_LANGUAGES
 
 
 _CODE_SNIPPETS: dict[str, str] = {}
@@ -9456,7 +9457,60 @@ class AgentPage(QWidget):
 
     # ------------------------------------------------------------- UI
 
+    def _populate_mode_combo(self) -> None:
+        cur_data = self.mode_combo.currentData() if hasattr(self, "mode_combo") and self.mode_combo.count() > 0 else "assistant"
+        self.mode_combo.blockSignals(True)
+        self.mode_combo.clear()
+        self.mode_combo.addItem(t("mode_assistant"), "assistant")
+        self.mode_combo.addItem(t("mode_coding"), "coding")
+        self.mode_combo.addItem(t("mode_auto"), "auto")
+        for idx in range(self.mode_combo.count()):
+            if self.mode_combo.itemData(idx) == cur_data:
+                self.mode_combo.setCurrentIndex(idx)
+                break
+        self.mode_combo.blockSignals(False)
+
+    def on_language_combo_changed(self, index: int) -> None:
+        lang_code = self.lang_combo.itemData(index)
+        set_language(lang_code)
+        self.retranslate_ui()
+
+    def retranslate_ui(self) -> None:
+        if hasattr(self, "brand_lbl"):
+            self.brand_lbl.setText(t("brand_name"))
+        if hasattr(self, "new_chat_button"):
+            self.new_chat_button.setText(t("new_chat"))
+        if hasattr(self, "search_input"):
+            self.search_input.setPlaceholderText(t("search_chats_placeholder"))
+        if hasattr(self, "rename_button"):
+            self.rename_button.setText(t("rename"))
+        if hasattr(self, "delete_button"):
+            self.delete_button.setText(t("delete"))
+        if hasattr(self, "export_button"):
+            self.export_button.setText(t("export_md"))
+        if hasattr(self, "footer_lbl"):
+            self.footer_lbl.setText(t("local_model_footer"))
+        if hasattr(self, "page_title_lbl"):
+            self.page_title_lbl.setText(t("subtitle"))
+        if hasattr(self, "model_label"):
+            self.model_label.setText(t("model_label"))
+        if hasattr(self, "mode_caption_lbl"):
+            self.mode_caption_lbl.setText(t("mode_label"))
+        if hasattr(self, "mode_combo"):
+            self._populate_mode_combo()
+        if hasattr(self, "resource_button"):
+            self.resource_button.setText(t("gpu_status"))
+        if hasattr(self, "harness_button"):
+            self.harness_button.setText(t("deepseek_harness"))
+        if hasattr(self, "prompt_input"):
+            self.prompt_input.setPlaceholderText(t("prompt_placeholder"))
+        if hasattr(self, "send_button") and self.worker is None:
+            self.send_button.setText(t("send_button") + " ➤")
+        if hasattr(self, "pin_button"):
+            self.pin_button.setText(t("pin"))
+
     def build_ui(self) -> None:
+        load_saved_language()
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -9469,18 +9523,18 @@ class AgentPage(QWidget):
         sidebar_layout.setContentsMargins(14, 16, 14, 14)
         sidebar_layout.setSpacing(10)
 
-        brand = QLabel("M Auto Pilot")
-        brand.setObjectName("Brand")
-        sidebar_layout.addWidget(brand)
+        self.brand_lbl = QLabel(t("brand_name"))
+        self.brand_lbl.setObjectName("Brand")
+        sidebar_layout.addWidget(self.brand_lbl)
 
-        self.new_chat_button = QPushButton("＋ Chat mới")
+        self.new_chat_button = QPushButton(t("new_chat"))
         self.new_chat_button.setObjectName("PrimaryButton")
         self.new_chat_button.clicked.connect(self.new_chat)
         sidebar_layout.addWidget(self.new_chat_button)
 
         self.search_input = QLineEdit()
         self.search_input.setObjectName("SearchInput")
-        self.search_input.setPlaceholderText("🔍 Tìm kiếm chat...")
+        self.search_input.setPlaceholderText(t("search_chats_placeholder"))
         self.search_input.textChanged.connect(self.filter_chat_list)
         sidebar_layout.addWidget(self.search_input)
 
@@ -9491,13 +9545,13 @@ class AgentPage(QWidget):
 
         sidebar_actions = QGridLayout()
         sidebar_actions.setSpacing(6)
-        self.pin_button = QPushButton("📌 Ghim")
+        self.pin_button = QPushButton(t("pin"))
         self.pin_button.clicked.connect(self.toggle_pin)
-        self.rename_button = QPushButton("✏️ Đổi tên")
+        self.rename_button = QPushButton(t("rename"))
         self.rename_button.clicked.connect(self.rename_chat)
-        self.delete_button = QPushButton("🗑️ Xóa")
+        self.delete_button = QPushButton(t("delete"))
         self.delete_button.clicked.connect(self.delete_chat)
-        self.export_button = QPushButton("📄 Xuất MD")
+        self.export_button = QPushButton(t("export_md"))
         self.export_button.clicked.connect(self.export_current_chat)
 
         for btn in (self.pin_button, self.rename_button, self.delete_button, self.export_button):
@@ -9509,14 +9563,14 @@ class AgentPage(QWidget):
         sidebar_actions.addWidget(self.delete_button, 1, 1)
         sidebar_layout.addLayout(sidebar_actions)
 
-        self.resource_bar = QLabel("⚡ Đang đọc tài nguyên...")
+        self.resource_bar = QLabel(t("reading_resources"))
         self.resource_bar.setObjectName("ResourceMonitor")
         self.resource_bar.setWordWrap(True)
         sidebar_layout.addWidget(self.resource_bar)
 
-        footer = QLabel("Qwen3.8-27B · chạy cục bộ")
-        footer.setObjectName("MutedText")
-        sidebar_layout.addWidget(footer)
+        self.footer_lbl = QLabel(t("local_model_footer"))
+        self.footer_lbl.setObjectName("MutedText")
+        sidebar_layout.addWidget(self.footer_lbl)
 
         root.addWidget(sidebar)
 
@@ -9533,34 +9587,48 @@ class AgentPage(QWidget):
         header_layout.setContentsMargins(16, 10, 16, 10)
         header_layout.setSpacing(10)
 
-        title = QLabel("Trợ lý cá nhân · Coding · Điều khiển máy")
-        title.setObjectName("PageTitle")
-        header_layout.addWidget(title)
+        self.page_title_lbl = QLabel(t("subtitle"))
+        self.page_title_lbl.setObjectName("PageTitle")
+        header_layout.addWidget(self.page_title_lbl)
 
         header_layout.addStretch(1)
 
-        model_label = QLabel("Model: Qwen3.8-27B · IQ3_S")
-        model_label.setObjectName("ModelChip")
-        header_layout.addWidget(model_label)
+        self.model_label = QLabel(t("model_label"))
+        self.model_label.setObjectName("ModelChip")
+        header_layout.addWidget(self.model_label)
 
-        header_layout.addWidget(QLabel("Chế độ"))
+        self.mode_caption_lbl = QLabel(t("mode_label"))
+        header_layout.addWidget(self.mode_caption_lbl)
         self.mode_combo = QComboBox()
         self.mode_combo.setObjectName("Combo")
-        self.mode_combo.addItem("Trợ lý cá nhân", "assistant")
-        self.mode_combo.addItem("Coding Agent", "coding")
-        self.mode_combo.addItem("Auto Pilot", "auto")
+        self._populate_mode_combo()
         header_layout.addWidget(self.mode_combo)
 
-        self.status_label = QLabel("Sẵn sàng")
+        # Language Selector Dropdown
+        self.lang_combo = QComboBox()
+        self.lang_combo.setObjectName("Combo")
+        self.lang_combo.addItem("🌐 English", "en")
+        self.lang_combo.addItem("🌐 Tiếng Việt", "vi")
+        self.lang_combo.addItem("🌐 简体中文", "zh")
+        
+        cur_lang = get_current_language()
+        for idx in range(self.lang_combo.count()):
+            if self.lang_combo.itemData(idx) == cur_lang:
+                self.lang_combo.setCurrentIndex(idx)
+                break
+        self.lang_combo.currentIndexChanged.connect(self.on_language_combo_changed)
+        header_layout.addWidget(self.lang_combo)
+
+        self.status_label = QLabel(t("status_ready"))
         self.status_label.setObjectName("StatusLabel")
         header_layout.addWidget(self.status_label)
 
-        self.resource_button = QPushButton("GPU status")
+        self.resource_button = QPushButton(t("gpu_status"))
         self.resource_button.setObjectName("GhostButton")
         self.resource_button.clicked.connect(self.refresh_resource_status)
         header_layout.addWidget(self.resource_button)
 
-        self.harness_button = QPushButton("DeepSeek Harness")
+        self.harness_button = QPushButton(t("deepseek_harness"))
         self.harness_button.setObjectName("GhostButton")
         self.harness_button.clicked.connect(self.open_deepseek_harness)
         header_layout.addWidget(self.harness_button)

@@ -151,8 +151,9 @@ Nguyên tắc chung:
 - Khi UI Automation không thấy control, dùng screen_capture hoặc screen_ocr để quan sát; OCR chỉ là tín hiệu định vị, không tự suy ra thao tác nguy hiểm. Dùng list_processes/read_runtime_log để chẩn đoán và chỉ stop_managed_process với runtime allowlist. Dùng get_resource_status trước request nặng hoặc khi đổi Q4/Q6/IQ3_S; không chạy đồng thời nhiều model lớn nếu cảnh báo VRAM xuất hiện.
 - Nếu có MCP tool với tiền tố mcp__, dùng đúng namespace đó và báo rõ server MCP khi thao tác thất bại.
 - Khi người dùng yêu cầu cài repo hoặc npm package bên ngoài, trước tiên phải gọi inspect_github_repository hoặc inspect_npm_package để xác minh tồn tại. Nếu không tồn tại, dùng search_github_repositories/web_search tìm phương án thay thế; chỉ cài phương án thay thế nếu phù hợp rõ ràng và báo chính xác tên repo đã chọn. Nếu tồn tại, dùng install_github_repository hoặc install_npm_package; không tự chạy ứng dụng sau khi cài và chỉ báo thành công khi tool trả kết quả thành công.
-- Nếu tool trả lỗi, giải thích ngắn gọn nguyên nhân và đề xuất bước tiếp theo an toàn.
-- Ngôn ngữ suy luận và giao tiếp: Trong mọi quá trình suy luận (reasoning/thinking/chain-of-thought) cũng như khi trả lời người dùng, LUÔN LUÔN diễn giải và suy nghĩ bằng TIẾNG VIỆT mạch lạc, rõ ràng và tự nhiên. Chỉ giữ nguyên tiếng Anh cho tên hàm, biến, lệnh shell hoặc thuật ngữ kỹ thuật đặc thù.
+- Ngôn ngữ suy luận và giao tiếp (Multi-lingual Language Directive):
+  Tự động nhận diện ngôn ngữ trong câu hỏi của người dùng (Tiếng Việt, Tiếng Anh, Tiếng Trung...).
+  LUÔN LUÔN suy luận và trả lời người dùng bằng CHÍNH NGÔN NGỮ ĐÓ (Nếu hỏi bằng Tiếng Việt thì trả lời bằng Tiếng Việt; nếu hỏi bằng Tiếng Anh thì trả lời bằng Tiếng Anh; nếu hỏi bằng Tiếng Trung thì trả lời bằng Tiếng Trung). Đảm bảo hành văn tự nhiên, rõ ràng, chuẩn xác và không bị lỗi font hay dịch máy cứng nhắc.
 """
 
     def __init__(

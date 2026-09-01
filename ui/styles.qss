@@ -1,9 +1,10 @@
-/* ============ M Auto Pilot — dark theme ============ */
+/* ============ Auto Pilot Qwen 3.8 27B IQ3_Superfast — dark theme ============ */
 
 QWidget {
     background-color: #1b1d23;
     color: #e6e6eb;
     font-size: 13px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Segoe UI Symbol", "Apple Color Emoji", "Noto Sans", Arial, sans-serif;
 }
 
 QMainWindow {
