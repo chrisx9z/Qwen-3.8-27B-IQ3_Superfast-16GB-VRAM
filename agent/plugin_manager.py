@@ -78,15 +78,18 @@ class PluginManager:
             return
         self._initialized = True
         self.plugins: dict[str, PluginInfo] = {}
+        self._dynamic_tools: dict[str, Callable] = {}
+        self._dynamic_tool_defs: dict[str, dict[str, Any]] = {}
         CUSTOM_PLUGINS_DIR.mkdir(parents=True, exist_ok=True)
         self.load_plugins()
 
     def load_plugins(self) -> None:
-        """Load plugin registrations from disk."""
+        """Load plugin registrations from disk and load custom Python tools."""
         if not PLUGIN_CONFIG_FILE.exists():
             # Seed with default built-in plugins
             self._seed_default_plugins()
             self.save_plugins()
+            self._sync_dynamic_tools()
             return
 
         try:
@@ -97,6 +100,66 @@ class PluginManager:
                 self.plugins[p.id] = p
         except Exception:
             self._seed_default_plugins()
+
+        self._sync_dynamic_tools()
+
+    def _sync_dynamic_tools(self) -> None:
+        self._dynamic_tools.clear()
+        self._dynamic_tool_defs.clear()
+        for p in self.plugins.values():
+            if p.enabled and p.plugin_type == "python_tool":
+                self._load_dynamic_python_plugin(p)
+
+    def _load_dynamic_python_plugin(self, p: PluginInfo) -> None:
+        entry = Path(p.entrypoint)
+        if not entry.exists() or entry.suffix != ".py":
+            return
+        try:
+            mod_id = f"custom_plugin_{p.id}"
+            spec = importlib.util.spec_from_file_location(mod_id, str(entry))
+            if spec and spec.loader:
+                mod = importlib.util.module_from_spec(spec)
+                spec.loader.exec_module(mod)
+                for attr_name in dir(mod):
+                    if attr_name.startswith("_"):
+                        continue
+                    obj = getattr(mod, attr_name)
+                    if callable(obj) and not isinstance(obj, type):
+                        self._dynamic_tools[attr_name] = obj
+                        doc = inspect.getdoc(obj) or f"Custom plugin tool {attr_name}"
+                        try:
+                            sig = inspect.signature(obj)
+                            props = {}
+                            reqs = []
+                            for param_name, param in sig.parameters.items():
+                                if param_name in ("self", "args", "kwargs"):
+                                    continue
+                                props[param_name] = {"type": "string", "description": f"Tham số {param_name}"}
+                                if param.default == inspect.Parameter.empty:
+                                    reqs.append(param_name)
+                        except Exception:
+                            props = {}
+                            reqs = []
+                        self._dynamic_tool_defs[attr_name] = {
+                            "type": "function",
+                            "function": {
+                                "name": attr_name,
+                                "description": f"[Plugin: {p.name}] {doc}",
+                                "parameters": {
+                                    "type": "object",
+                                    "properties": props,
+                                    "required": reqs,
+                                },
+                            },
+                        }
+        except Exception:
+            pass
+
+    def get_tool(self, name: str) -> Callable | None:
+        return self._dynamic_tools.get(name)
+
+    def get_tool_definitions(self) -> dict[str, dict[str, Any]]:
+        return dict(self._dynamic_tool_defs)
 
     def _seed_default_plugins(self) -> None:
         self.plugins = {
@@ -159,6 +222,7 @@ class PluginManager:
             else:
                 p.enabled = enabled
             self.save_plugins()
+            self._sync_dynamic_tools()
             return p.enabled
         return False
 
@@ -192,6 +256,7 @@ class PluginManager:
             )
             self.plugins[plugin_id] = info
             self.save_plugins()
+            self._sync_dynamic_tools()
             return True, f"Đã nạp thành công Plugin: {info.name}"
         except Exception as e:
             return False, f"Lỗi nạp Plugin: {e}"
@@ -238,5 +303,6 @@ class PluginManager:
         if plugin_id in self.plugins:
             del self.plugins[plugin_id]
             self.save_plugins()
+            self._sync_dynamic_tools()
             return True
         return False

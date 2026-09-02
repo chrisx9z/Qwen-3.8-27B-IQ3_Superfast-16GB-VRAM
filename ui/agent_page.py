@@ -11669,6 +11669,10 @@ class AgentPage(QWidget):
                 self.prompt_input.clear()
                 self.open_all_tools_dialog()
                 return
+            elif cmd in ("/plugins", "/plugin", "/harness", "/deepseek"):
+                self.prompt_input.clear()
+                self.open_plugin_manager_dialog()
+                return
             elif cmd in ("/help", "/h", "/?"):
                 self.prompt_input.clear()
                 lang = get_current_language()
@@ -11679,6 +11683,7 @@ class AgentPage(QWidget):
                         "- `/auto <task>`: Switch to Autonomous OS Auto-Pilot mode.\n"
                         "- `/chat <query>`: Switch to Personal Assistant mode.\n"
                         "- `/plan <goal>`: Generate structured implementation plan.\n"
+                        "- `/plugins`: Manage Plugins & DeepSeek Harness (Python tools, MCP Servers).\n"
                         "- `/diff`: View visual Git diff in real-time.\n"
                         "- `/export`: Export current conversation to Markdown file.\n"
                         "- `/gpu`: Inspect VRAM usage and GPU resource status.\n"
@@ -11693,6 +11698,7 @@ class AgentPage(QWidget):
                         "- `/auto <任务>`: 切换到 Auto Pilot 全自动模式。\n"
                         "- `/chat <问题>`: 切换到个人助手问答模式。\n"
                         "- `/plan <目标>`: 生成结构化实现规划方案。\n"
+                        "- `/plugins`: 插件与 DeepSeek Harness 管理面板（Python工具、MCP服务器）。\n"
                         "- `/diff`: 实时查看 Git 可视化差异。\n"
                         "- `/export`: 将当前对话导出为 Markdown 文件。\n"
                         "- `/gpu`: 快速检查 VRAM 显存与 GPU 状态。\n"
@@ -11707,6 +11713,7 @@ class AgentPage(QWidget):
                         "- `/auto <yêu cầu>`: Chuyển sang chế độ Auto Pilot và chạy.\n"
                         "- `/chat <câu hỏi>`: Chuyển sang chế độ Trợ lý cá nhân.\n"
                         "- `/plan <mục tiêu>`: Lập kế hoạch thực thi chi tiết.\n"
+                        "- `/plugins`: Quản lý Plugins & DeepSeek Harness (Nạp Python tools, MCP Servers).\n"
                         "- `/diff`: Xem thay đổi Git diff trực quan (Visual Diff).\n"
                         "- `/export`: Xuất cuộc trò chuyện hiện tại ra file Markdown.\n"
                         "- `/gpu`: Kiểm tra nhanh dung lượng VRAM và tài nguyên GPU.\n"
