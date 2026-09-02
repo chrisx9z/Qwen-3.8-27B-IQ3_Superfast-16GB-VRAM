@@ -10232,7 +10232,7 @@ class AgentPage(QWidget):
         if hasattr(self, "export_button"):
             self.export_button.setText(t("export_md"))
         if hasattr(self, "resource_bar"):
-            self.resource_bar.setText(t("reading_resources"))
+            self.update_live_resources()
         if hasattr(self, "footer_lbl"):
             self.footer_lbl.setText(t("local_model_footer"))
         if hasattr(self, "page_title_lbl"):
@@ -10252,7 +10252,10 @@ class AgentPage(QWidget):
         if hasattr(self, "prompt_input"):
             self.prompt_input.setPlaceholderText(t("prompt_placeholder"))
         if hasattr(self, "send_button") and self.worker is None:
-            self.send_button.setText(t("send_button") + " ➤")
+            self.send_button.setText("↑")
+            self.send_button.setObjectName("CircleSendBtn")
+            self.send_button.setToolTip(t("send_button") + " (Enter)")
+            self.send_button.setStyle(self.send_button.style())
         if hasattr(self, "pin_button"):
             self.pin_button.setText(t("pin"))
         self._rebuild_quick_action_chips()
