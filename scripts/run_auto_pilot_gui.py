@@ -40,6 +40,7 @@ class GlobalHotkeyListener(QObject):
         super().__init__(parent)
         self._running = True
         self._thread: threading.Thread | None = None
+        self._thread_id: int | None = None
 
     def start(self) -> None:
         self._thread = threading.Thread(target=self._loop, daemon=True)
@@ -62,24 +63,27 @@ class GlobalHotkeyListener(QObject):
 
         if sys.platform == "win32":
             try:
-                import ctypes
                 import ctypes.wintypes
                 user32 = ctypes.windll.user32
+                kernel32 = ctypes.windll.kernel32
+                self._thread_id = kernel32.GetCurrentThreadId()
                 HOTKEY_ID = 101
                 MOD_ALT = 0x0001
                 MOD_SHIFT = 0x0004
-                VK_M = 0x4D
+                VK_M = 0x4D  # Phím M (Alt + Shift + M)
 
                 if not user32.RegisterHotKey(None, HOTKEY_ID, MOD_ALT | MOD_SHIFT, VK_M):
                     return
 
                 msg = ctypes.wintypes.MSG()
                 while self._running:
-                    if user32.GetMessageW(ctypes.byref(msg), None, 0, 0) != 0:
-                        if msg.message == 0x0312:
-                            self.hotkey_triggered.emit()
-                        user32.TranslateMessage(ctypes.byref(msg))
-                        user32.DispatchMessageW(ctypes.byref(msg))
+                    ret = user32.GetMessageW(ctypes.byref(msg), None, 0, 0)
+                    if ret in (0, -1):  # WM_QUIT or error
+                        break
+                    if msg.message == 0x0312:  # WM_HOTKEY
+                        self.hotkey_triggered.emit()
+                    user32.TranslateMessage(ctypes.byref(msg))
+                    user32.DispatchMessageW(ctypes.byref(msg))
             except Exception:
                 pass
             finally:
@@ -90,6 +94,11 @@ class GlobalHotkeyListener(QObject):
 
     def stop(self) -> None:
         self._running = False
+        if getattr(self, "_thread_id", None) and sys.platform == "win32":
+            try:
+                ctypes.windll.user32.PostThreadMessageW(self._thread_id, 0x0012, 0, 0)  # WM_QUIT
+            except Exception:
+                pass
 
 
 def load_stylesheet(app: QApplication) -> None:
