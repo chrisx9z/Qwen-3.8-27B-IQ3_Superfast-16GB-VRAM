@@ -10566,7 +10566,9 @@ class AgentPage(QWidget):
         # Right controls: Model chip, token counter, send button
         self.model_label = QLabel("⚡ Qwen 3.8 27B")
         self.model_label.setObjectName("ModelChip")
-        self.model_label.setToolTip("Qwen3.8-27B-UD-IQ3_S (16GB VRAM Superfast)")
+        self.model_label.setToolTip("Qwen3.8-27B-UD-IQ3_S (16GB VRAM Superfast)\nBấm để xem tham số mô hình & GPU")
+        self.model_label.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.model_label.mousePressEvent = lambda _: self.open_turbo_dialog()
         bottom_row.addWidget(self.model_label)
 
         self.token_estimator_lbl = QLabel("~0 / 16.3k")
@@ -10588,6 +10590,9 @@ class AgentPage(QWidget):
         # ---- Telemetry Status Footer ----
         self.telemetry_footer_lbl = QLabel("⚡ 50.4 tok/s · TTFT 430ms · FlashAttention-2 · KV Cache 99% · Google-Primary Search · 302 Tools Online")
         self.telemetry_footer_lbl.setObjectName("TelemetryFooter")
+        self.telemetry_footer_lbl.setToolTip("Bấm để mở danh mục 302 công cụ tự động hóa (Tool Hub)")
+        self.telemetry_footer_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.telemetry_footer_lbl.mousePressEvent = lambda _: self.open_all_tools_dialog()
         main_layout.addWidget(self.telemetry_footer_lbl)
 
     def create_card(self) -> QFrame:
