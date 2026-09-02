@@ -10815,25 +10815,16 @@ class AgentPage(QWidget):
         self.scroll.setWidget(chat_host)
         main_layout.addWidget(self.scroll, 1)
 
-        # ---- Quick Action Chips Bar ----
-        quick_action_scroll = QScrollArea()
-        quick_action_scroll.setObjectName("ChatScroll")
-        quick_action_scroll.setFixedHeight(34)
-        quick_action_scroll.setWidgetResizable(True)
-        quick_action_scroll.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        quick_action_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
-
+        # ---- Quick Action Chips Bar (Codex Minimalist) ----
         quick_action_bar = QWidget()
         quick_action_layout = QHBoxLayout(quick_action_bar)
         quick_action_layout.setContentsMargins(0, 0, 0, 0)
         quick_action_layout.setSpacing(6)
 
         self.quick_action_layout = quick_action_layout
-        self.quick_action_scroll = quick_action_scroll
         self.quick_action_bar = quick_action_bar
         self._rebuild_quick_action_chips()
-        quick_action_scroll.setWidget(quick_action_bar)
-        main_layout.addWidget(quick_action_scroll)
+        main_layout.addWidget(quick_action_bar)
 
         # ---- Attachment Container ----
         self.attachment_container = QWidget()
@@ -10854,7 +10845,7 @@ class AgentPage(QWidget):
         self.prompt_input = ChatInput()
         self.prompt_input.setObjectName("ChatInput")
         self.prompt_input.textChanged.connect(self.update_token_estimate)
-        self.prompt_input.setPlaceholderText("Message the agent... (Shift+Enter for newline, /help for shortcuts)")
+        self.prompt_input.setPlaceholderText("Message Codex or type / for commands... (Shift+Enter for newline)")
         self.prompt_input.setMinimumHeight(46)
         self.prompt_input.setMaximumHeight(160)
         self.prompt_input.submit.connect(self.on_send_clicked)
