@@ -9278,7 +9278,19 @@ class AgentPage(QWidget):
         self.restart_local_server()
 
     def on_quick_action_clicked(self, cmd: str) -> None:
-        if cmd == "MEMORY_DIALOG":
+        if cmd == "SWARM_DIALOG":
+            self.open_research_swarm_dialog()
+            return
+        elif cmd == "VAULT_DIALOG":
+            self.open_knowledge_vault_dialog()
+            return
+        elif cmd in ("DEEP_RESEARCH_DIALOG", "OMNI_DIALOG"):
+            self.open_deep_research_dialog()
+            return
+        elif cmd == "ALL_TOOLS_DIALOG":
+            self.open_all_tools_dialog()
+            return
+        elif cmd == "MEMORY_DIALOG":
             self.open_memory_dialog()
             return
         elif cmd == "CHECKPOINTS_DIALOG":
@@ -10116,6 +10128,9 @@ class AgentPage(QWidget):
             (t("chip_fix"), t("chip_fix_tip"), "/fix "),
             (t("chip_review"), t("chip_review_tip"), "/review "),
             (t("chip_test"), t("chip_test_tip"), "/test "),
+            ("🐝 Swarm Studio", "Trung tâm điều tra nghiên cứu Swarm 4 tác nhân chuyên gia", "SWARM_DIALOG"),
+            ("📚 Knowledge Vault", "Kho tri thức dài hạn & phân tích phản biện", "VAULT_DIALOG"),
+            ("🌐 Omni Discovery", "Động cơ tự chủ điều tra & khám phá 360° mọi đối tượng", "OMNI_DIALOG"),
             (t("chip_turbo"), t("chip_turbo_tip"), "TURBO_DIALOG"),
             (t("chip_recovery"), t("chip_recovery_tip"), "CIRCUIT_DIALOG"),
             (t("chip_memory"), t("chip_memory_tip"), "EMBEDDINGS_DIALOG"),
