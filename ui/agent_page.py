@@ -10928,7 +10928,18 @@ class AgentPage(QWidget):
                 clipboard.setText(code)
                 self.status_label.setText(t("copied") + " 📋")
                 QTimer.singleShot(2500, lambda: self.status_label.setText(t("status_ready")) if self.worker is None else None)
-        elif url_str.startswith(("http://", "https://", "file://")):
+        elif url_str.startswith("file://"):
+            from urllib.parse import unquote, urlparse
+            parsed = urlparse(url_str)
+            raw_path = unquote(parsed.path)
+            if raw_path.startswith("/") and len(raw_path) > 2 and raw_path[2] == ":":
+                raw_path = raw_path[1:]
+            p = Path(raw_path)
+            if p.exists():
+                QDesktopServices.openUrl(QUrl.fromLocalFile(str(p)))
+            else:
+                QDesktopServices.openUrl(QUrl(url_str))
+        elif url_str.startswith(("http://", "https://")):
             QDesktopServices.openUrl(QUrl(url_str))
 
     def append_message(self, message: dict[str, Any]) -> None:
