@@ -10753,6 +10753,18 @@ class AgentPage(QWidget):
     def delete_chat(self) -> None:
         if self.worker is not None or not self.active_chat_id:
             return
+        chat = self.active_chat()
+        chat_title = chat.get("title", "cuộc trò chuyện này") if chat else "cuộc trò chuyện này"
+        reply = QMessageBox.question(
+            self,
+            "Xác nhận xóa",
+            f"Bạn có chắc muốn xóa '{chat_title}' không?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+            QMessageBox.StandardButton.No,
+        )
+        if reply != QMessageBox.StandardButton.Yes:
+            return
+
         self.chats = [
             chat
             for chat in self.chats
