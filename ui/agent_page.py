@@ -12219,7 +12219,11 @@ class AgentPage(QWidget):
                 self.prompt_input.clear()
                 self.open_computer_vision_dialog()
                 return
-            elif cmd in ("/virtualdesktop", "/vdesktop", "/workspace"):
+            elif cmd in ("/workspace", "/dir", "/cd"):
+                self.prompt_input.clear()
+                self.change_workspace_directory()
+                return
+            elif cmd in ("/virtualdesktop", "/vdesktop"):
                 self.prompt_input.clear()
                 self.open_computer_vision_dialog()
                 return
