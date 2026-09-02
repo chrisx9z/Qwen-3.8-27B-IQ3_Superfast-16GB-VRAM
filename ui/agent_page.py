@@ -12393,8 +12393,9 @@ class AgentPage(QWidget):
             prompt = attach_tags + "\n" + prompt
             self.clear_attachments()
 
-        self.send_button.setText(t("stop_button") + " ⏹")
-        self.send_button.setObjectName("StopButton")
+        self.send_button.setText("⏹")
+        self.send_button.setObjectName("CircleStopBtn")
+        self.send_button.setToolTip("Dừng quá trình suy luận (Stop / Escape)")
         self.send_button.setStyle(self.send_button.style())
         self.status_label.setText(t("status_thinking", step=1, max_steps=self.config.max_steps if hasattr(self, 'config') else 10))
         self.prompt_input.clear()
@@ -12523,8 +12524,9 @@ class AgentPage(QWidget):
             self._terminal_card.finish(success=True)
         self._terminal_card = None
         self.worker = None
-        self.send_button.setText(t("send_button") + " ➤")
-        self.send_button.setObjectName("PrimaryButton")
+        self.send_button.setText("↑")
+        self.send_button.setObjectName("CircleSendBtn")
+        self.send_button.setToolTip("Gửi tin nhắn (Enter)")
         self.send_button.setStyle(self.send_button.style())
         self.send_button.setEnabled(True)
 

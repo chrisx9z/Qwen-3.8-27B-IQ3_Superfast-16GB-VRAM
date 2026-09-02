@@ -119,6 +119,27 @@ QMainWindow {
     background-color: #2f5ed6;
 }
 
+#CircleStopBtn {
+    background-color: #e5484d;
+    color: #ffffff;
+    border: none;
+    border-radius: 16px;
+    min-width: 32px;
+    max-width: 32px;
+    min-height: 32px;
+    max-height: 32px;
+    font-size: 14px;
+    font-weight: bold;
+}
+
+#CircleStopBtn:hover {
+    background-color: #f2555a;
+}
+
+#CircleStopBtn:pressed {
+    background-color: #d13d42;
+}
+
 #GhostButton {
     background-color: transparent;
     color: #a6abb9;
