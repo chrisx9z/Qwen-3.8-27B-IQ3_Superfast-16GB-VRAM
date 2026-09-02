@@ -10071,7 +10071,16 @@ class AgentPage(QWidget):
         self.attachment_layout.addStretch(1)
 
     def filter_chat_list(self, query: str) -> None:
+        import unicodedata
+
+        def _strip_accents(text: str) -> str:
+            return "".join(
+                c for c in unicodedata.normalize("NFD", text)
+                if unicodedata.category(c) != "Mn"
+            ).replace("đ", "d").replace("Đ", "d")
+
         q = query.strip().lower()
+        q_norm = _strip_accents(q)
         for i in range(self.chat_list.count()):
             item = self.chat_list.item(i)
             chat_id = item.data(32) or item.data(Qt.ItemDataRole.UserRole)
@@ -10082,7 +10091,10 @@ class AgentPage(QWidget):
                 title = str(chat.get("title", "")).lower()
                 hist_text = " ".join(str(m.get("content", "")) for m in self.history(chat)).lower()
                 prompt_text = str(chat.get("prompt", "")).lower()
-                item.setHidden(q not in title and q not in hist_text and q not in prompt_text)
+                all_text = f"{title} {hist_text} {prompt_text}"
+                all_text_norm = _strip_accents(all_text)
+                match = (q in all_text) or (q_norm in all_text_norm)
+                item.setHidden(not match)
             else:
                 item.setHidden(True)
 
@@ -10284,6 +10296,7 @@ class AgentPage(QWidget):
         self.search_input = QLineEdit()
         self.search_input.setObjectName("SearchInput")
         self.search_input.setPlaceholderText(t("search_chats_placeholder"))
+        self.search_input.setClearButtonEnabled(True)
         self.search_input.textChanged.connect(self.filter_chat_list)
         sidebar_layout.addWidget(self.search_input)
 
