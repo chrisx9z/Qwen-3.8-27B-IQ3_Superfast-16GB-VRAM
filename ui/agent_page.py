@@ -10352,8 +10352,12 @@ class AgentPage(QWidget):
                 agent.tools.APP_ROOT = chosen_path
             except Exception:
                 pass
-            self.workspace_btn.setText(f"📂 {chosen_path.name}")
-            self.workspace_btn.setToolTip(f"Thư mục làm việc: {chosen_path}\nBấm để đổi thư mục")
+            if hasattr(self, "sidebar_workspace_btn"):
+                self.sidebar_workspace_btn.setText(f"📁 {chosen_path.name}")
+                self.sidebar_workspace_btn.setToolTip(f"Thư mục làm việc: {chosen_path}\nBấm để chuyển thư mục")
+            if hasattr(self, "workspace_btn"):
+                self.workspace_btn.setText(f"📂 {chosen_path.name}")
+                self.workspace_btn.setToolTip(f"Thư mục làm việc: {chosen_path}\nBấm để đổi thư mục workspace")
             self.status_label.setText(f"Đã chuyển workspace sang: {chosen_path.name}")
 
     def on_task_plan_updated(self, items: list[dict[str, str]]) -> None:
@@ -10668,12 +10672,12 @@ class AgentPage(QWidget):
         ws_lbl.setObjectName("SidebarSectionTitle")
         sidebar_layout.addWidget(ws_lbl)
 
-        self.workspace_btn = QPushButton(f"📁 {APP_ROOT.name}")
-        self.workspace_btn.setObjectName("GhostButton")
-        self.workspace_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.workspace_btn.setToolTip(f"Thư mục làm việc: {APP_ROOT}\nBấm để chuyển thư mục")
-        self.workspace_btn.clicked.connect(self.change_workspace_directory)
-        sidebar_layout.addWidget(self.workspace_btn)
+        self.sidebar_workspace_btn = QPushButton(f"📁 {APP_ROOT.name}")
+        self.sidebar_workspace_btn.setObjectName("GhostButton")
+        self.sidebar_workspace_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.sidebar_workspace_btn.setToolTip(f"Thư mục làm việc: {APP_ROOT}\nBấm để chuyển thư mục")
+        self.sidebar_workspace_btn.clicked.connect(self.change_workspace_directory)
+        sidebar_layout.addWidget(self.sidebar_workspace_btn)
 
         # Recents Section
         recents_lbl = QLabel("Recents")
