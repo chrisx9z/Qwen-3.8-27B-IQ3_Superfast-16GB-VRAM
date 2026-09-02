@@ -11060,6 +11060,7 @@ class AgentPage(QWidget):
             self.refresh_chat_list()
             self._show_welcome_hero()
             self.prompt_input.setFocus()
+            self.update_token_estimate()
         self.save_chats()
 
     def on_chat_selected(self, item: QListWidgetItem) -> None:
@@ -11091,6 +11092,7 @@ class AgentPage(QWidget):
                 break
         self.refresh_chat_list()
         self.scroll_to_bottom()
+        self.update_token_estimate()
 
     def on_chat_context_menu(self, pos: Any) -> None:
         item = self.chat_list.itemAt(pos)
@@ -12847,7 +12849,7 @@ class AgentPage(QWidget):
             prompt,
             list(self.agent_messages(chat)),
             "qwen38_iq3s",
-            str(self.mode_combo.currentData()),
+            str(self.mode_combo.currentData() or "auto") if hasattr(self, "mode_combo") else "auto",
         )
         self.worker.signals.status_changed.connect(
             self.status_label.setText,
@@ -12923,6 +12925,7 @@ class AgentPage(QWidget):
             chat["updated"] = datetime.now().isoformat(timespec="seconds")
             self.save_chats()
         self.status_label.setText(t("status_ready"))
+        self.update_token_estimate()
 
     def on_failed(self, message: str) -> None:
         self._finalize_stream()
