@@ -281,6 +281,19 @@ class AutoResizingTextBrowser(QTextBrowser):
         doc_h = int(self.document().size().height()) + 22
         self.setFixedHeight(max(40, doc_h))
 
+    def wheelEvent(self, event: Any) -> None:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            p = self.window()
+            if hasattr(p, "zoom_in") and hasattr(p, "zoom_out"):
+                delta = event.angleDelta().y()
+                if delta > 0:
+                    p.zoom_in()
+                elif delta < 0:
+                    p.zoom_out()
+                event.accept()
+                return
+        event.ignore()
+
 
 class ChatInput(QPlainTextEdit):
     submit = Signal()
@@ -10999,6 +11012,17 @@ class AgentPage(QWidget):
         # If user is within 140px of bottom, keep auto-scrolling; otherwise let user read freely
         if bar.maximum() - bar.value() < 140:
             bar.setValue(bar.maximum())
+
+    def wheelEvent(self, event: Any) -> None:
+        if event.modifiers() & Qt.KeyboardModifier.ControlModifier:
+            delta = event.angleDelta().y()
+            if delta > 0:
+                self.zoom_in()
+            elif delta < 0:
+                self.zoom_out()
+            event.accept()
+            return
+        super().wheelEvent(event)
 
     def _on_anchor_clicked(self, url: Any) -> None:
         url_str = url.toString() if hasattr(url, "toString") else str(url)
