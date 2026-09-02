@@ -928,7 +928,7 @@ Core Operating Principles:
         self,
         prompt: str,
     ) -> list[dict[str, Any]]:
-        all_definitions = self.registry.definitions()
+        all_definitions = self.registry.definitions(include_plugins=True)
         def_map = {
             d.get("function", {}).get("name"): d
             for d in all_definitions
@@ -1046,8 +1046,19 @@ Core Operating Principles:
         if not filtered_defs:
             filtered_defs = [def_map[name] for name in base_tools if name in def_map]
 
+        # Include custom plugin tools (if any enabled)
+        plugin_defs = []
+        try:
+            from agent.plugin_manager import PluginManager
+            pm = PluginManager()
+            for p_name, p_def in pm.get_tool_definitions().items():
+                if p_name in def_map and p_def not in filtered_defs:
+                    plugin_defs.append(p_def)
+        except Exception:
+            pass
+
         mcp_defs = self.mcp_client.definitions()[:3]
-        return filtered_defs[:22] + mcp_defs
+        return filtered_defs[:22] + plugin_defs[:5] + mcp_defs
 
     def _max_tokens_for_prompt(self, prompt: str) -> int:
         lowered = prompt.lower()
