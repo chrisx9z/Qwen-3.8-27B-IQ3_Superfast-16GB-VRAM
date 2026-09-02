@@ -1378,29 +1378,10 @@ def _compact_json(value: object) -> str:
     return encoded
 
 
-def _enforce_context_window_limit(
-    messages: list[dict[str, Any]],
-    max_tokens: int = 6500,
-) -> list[dict[str, Any]]:
-    """
-    Đảm bảo tổng dung lượng ngữ cảnh không vượt quá giới hạn n_ctx của server.
-    Nếu ngữ cảnh quá lớn, tự động nén các kết quả tool cũ trong khi vẫn bảo toàn 100% role pairing.
-    """
-    total_chars = sum(len(str(m.get("content", ""))) for m in messages)
-    total_est_tokens = total_chars // 3
-    if total_est_tokens <= max_tokens:
-        return messages
-
-    # Nén các tool results ở các lượt cũ (trừ 4 lượt gần nhất)
-    compacted: list[dict[str, Any]] = []
-    cutoff_index = max(1, len(messages) - 4)
-
-    for idx, msg in enumerate(messages):
+def _sanitize_message_tool_calls(messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    sanitized: list[dict[str, Any]] = []
+    for msg in messages:
         copy_m = dict(msg)
-        content = str(copy_m.get("content", ""))
-        role = copy_m.get("role")
-
-        # Sanitize any tool_calls to ensure valid JSON arguments (prevent llama-server 500 error)
         if "tool_calls" in copy_m and isinstance(copy_m["tool_calls"], list):
             clean_tcs = []
             for tc in copy_m["tool_calls"]:
@@ -1418,6 +1399,32 @@ def _enforce_context_window_limit(
                         tc_copy["function"] = f_copy
                     clean_tcs.append(tc_copy)
             copy_m["tool_calls"] = clean_tcs
+        sanitized.append(copy_m)
+    return sanitized
+
+
+def _enforce_context_window_limit(
+    messages: list[dict[str, Any]],
+    max_tokens: int = 6500,
+) -> list[dict[str, Any]]:
+    """
+    Đảm bảo tổng dung lượng ngữ cảnh không vượt quá giới hạn n_ctx của server.
+    Nếu ngữ cảnh quá lớn, tự động nén các kết quả tool cũ trong khi vẫn bảo toàn 100% role pairing.
+    """
+    messages = _sanitize_message_tool_calls(messages)
+    total_chars = sum(len(str(m.get("content", ""))) for m in messages)
+    total_est_tokens = total_chars // 3
+    if total_est_tokens <= max_tokens:
+        return messages
+
+    # Nén các tool results ở các lượt cũ (trừ 4 lượt gần nhất)
+    compacted: list[dict[str, Any]] = []
+    cutoff_index = max(1, len(messages) - 4)
+
+    for idx, msg in enumerate(messages):
+        copy_m = dict(msg)
+        content = str(copy_m.get("content", ""))
+        role = copy_m.get("role")
 
         if idx < cutoff_index:
             if role == "tool" and len(content) > 600:
