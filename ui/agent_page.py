@@ -11248,6 +11248,8 @@ class AgentPage(QWidget):
                     chat["agent_messages"] = []
                     self.save_chats()
                 self.prompt_input.clear()
+                self.update_token_estimate()
+                self._show_welcome_hero()
                 self.status_label.setText("Đã làm sạch cuộc trò chuyện.")
                 return
             elif cmd == "/gpu":
