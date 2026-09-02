@@ -354,14 +354,39 @@ QMainWindow {
 
 /* ---------- Codex / DeepSeek Capsule Input Card ---------- */
 #InputCard {
-    background-color: #1b1d24;
-    border: 1px solid #2a2e3b;
+    background-color: #171922;
+    border: 1px solid #282c3c;
     border-radius: 16px;
-    padding: 6px 12px 10px 12px;
+    padding: 6px 14px 10px 14px;
 }
 
 #InputCard:hover {
-    border-color: #383d4e;
+    border-color: #3e445b;
+}
+
+#InputCard:focus-within {
+    border-color: #3b82f6;
+    background-color: #191b26;
+}
+
+QGroupBox {
+    font-weight: 600;
+    font-size: 12.5px;
+    color: #e6e6eb;
+    border: 1px solid #282c3c;
+    border-radius: 10px;
+    margin-top: 10px;
+    padding-top: 14px;
+    padding-left: 10px;
+    padding-right: 10px;
+    padding-bottom: 10px;
+}
+
+QGroupBox::title {
+    subcontrol-origin: margin;
+    subcontrol-position: top left;
+    left: 12px;
+    padding: 0 4px;
 }
 
 #ChatInput {

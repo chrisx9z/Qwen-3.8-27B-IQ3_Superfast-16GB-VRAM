@@ -21,8 +21,10 @@ from PySide6.QtWidgets import (
     QDialog,
     QFileDialog,
     QFileSystemModel,
+    QFormLayout,
     QFrame,
     QGridLayout,
+    QGroupBox,
     QHBoxLayout,
     QHeaderView,
     QInputDialog,
@@ -36,6 +38,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSplitter,
+    QTabWidget,
     QTableWidget,
     QTableWidgetItem,
     QTextBrowser,
@@ -8101,6 +8104,303 @@ class AgentWorker(QRunnable):
                 self.signals.delta.emit("reasoning", str(payload["reasoning"]))
 
 
+
+class PluginHarnessManagerDialog(QDialog):
+    """Codex & DeepSeek Harness Plugin Hub — Quản lý & Thêm mới Python Plugins, MCP Servers và Prompt Personas."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("🧩 Plugins & DeepSeek Harness Studio")
+        self.resize(800, 580)
+        self.setObjectName("PluginHarnessDialog")
+        self._init_ui()
+
+    def _init_ui(self) -> None:
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(20, 20, 20, 20)
+        layout.setSpacing(14)
+
+        header = QLabel("🧩 Codex & DeepSeek Harness Plugin Hub")
+        header.setStyleSheet("font-size: 17px; font-weight: bold; color: #ffffff;")
+        layout.addWidget(header)
+
+        sub = QLabel("Mở rộng tính năng tự động hóa bằng cách nạp file Python (.py), MCP Servers hoặc Custom Prompt Harness.")
+        sub.setStyleSheet("color: #8b949e; font-size: 12px;")
+        layout.addWidget(sub)
+
+        self.tabs = QTabWidget()
+        self.tabs.setObjectName("SubTabWidget")
+
+        # Tab 1: Active Plugins
+        self.tab_active = QWidget()
+        self._setup_tab_active()
+        self.tabs.addTab(self.tab_active, "🧩 Plugins Đang Chạy")
+
+        # Tab 2: Add New Plugin
+        self.tab_add = QWidget()
+        self._setup_tab_add()
+        self.tabs.addTab(self.tab_add, "➕ Thêm Plugin Mới")
+
+        # Tab 3: DeepSeek Harness Runner
+        self.tab_harness = QWidget()
+        self._setup_tab_harness()
+        self.tabs.addTab(self.tab_harness, "🐝 DeepSeek Harness Live")
+
+        layout.addWidget(self.tabs, 1)
+
+        btn_box = QHBoxLayout()
+        btn_box.addStretch(1)
+        close_btn = QPushButton("Đóng")
+        close_btn.setObjectName("GhostButton")
+        close_btn.clicked.connect(self.accept)
+        btn_box.addWidget(close_btn)
+        layout.addLayout(btn_box)
+
+    def _setup_tab_active(self) -> None:
+        lay = QVBoxLayout(self.tab_active)
+        lay.setContentsMargins(10, 14, 10, 10)
+        lay.setSpacing(10)
+
+        # Search box
+        self.plugin_search = QLineEdit()
+        self.plugin_search.setPlaceholderText("🔍 Tìm kiếm plugin, MCP server, harness...")
+        self.plugin_search.setObjectName("SearchInput")
+        self.plugin_search.setClearButtonEnabled(True)
+        self.plugin_search.textChanged.connect(self._refresh_plugin_list)
+        lay.addWidget(self.plugin_search)
+
+        self.plugin_scroll = QScrollArea()
+        self.plugin_scroll.setWidgetResizable(True)
+        self.plugin_container = QWidget()
+        self.plugin_list_layout = QVBoxLayout(self.plugin_container)
+        self.plugin_list_layout.setContentsMargins(0, 0, 0, 0)
+        self.plugin_list_layout.setSpacing(8)
+        self.plugin_scroll.setWidget(self.plugin_container)
+        lay.addWidget(self.plugin_scroll, 1)
+
+        self._refresh_plugin_list()
+
+    def _refresh_plugin_list(self) -> None:
+        while self.plugin_list_layout.count():
+            item = self.plugin_list_layout.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        from agent.plugin_manager import PluginManager
+        pm = PluginManager()
+        query = self.plugin_search.text().strip().lower() if hasattr(self, "plugin_search") else ""
+
+        for p in pm.get_all_plugins():
+            if query and query not in p.name.lower() and query not in p.description.lower():
+                continue
+            card = QFrame()
+            card.setObjectName("Card")
+            card_lay = QHBoxLayout(card)
+            card_lay.setContentsMargins(12, 10, 12, 10)
+
+            # Icon
+            type_icon = "🐍" if p.plugin_type == "python_tool" else ("🌐" if p.plugin_type == "mcp_server" else "🐝")
+            icon_lbl = QLabel(type_icon)
+            icon_lbl.setStyleSheet("font-size: 22px;")
+            card_lay.addWidget(icon_lbl)
+
+            info_lay = QVBoxLayout()
+            info_lay.setSpacing(2)
+            title_lbl = QLabel(f"<b>{p.name}</b> <span style='color: #8b949e; font-size: 11px;'>({p.plugin_type})</span>")
+            title_lbl.setStyleSheet("font-size: 13px; color: #ffffff;")
+            info_lay.addWidget(title_lbl)
+
+            desc_lbl = QLabel(p.description)
+            desc_lbl.setStyleSheet("color: #8b949e; font-size: 11.5px;")
+            desc_lbl.setWordWrap(True)
+            info_lay.addWidget(desc_lbl)
+            card_lay.addLayout(info_lay, 1)
+
+            # Toggle button
+            toggle_btn = QPushButton("🟢 Đang Bật" if p.enabled else "⚪ Đã Tắt")
+            toggle_btn.setObjectName("PrimaryButton" if p.enabled else "GhostButton")
+            toggle_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            toggle_btn.setFixedWidth(100)
+            toggle_btn.clicked.connect(lambda _, pid=p.id: self._on_toggle_plugin(pid))
+            card_lay.addWidget(toggle_btn)
+
+            # Delete button if not built-in
+            if not p.metadata.get("built_in", False):
+                del_btn = QPushButton("🗑️")
+                del_btn.setObjectName("GhostIconBtn")
+                del_btn.setToolTip("Xóa plugin này")
+                del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                del_btn.clicked.connect(lambda _, pid=p.id: self._on_remove_plugin(pid))
+                card_lay.addWidget(del_btn)
+
+            self.plugin_list_layout.addWidget(card)
+
+        self.plugin_list_layout.addStretch(1)
+
+    def _on_toggle_plugin(self, plugin_id: str) -> None:
+        from agent.plugin_manager import PluginManager
+        pm = PluginManager()
+        pm.toggle_plugin(plugin_id)
+        self._refresh_plugin_list()
+
+    def _on_remove_plugin(self, plugin_id: str) -> None:
+        from agent.plugin_manager import PluginManager
+        pm = PluginManager()
+        pm.remove_plugin(plugin_id)
+        self._refresh_plugin_list()
+
+    def _setup_tab_add(self) -> None:
+        lay = QVBoxLayout(self.tab_add)
+        lay.setContentsMargins(14, 14, 14, 14)
+        lay.setSpacing(14)
+
+        # 1. Python Tool Plugin
+        box_py = QGroupBox("1. Nạp File Python Tool Plugin (.py)")
+        box_py_lay = QHBoxLayout(box_py)
+        py_desc = QLabel("Chọn file script Python chứa các hàm công cụ hoặc định nghĩa ToolSpec tự động hóa:")
+        py_desc.setStyleSheet("color: #8b949e; font-size: 12px;")
+        box_py_lay.addWidget(py_desc, 1)
+        py_browse_btn = QPushButton("📂 Chọn File .py")
+        py_browse_btn.setObjectName("PrimaryButton")
+        py_browse_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        py_browse_btn.clicked.connect(self._browse_python_plugin)
+        box_py_lay.addWidget(py_browse_btn)
+        lay.addWidget(box_py)
+
+        # 2. MCP Server
+        box_mcp = QGroupBox("2. Đăng Ký Máy Chủ MCP (Model Context Protocol)")
+        box_mcp_lay = QFormLayout(box_mcp)
+        self.mcp_name_input = QLineEdit()
+        self.mcp_name_input.setPlaceholderText("VD: GitHub MCP / Postgres MCP")
+        self.mcp_cmd_input = QLineEdit()
+        self.mcp_cmd_input.setPlaceholderText("VD: npx -y @modelcontextprotocol/server-postgres")
+        self.mcp_args_input = QLineEdit()
+        self.mcp_args_input.setPlaceholderText("Tham số thêm (tùy chọn)")
+        box_mcp_lay.addRow("Tên MCP:", self.mcp_name_input)
+        box_mcp_lay.addRow("Lệnh thực thi:", self.mcp_cmd_input)
+        box_mcp_lay.addRow("Tham số:", self.mcp_args_input)
+        mcp_submit_btn = QPushButton("🌐 Đăng Ký MCP Server")
+        mcp_submit_btn.setObjectName("PrimaryButton")
+        mcp_submit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        mcp_submit_btn.clicked.connect(self._add_mcp_server)
+        box_mcp_lay.addRow("", mcp_submit_btn)
+        lay.addWidget(box_mcp)
+
+        # 3. Prompt Persona / Skill Harness
+        box_harness = QGroupBox("3. Thêm Custom Prompt Persona / Skill Harness")
+        box_harness_lay = QFormLayout(box_harness)
+        self.harness_name_input = QLineEdit()
+        self.harness_name_input.setPlaceholderText("VD: Senior Cryptography Auditor")
+        self.harness_desc_input = QLineEdit()
+        self.harness_desc_input.setPlaceholderText("Mô tả vai trò chuyên môn...")
+        self.harness_prompt_input = QPlainTextEdit()
+        self.harness_prompt_input.setPlaceholderText("Nhập nội dung System Prompt / Persona hướng dẫn tác nhân...")
+        self.harness_prompt_input.setMaximumHeight(80)
+        box_harness_lay.addRow("Tên Persona:", self.harness_name_input)
+        box_harness_lay.addRow("Mô tả:", self.harness_desc_input)
+        box_harness_lay.addRow("System Prompt:", self.harness_prompt_input)
+        harness_submit_btn = QPushButton("🐝 Lưu Harness Persona")
+        harness_submit_btn.setObjectName("PrimaryButton")
+        harness_submit_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        harness_submit_btn.clicked.connect(self._add_harness_persona)
+        box_harness_lay.addRow("", harness_submit_btn)
+        lay.addWidget(box_harness)
+
+        lay.addStretch(1)
+
+    def _browse_python_plugin(self) -> None:
+        file_path, _ = QFileDialog.getOpenFileName(self, "Chọn File Python Plugin", str(APP_ROOT), "Python Files (*.py)")
+        if file_path:
+            from agent.plugin_manager import PluginManager
+            pm = PluginManager()
+            ok, msg = pm.add_python_plugin(file_path)
+            if ok:
+                QMessageBox.information(self, "Thành Công", f"✅ {msg}")
+                self._refresh_plugin_list()
+                self.tabs.setCurrentIndex(0)
+            else:
+                QMessageBox.warning(self, "Lỗi", f"❌ {msg}")
+
+    def _add_mcp_server(self) -> None:
+        name = self.mcp_name_input.text().strip()
+        cmd = self.mcp_cmd_input.text().strip()
+        args = [a.strip() for a in self.mcp_args_input.text().strip().split() if a.strip()]
+        if not name or not cmd:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng nhập tên và lệnh MCP Server!")
+            return
+        from agent.plugin_manager import PluginManager
+        pm = PluginManager()
+        ok, msg = pm.add_mcp_server(name, cmd, args)
+        if ok:
+            QMessageBox.information(self, "Thành Công", f"✅ {msg}")
+            self.mcp_name_input.clear()
+            self.mcp_cmd_input.clear()
+            self.mcp_args_input.clear()
+            self._refresh_plugin_list()
+            self.tabs.setCurrentIndex(0)
+        else:
+            QMessageBox.warning(self, "Lỗi", f"❌ {msg}")
+
+    def _add_harness_persona(self) -> None:
+        name = self.harness_name_input.text().strip()
+        desc = self.harness_desc_input.text().strip()
+        prompt = self.harness_prompt_input.toPlainText().strip()
+        if not name or not prompt:
+            QMessageBox.warning(self, "Cảnh báo", "Vui lòng nhập tên và Prompt Persona!")
+            return
+        from agent.plugin_manager import PluginManager
+        pm = PluginManager()
+        ok, msg = pm.add_harness_persona(name, prompt, desc)
+        if ok:
+            QMessageBox.information(self, "Thành Công", f"✅ {msg}")
+            self.harness_name_input.clear()
+            self.harness_desc_input.clear()
+            self.harness_prompt_input.clear()
+            self._refresh_plugin_list()
+            self.tabs.setCurrentIndex(0)
+        else:
+            QMessageBox.warning(self, "Lỗi", f"❌ {msg}")
+
+    def _setup_tab_harness(self) -> None:
+        lay = QVBoxLayout(self.tab_harness)
+        lay.setContentsMargins(14, 14, 14, 14)
+        lay.setSpacing(10)
+
+        info = QLabel("<b>🐝 DeepSeek Harness Multi-Agent Environment (Port 3080)</b>")
+        info.setStyleSheet("font-size: 13px; color: #ffffff;")
+        lay.addWidget(info)
+
+        desc = QLabel("Khởi chạy giao diện web Prompt Engineering & Multi-Agent Swarm tương tác trực tiếp với mô hình Qwen 27B cục bộ.")
+        desc.setStyleSheet("color: #8b949e; font-size: 12px;")
+        lay.addWidget(desc)
+
+        action_row = QHBoxLayout()
+        launch_btn = QPushButton("▶ Khởi chạy Harness (Port 3080)")
+        launch_btn.setObjectName("PrimaryButton")
+        launch_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        if hasattr(self.parent(), "open_deepseek_harness"):
+            launch_btn.clicked.connect(self.parent().open_deepseek_harness)
+        action_row.addWidget(launch_btn)
+
+        open_browser_btn = QPushButton("🌐 Mở Trình Duyệt Web UI")
+        open_browser_btn.setObjectName("GhostButton")
+        open_browser_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        open_browser_btn.clicked.connect(lambda: QDesktopServices.openUrl(QUrl("http://127.0.0.1:3080")))
+        action_row.addWidget(open_browser_btn)
+        action_row.addStretch(1)
+        lay.addLayout(action_row)
+
+        log_lbl = QLabel("Nhật ký hoạt động Harness:")
+        log_lbl.setStyleSheet("color: #8b949e; font-size: 11.5px; margin-top: 8px;")
+        lay.addWidget(log_lbl)
+
+        self.harness_log = QPlainTextEdit()
+        self.harness_log.setReadOnly(True)
+        self.harness_log.setObjectName("ChatInput")
+        self.harness_log.setPlainText("DeepSeek Harness sẵn sàng tại cổng 3080.\nNhấn nút 'Khởi chạy Harness' để bắt đầu.")
+        lay.addWidget(self.harness_log, 1)
+
+
 class AgentPage(QWidget):
     def __init__(
         self,
@@ -9019,6 +9319,11 @@ class AgentPage(QWidget):
     # ------------------------------------------------ Phase 7 Actions
     def open_database_viewer(self) -> None:
         dialog = DatabaseViewerDialog(self)
+        dialog.exec()
+
+
+    def open_plugin_harness_dialog(self) -> None:
+        dialog = PluginHarnessManagerDialog(self)
         dialog.exec()
 
     def open_settings_dialog(self) -> None:
@@ -10235,20 +10540,12 @@ class AgentPage(QWidget):
                 item.widget().deleteLater()
 
         actions = [
-            (t("chip_plan"), t("chip_plan_tip"), "/plan "),
-            (t("chip_fix"), t("chip_fix_tip"), "/fix "),
-            (t("chip_review"), t("chip_review_tip"), "/review "),
-            (t("chip_test"), t("chip_test_tip"), "/test "),
-            ("🐝 Swarm Studio", "Trung tâm điều tra nghiên cứu Swarm 4 tác nhân chuyên gia", "SWARM_DIALOG"),
-            ("📚 Knowledge Vault", "Kho tri thức dài hạn & phân tích phản biện", "VAULT_DIALOG"),
-            ("🌐 Omni Discovery", "Động cơ tự chủ điều tra & khám phá 360° mọi đối tượng", "OMNI_DIALOG"),
-            (t("chip_turbo"), t("chip_turbo_tip"), "TURBO_DIALOG"),
-            (t("chip_recovery"), t("chip_recovery_tip"), "CIRCUIT_DIALOG"),
-            (t("chip_memory"), t("chip_memory_tip"), "EMBEDDINGS_DIALOG"),
-            (t("chip_ram"), t("chip_ram_tip"), "GCTUNING_DIALOG"),
-            (t("chip_uitest"), t("chip_uitest_tip"), "UITEST_DIALOG"),
-            (t("chip_safety"), t("chip_safety_tip"), "SAFETY_DIALOG"),
-            (t("chip_all_tools"), t("chip_all_tools_tip"), "ALL_TOOLS_DIALOG"),
+            ("✨ /plan", "Lập kế hoạch phân tích kiến trúc tự động", "/plan "),
+            ("⚡ /auto", "Thực thi tác vụ điều khiển tự động với 302 tools", "/auto "),
+            ("🧩 Plugins & Harness", "Quản lý & Thêm mới Python Plugins, MCP Servers, Harness", "PLUGIN_DIALOG"),
+            ("🔬 Deep Research", "Tác nhân nghiên cứu & phản biện đa nguồn chuyên sâu", "OMNI_DIALOG"),
+            ("🧹 /clear", "Làm sạch ngữ cảnh hội thoại hiện tại (Ctrl+L)", "/clear"),
+            ("⋯ Thư Viện Tools (302)", "Mở toàn bộ danh mục 302 công cụ tự động hóa", "ALL_TOOLS_DIALOG"),
         ]
         for label, tip, act_cmd in actions:
             chip_btn = QPushButton(label)
@@ -10470,7 +10767,14 @@ class AgentPage(QWidget):
         self.lang_combo.currentIndexChanged.connect(self.on_language_combo_changed)
         header_layout.addWidget(self.lang_combo)
 
-        # Export & GPU Status Buttons
+        # Plugins, Export & GPU Status Buttons
+        self.plugin_btn = QPushButton("🧩 Plugins & Harness")
+        self.plugin_btn.setObjectName("GhostButton")
+        self.plugin_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.plugin_btn.setToolTip("Quản lý & Thêm mới Plugins, MCP Servers và DeepSeek Harness")
+        self.plugin_btn.clicked.connect(self.open_plugin_harness_dialog)
+        header_layout.addWidget(self.plugin_btn)
+
         self.export_button = QPushButton("📤 " + t("export_md"))
         self.export_button.setObjectName("GhostButton")
         self.export_button.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -10573,6 +10877,13 @@ class AgentPage(QWidget):
         vision_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         vision_btn.clicked.connect(self.open_computer_vision_dialog)
         bottom_row.addWidget(vision_btn)
+
+        plugin_chip = QPushButton("🧩 Plugins")
+        plugin_chip.setObjectName("GhostButton")
+        plugin_chip.setToolTip("Quản lý & Thêm mới Plugins / DeepSeek Harness")
+        plugin_chip.setCursor(Qt.CursorShape.PointingHandCursor)
+        plugin_chip.clicked.connect(self.open_plugin_harness_dialog)
+        bottom_row.addWidget(plugin_chip)
 
         bottom_row.addStretch(1)
 
@@ -12288,6 +12599,10 @@ class AgentPage(QWidget):
             elif cmd in ("/domobserver", "/dom", "/events"):
                 self.prompt_input.clear()
                 self.open_computer_vision_dialog()
+                return
+            elif cmd in ("/plugin", "/plugins", "/harness", "/mcp", "/addplugin"):
+                self.prompt_input.clear()
+                self.open_plugin_harness_dialog()
                 return
             elif cmd in ("/workspace", "/dir", "/cd"):
                 self.prompt_input.clear()
