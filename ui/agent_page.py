@@ -10054,11 +10054,15 @@ class AgentPage(QWidget):
             except OSError:
                 pass
 
-            label = QLabel(f"📄 {p.name}{size_str}")
+            is_img = p.suffix.lower() in (".png", ".jpg", ".jpeg", ".webp", ".bmp", ".gif")
+            icon = "🖼️" if is_img else ("🐍" if p.suffix.lower() == ".py" else ("📜" if p.suffix.lower() in (".ts", ".js", ".json", ".html", ".css") else "📄"))
+            label = QLabel(f"{icon} {p.name}{size_str}")
+            chip.setToolTip(f"Đường dẫn: {p}\nKích thước: {size_str.strip(' ()')}")
             chip_layout.addWidget(label)
 
             del_btn = QPushButton("✕")
             del_btn.setObjectName("ChipRemoveBtn")
+            del_btn.setToolTip("Xóa đính kèm này")
             del_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             del_btn.clicked.connect(lambda _, path=p: self.remove_attachment(path))
             chip_layout.addWidget(del_btn)
