@@ -172,9 +172,9 @@ QMainWindow {
 
 /* ---------- Header / Cards ---------- */
 #Card {
-    background-color: #1b1d24;
-    border: 1px solid #272a35;
-    border-radius: 12px;
+    background-color: #12141a;
+    border: 1px solid #1f2330;
+    border-radius: 10px;
 }
 
 #PageTitle {
@@ -569,16 +569,21 @@ QGroupBox::title {
 
 /* ---------- Telemetry Footer ---------- */
 #TelemetryFooter {
-    color: #636b7e;
+    color: #5d6374;
     font-size: 11px;
     font-family: Consolas, "Courier New", monospace;
     padding: 2px 4px;
+    qproperty-alignment: AlignCenter;
+}
+
+#TelemetryFooter:hover {
+    color: #79a1ff;
 }
 
 /* ---------- Profile Capsule Bottom ---------- */
 #ProfileCapsule {
-    background-color: #171920;
-    border: 1px solid #242733;
+    background-color: #14161f;
+    border: 1px solid #202430;
     border-radius: 8px;
     padding: 4px 8px;
 }
