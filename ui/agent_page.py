@@ -10719,6 +10719,9 @@ class AgentPage(QWidget):
         rename_action = menu.addAction(t("rename"))
         rename_action.triggered.connect(self.rename_chat)
 
+        duplicate_action = menu.addAction("🌿 Nhân bản / Fork cuộc trò chuyện")
+        duplicate_action.triggered.connect(self.duplicate_chat)
+
         export_action = menu.addAction(t("export_md"))
         export_action.triggered.connect(self.export_current_chat)
 
@@ -10727,6 +10730,26 @@ class AgentPage(QWidget):
         delete_action.triggered.connect(self.delete_chat)
 
         menu.exec(self.chat_list.mapToGlobal(pos))
+
+    def duplicate_chat(self) -> None:
+        chat = self.active_chat()
+        if chat is None:
+            return
+        new_id = uuid4().hex[:12]
+        new_title = f"{chat.get('title', 'Chat')} (Bản sao)"
+        new_chat_obj = {
+            "id": new_id,
+            "title": new_title[:80],
+            "history": list(chat.get("history", [])),
+            "agent_messages": list(chat.get("agent_messages", [])),
+            "created_at": datetime.now().isoformat(timespec="seconds"),
+            "pinned": False,
+        }
+        self.chats.insert(0, new_chat_obj)
+        self.save_chats()
+        self.refresh_chat_list()
+        self.select_chat(new_id)
+        self.status_label.setText(f"Đã nhân bản: {new_title}")
 
     def on_escape_pressed(self) -> None:
         if self.worker is not None:
