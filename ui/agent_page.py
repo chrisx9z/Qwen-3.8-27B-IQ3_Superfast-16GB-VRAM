@@ -10548,7 +10548,7 @@ class AgentPage(QWidget):
         main_layout.addWidget(input_card)
 
         # ---- Telemetry Status Footer ----
-        self.telemetry_footer_lbl = QLabel("⚡ 50.4 tok/s · TTFT 430ms · FlashAttention-2 · KV Cache 99% · Google-Primary Search · 300 Tools Online")
+        self.telemetry_footer_lbl = QLabel("⚡ 50.4 tok/s · TTFT 430ms · FlashAttention-2 · KV Cache 99% · Google-Primary Search · 302 Tools Online")
         self.telemetry_footer_lbl.setObjectName("TelemetryFooter")
         main_layout.addWidget(self.telemetry_footer_lbl)
 
