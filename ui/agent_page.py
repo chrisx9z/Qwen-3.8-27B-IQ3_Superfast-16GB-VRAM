@@ -10167,6 +10167,9 @@ class AgentPage(QWidget):
         self.mode_combo.addItem(t("mode_assistant"), "assistant")
         self.mode_combo.addItem(t("mode_coding"), "coding")
         self.mode_combo.addItem(t("mode_auto"), "auto")
+        self.mode_combo.setItemData(0, "Chế độ Trợ lý chung: Tra cứu, tổng hợp tài liệu, dịch thuật và hội thoại", Qt.ItemDataRole.ToolTipRole)
+        self.mode_combo.setItemData(1, "Chế độ Lập trình: Viết code, debug, refactor, kiểm thử và giải toán nâng cao", Qt.ItemDataRole.ToolTipRole)
+        self.mode_combo.setItemData(2, "Chế độ Tự động hóa: Auto Pilot tự chủ gọi 302 công cụ, điều tra sâu đa nguồn", Qt.ItemDataRole.ToolTipRole)
         for idx in range(self.mode_combo.count()):
             if self.mode_combo.itemData(idx) == cur_data:
                 self.mode_combo.setCurrentIndex(idx)
@@ -10354,7 +10357,7 @@ class AgentPage(QWidget):
 
         tools_icon_btn = QPushButton("🎛️")
         tools_icon_btn.setObjectName("GhostIconBtn")
-        tools_icon_btn.setToolTip("Mở danh mục 300 công cụ (Tool Hub)")
+        tools_icon_btn.setToolTip("Mở danh mục 302 công cụ (Tool Hub)")
         tools_icon_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         tools_icon_btn.clicked.connect(self.open_all_tools_dialog)
         profile_layout.addWidget(tools_icon_btn)
