@@ -8242,12 +8242,16 @@ class PluginHarnessManagerDialog(QDialog):
         pm = PluginManager()
         pm.toggle_plugin(plugin_id)
         self._refresh_plugin_list()
+        if hasattr(self.parent(), '_update_plugin_chip_count'):
+            self.parent()._update_plugin_chip_count()
 
     def _on_remove_plugin(self, plugin_id: str) -> None:
         from agent.plugin_manager import PluginManager
         pm = PluginManager()
         pm.remove_plugin(plugin_id)
         self._refresh_plugin_list()
+        if hasattr(self.parent(), '_update_plugin_chip_count'):
+            self.parent()._update_plugin_chip_count()
 
     def _setup_tab_add(self) -> None:
         lay = QVBoxLayout(self.tab_add)
@@ -9321,6 +9325,19 @@ class AgentPage(QWidget):
         dialog = DatabaseViewerDialog(self)
         dialog.exec()
 
+
+
+    def _update_plugin_chip_count(self) -> None:
+        try:
+            from agent.plugin_manager import PluginManager
+            pm = PluginManager()
+            active_count = sum(1 for p in pm.get_all_plugins() if p.enabled)
+            if hasattr(self, "plugin_chip"):
+                self.plugin_chip.setText(f"🧩 Plugins ({active_count})")
+            if hasattr(self, "plugin_btn"):
+                self.plugin_btn.setText(f"🧩 Plugins ({active_count})")
+        except Exception:
+            pass
 
     def open_plugin_harness_dialog(self) -> None:
         dialog = PluginHarnessManagerDialog(self)
@@ -10913,6 +10930,7 @@ class AgentPage(QWidget):
         self.telemetry_footer_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
         self.telemetry_footer_lbl.mousePressEvent = lambda _: self.open_all_tools_dialog()
         main_layout.addWidget(self.telemetry_footer_lbl)
+        self._update_plugin_chip_count()
 
     def create_card(self) -> QFrame:
         card = QFrame()

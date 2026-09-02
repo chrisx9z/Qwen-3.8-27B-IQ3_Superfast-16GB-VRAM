@@ -1,20 +1,20 @@
 /* ============ Auto Pilot Qwen 3.8 27B IQ3_Superfast — Codex / DeepSeek Harness Dark Theme ============ */
 
 QWidget {
-    background-color: #16171b;
+    background-color: #0e1015;
     color: #e6e6eb;
     font-size: 13px;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "SF Pro Text", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Noto Sans", Arial, sans-serif;
 }
 
 QMainWindow {
-    background-color: #16171b;
+    background-color: #0e1015;
 }
 
 /* ---------- Sidebar ---------- */
 #Sidebar {
-    background-color: #111216;
-    border-right: 1px solid #23252e;
+    background-color: #12141a;
+    border-right: 1px solid #1c202a;
 }
 
 #SidebarHeader {
