@@ -71,7 +71,11 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 300
+    assert len(registry.definitions()) == 302
+    assert registry.execute(
+        "write_file",
+        {"path": "work/test_write.txt", "content": "hello world"},
+    )["ok"]
     assert registry.execute(
         "universal_autonomous_omni_investigator",
         {"target_or_prompt": "https://vibemmo.net/"},

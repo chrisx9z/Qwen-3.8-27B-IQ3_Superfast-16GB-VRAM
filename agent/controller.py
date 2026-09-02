@@ -1400,6 +1400,25 @@ def _enforce_context_window_limit(
         content = str(copy_m.get("content", ""))
         role = copy_m.get("role")
 
+        # Sanitize any tool_calls to ensure valid JSON arguments (prevent llama-server 500 error)
+        if "tool_calls" in copy_m and isinstance(copy_m["tool_calls"], list):
+            clean_tcs = []
+            for tc in copy_m["tool_calls"]:
+                if isinstance(tc, dict):
+                    tc_copy = dict(tc)
+                    func = tc_copy.get("function")
+                    if isinstance(func, dict):
+                        f_copy = dict(func)
+                        raw_args = f_copy.get("arguments", "{}")
+                        if isinstance(raw_args, str):
+                            try:
+                                json.loads(raw_args)
+                            except Exception:
+                                f_copy["arguments"] = "{}"
+                        tc_copy["function"] = f_copy
+                    clean_tcs.append(tc_copy)
+            copy_m["tool_calls"] = clean_tcs
+
         if idx < cutoff_index:
             if role == "tool" and len(content) > 600:
                 # Nén gọn kết quả tool cũ nhưng giữ nguyên tool_call_id
@@ -1528,15 +1547,17 @@ def _is_direct_repo_task(prompt: str) -> bool:
 
 def _is_universal_discovery_task(prompt: str) -> bool:
     lowered = prompt.lower()
-    intent_markers = [
-        "tìm hiểu", "phân tích", "nghiên cứu", "khảo sát", "kiểm tra", "đánh giá", 
-        "review", "bài viết", "sitemap", "chuyên mục", "chủ đề", "kênh", "channel",
-        "bao nhiêu bài", "hướng phát triển", "chiến lược", "audit", "tổng quan",
-        "so sánh", "xu hướng", "thị trường", "tình hình"
-    ]
-    has_marker = any(marker in lowered for marker in intent_markers)
-    has_entity = any(k in lowered for k in [".net", ".com", ".org", ".vn", ".io", ".ai", "http", "@", "repo", "github"])
-    return (has_marker or has_entity) and len(prompt.strip()) >= 5
+    has_entity = any(k in lowered for k in [".net", ".com", ".org", ".vn", ".io", ".ai", "http://", "https://", "@", "github.com", "repo "])
+    explicit_discovery = any(k in lowered for k in [
+        "tìm hiểu website", "khảo sát website", "khảo sát kênh", "tìm hiểu kênh", 
+        "quét sitemap", "audit trang web", "khảo sát thị trường", "nghiên cứu thị trường", 
+        "tìm hiểu thị trường", "báo cáo thị trường"
+    ])
+    not_pure_reasoning = not any(k in lowered for k in [
+        "viết code", "đoạn code", "lập trình", "lên lịch", "hôm nay là", 
+        "lập bảng so sánh", "bẫy ảo giác", "nghiên cứu năm 2024 của gs"
+    ])
+    return (has_entity or explicit_discovery) and not_pure_reasoning and len(prompt.strip()) >= 5
 
 def _is_direct_website_audit_task(prompt: str) -> bool:
     lowered = prompt.lower()
@@ -1868,7 +1889,7 @@ class StreamTagRouter:
                         self.emit_fn("delta", {"text": before})
                     self.in_think = True
                     self.buffer = after
-                elif "<" in self.buffer and any("<think>".startswith(self.buffer[self.buffer.rfind("<"):])):
+                elif "<" in self.buffer and "<think>".startswith(self.buffer[self.buffer.rfind("<"):]):
                     idx = self.buffer.rfind("<")
                     clean = self.buffer[:idx]
                     if clean:
@@ -1888,7 +1909,7 @@ class StreamTagRouter:
                         self.emit_fn("delta", {"reasoning": think_part})
                     self.in_think = False
                     self.buffer = after
-                elif "<" in self.buffer and any("</think>".startswith(self.buffer[self.buffer.rfind("<"):])):
+                elif "<" in self.buffer and "</think>".startswith(self.buffer[self.buffer.rfind("<"):]):
                     idx = self.buffer.rfind("<")
                     think_clean = self.buffer[:idx]
                     if think_clean:

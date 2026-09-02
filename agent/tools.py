@@ -803,6 +803,46 @@ class LocalToolRegistry:
                     handler=self._replace_code,
                 ),
                 ToolSpec(
+                    name="write_file",
+                    description="Ghi nội dung văn bản hoặc code vào một file chỉ định (tạo mới nếu chưa tồn tại).",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Đường dẫn file cần ghi (tương đối từ workspace hoặc tuyệt đối).",
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "Toàn bộ nội dung văn bản hoặc mã nguồn cần ghi vào file.",
+                            },
+                        },
+                        "required": ["path", "content"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._write_file,
+                ),
+                ToolSpec(
+                    name="create_file",
+                    description="Tạo một file mới với nội dung chỉ định.",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "path": {
+                                "type": "string",
+                                "description": "Đường dẫn file cần tạo.",
+                            },
+                            "content": {
+                                "type": "string",
+                                "description": "Nội dung ban đầu của file.",
+                            },
+                        },
+                        "required": ["path"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._create_file,
+                ),
+                ToolSpec(
                     name="create_code_file",
                     description=(
                         "Tạo file code/text mới trong workspace. Không ghi đè file đã có."
@@ -5317,6 +5357,29 @@ class LocalToolRegistry:
             "checkpoint_id": checkpoint,
             "changed": True,
         }
+
+    def _write_file(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        path_str = _required_text(arguments.get("path") or arguments.get("file_path"), "path")
+        path = _safe_code_path(path_str, must_exist=False)
+        content = str(arguments.get("content", ""))
+        if len(content) > 500000:
+            raise ValueError("Nội dung file vượt quá 500000 ký tự.")
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(content, encoding="utf-8")
+        return {
+            "path": str(path.relative_to(APP_ROOT)),
+            "written": True,
+            "bytes": len(content.encode("utf-8")),
+        }
+
+    def _create_file(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        return self._write_file(arguments)
 
     def _create_code_file(
         self,
