@@ -10724,16 +10724,20 @@ class AgentPage(QWidget):
         main_layout.setContentsMargins(20, 14, 20, 12)
         main_layout.setSpacing(10)
 
-        # ---- Top Header Bar ----
+        # ---- Top Header Bar (Codex Minimalist) ----
         header = QFrame()
         header.setObjectName("Card")
         header_layout = QHBoxLayout(header)
-        header_layout.setContentsMargins(14, 8, 14, 8)
-        header_layout.setSpacing(8)
+        header_layout.setContentsMargins(12, 6, 12, 6)
+        header_layout.setSpacing(10)
 
-        self.page_title_lbl = QLabel(t("subtitle"))
-        self.page_title_lbl.setObjectName("PageTitle")
-        header_layout.addWidget(self.page_title_lbl)
+        # Workspace Pill
+        self.workspace_btn = QPushButton(f"📂 {APP_ROOT.name}")
+        self.workspace_btn.setObjectName("GhostButton")
+        self.workspace_btn.setToolTip(f"Thư mục làm việc: {APP_ROOT}\nBấm để đổi thư mục workspace")
+        self.workspace_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.workspace_btn.clicked.connect(self.change_workspace_directory)
+        header_layout.addWidget(self.workspace_btn)
 
         self.status_label = QLabel(t("status_ready"))
         self.status_label.setObjectName("StatusLabel")
@@ -10741,11 +10745,15 @@ class AgentPage(QWidget):
 
         header_layout.addStretch(1)
 
-        # Mode Selector
-        self.mode_caption_lbl = QLabel(t("mode_label"))
-        self.mode_caption_lbl.setStyleSheet("color: #8b92a4; font-size: 11.5px;")
-        header_layout.addWidget(self.mode_caption_lbl)
+        # Plugins & DeepSeek Harness Capsule
+        self.plugin_btn = QPushButton("🧩 Plugins & Harness")
+        self.plugin_btn.setObjectName("GhostButton")
+        self.plugin_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.plugin_btn.setToolTip("Trung tâm quản lý & thêm mới Plugins, MCP Servers và DeepSeek Harness")
+        self.plugin_btn.clicked.connect(self.open_plugin_harness_dialog)
+        header_layout.addWidget(self.plugin_btn)
 
+        # Mode Selector
         self.mode_combo = QComboBox()
         self.mode_combo.setObjectName("Combo")
         self._populate_mode_combo()
@@ -10767,25 +10775,12 @@ class AgentPage(QWidget):
         self.lang_combo.currentIndexChanged.connect(self.on_language_combo_changed)
         header_layout.addWidget(self.lang_combo)
 
-        # Plugins, Export & GPU Status Buttons
-        self.plugin_btn = QPushButton("🧩 Plugins & Harness")
-        self.plugin_btn.setObjectName("GhostButton")
-        self.plugin_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.plugin_btn.setToolTip("Quản lý & Thêm mới Plugins, MCP Servers và DeepSeek Harness")
-        self.plugin_btn.clicked.connect(self.open_plugin_harness_dialog)
-        header_layout.addWidget(self.plugin_btn)
-
+        # Export Button
         self.export_button = QPushButton("📤 " + t("export_md"))
         self.export_button.setObjectName("GhostButton")
         self.export_button.setCursor(Qt.CursorShape.PointingHandCursor)
         self.export_button.clicked.connect(self.export_current_chat)
         header_layout.addWidget(self.export_button)
-
-        self.resource_button = QPushButton("📊 " + t("gpu_status"))
-        self.resource_button.setObjectName("GhostButton")
-        self.resource_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.resource_button.clicked.connect(self.refresh_resource_status)
-        header_layout.addWidget(self.resource_button)
 
         main_layout.addWidget(header)
 
@@ -11219,13 +11214,13 @@ class AgentPage(QWidget):
                 ("🖥️ 系统与进程自动化", "检查系统运行进程、GPU 显存占用并执行健康诊断..."),
             ]
         else:
-            title = "Bạn muốn thực hiện tác vụ nào hôm nay?"
-            sub = "Được tăng tốc bởi Qwen 3.8 27B IQ3_Superfast · Riêng tư & Chạy Offline 100%"
+            title = "Bạn muốn xây dựng hoặc tự động hóa điều gì hôm nay?"
+            sub = "Codex AI Assistant · Qwen 3.8 27B IQ3_Superfast · 302 Tools & DeepSeek Harness Plugin Hub"
             cards = [
-                ("⚡ Xây dựng REST API", "Tạo một ứng dụng REST API bằng FastAPI với Pydantic model và phân trang..."),
-                ("🔍 Rà soát & Sửa lỗi code", "Rà soát mã nguồn trong dự án hiện tại, tìm các tiềm ẩn lỗi và đề xuất bản vá..."),
-                ("🧪 Viết kiểm thử Pytest", "Tạo bộ kiểm thử tự động bằng pytest cho các module trong dự án với độ phủ cao..."),
-                ("🖥️ Tự động hóa hệ thống", "Kiểm tra danh sách tiến trình, mức sử dụng VRAM GPU và chẩn đoán sức khỏe hệ thống..."),
+                ("✨ Lập Kế Hoạch Kiến Trúc", "/plan Phân tích cấu trúc thư mục hiện tại và lập kế hoạch thực thi chi tiết..."),
+                ("⚡ Tự Động Hóa & Computer Use", "/auto Thực thi chuỗi tác vụ tự động hóa hệ thống và điều khiển máy tính..."),
+                ("🔬 Nghiên Cứu Đa Nguồn & Phản Biện", "Nghiên cứu đào sâu, trích xuất dữ kiện và phản biện thông tin đa chiều..."),
+                ("🧩 Mở Plugin & DeepSeek Harness", "PLUGIN_DIALOG"),
             ]
 
         hero = QFrame()
@@ -11289,6 +11284,9 @@ class AgentPage(QWidget):
         self.chat_layout.insertWidget(0, hero)
 
     def _on_starter_card_clicked(self, prompt_text: str) -> None:
+        if prompt_text == "PLUGIN_DIALOG":
+            self.open_plugin_harness_dialog()
+            return
         self.prompt_input.setPlainText(prompt_text)
         self.prompt_input.setFocus()
         cursor = self.prompt_input.textCursor()
