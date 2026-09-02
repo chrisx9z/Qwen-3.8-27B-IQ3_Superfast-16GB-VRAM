@@ -9047,13 +9047,19 @@ class AgentPage(QWidget):
 
     def update_live_resources(self) -> None:
         try:
-            gpu = GPUResourceManager().inspect()
-            vram_txt = f"VRAM: {gpu.vram_used_gb:.1f}/{gpu.vram_total_gb:.1f}GB" if gpu.available else "GPU: N/A"
+            status_data = GPUResourceManager().status()
+            gpu = status_data.get("gpu", {})
+            if gpu.get("available"):
+                used_gb = gpu.get("used_bytes", 0) / (1024 ** 3)
+                total_gb = gpu.get("total_bytes", 0) / (1024 ** 3)
+                vram_txt = f"VRAM {used_gb:.1f}/{total_gb:.0f}GB"
+            else:
+                vram_txt = "GPU: N/A"
             cpu_pct = psutil.cpu_percent(interval=None)
             ram = psutil.virtual_memory()
             ram_used_gb = (ram.total - ram.available) / (1024 ** 3)
             ram_total_gb = ram.total / (1024 ** 3)
-            txt = f"⚡ {vram_txt} | CPU {cpu_pct:.0f}% | RAM {ram_used_gb:.1f}/{ram_total_gb:.0f}GB"
+            txt = f"⚡ {vram_txt} · CPU {cpu_pct:.0f}% · RAM {ram_used_gb:.1f}/{ram_total_gb:.0f}GB · 302 Tools"
             self.resource_bar.setText(txt)
         except Exception:
             pass
