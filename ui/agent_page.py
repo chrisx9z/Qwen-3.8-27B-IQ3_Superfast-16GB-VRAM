@@ -57,6 +57,18 @@ def markdown_to_html(text: str) -> str:
     def escape(value: str) -> str:
         return html.escape(value, quote=False)
 
+    # Pre-process LaTeX display math blocks $$...$$ and \[...\]
+    text = re.sub(
+        r"\$\$\s*([\s\S]+?)\s*\$\$",
+        r'<div style="background: rgba(30,35,48,0.7); padding: 8px 14px; border-left: 3px solid #58a6ff; border-radius: 6px; margin: 8px 0; font-family: \'Cambria Math\', \'Times New Roman\', serif; font-style: italic; color: #a5d6ff; text-align: center;">\1</div>',
+        text,
+    )
+    text = re.sub(
+        r"\\\[\s*([\s\S]+?)\s*\\\]",
+        r'<div style="background: rgba(30,35,48,0.7); padding: 8px 14px; border-left: 3px solid #58a6ff; border-radius: 6px; margin: 8px 0; font-family: \'Cambria Math\', \'Times New Roman\', serif; font-style: italic; color: #a5d6ff; text-align: center;">\1</div>',
+        text,
+    )
+
     parts: list[str] = []
     segments = re.split(r"(```[\s\S]*?```)", text)
 
@@ -218,21 +230,36 @@ def markdown_to_html(text: str) -> str:
 
 
 def _inline_md(value: str) -> str:
+    # 1. Inline LaTeX math \(...\) and $...$
+    value = re.sub(
+        r"\\\((.+?)\\\)",
+        r'<span style="font-family: \'Cambria Math\', \'Times New Roman\', serif; font-style: italic; color: #a5d6ff;">\1</span>',
+        value,
+    )
+    value = re.sub(
+        r"(?<!\$)\$(?!\$)(.+?)(?<!\$)\$(?!\$)",
+        r'<span style="font-family: \'Cambria Math\', \'Times New Roman\', serif; font-style: italic; color: #a5d6ff;">\1</span>',
+        value,
+    )
+    # 2. Inline code
     value = re.sub(
         r"`([^`]+)`",
         lambda m: f'<code class="inline-code">{m.group(1)}</code>',
         value,
     )
+    # 3. Links
     value = re.sub(
-        r"\[([^\]]+)\]\((https?://[^)\s]+)\)",
-        r'<a href="\2">\1</a>',
+        r"\[([^\]]+)\]\((https?://[^)\s]+|file://[^)\s]+)\)",
+        r'<a href="\2" style="color: #58a6ff; text-decoration: underline;">\1</a>',
         value,
     )
+    # 4. Bold
     value = re.sub(
         r"\*\*([^*]+)\*\*",
         r"<b>\1</b>",
         value,
     )
+    # 5. Italic
     value = re.sub(
         r"(?<!\*)\*([^*\n]+)\*(?!\*)",
         r"<i>\1</i>",
