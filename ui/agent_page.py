@@ -11308,6 +11308,8 @@ class AgentPage(QWidget):
             self._welcome_hero.setParent(None)
             self._welcome_hero.deleteLater()
             self._welcome_hero = None
+        if hasattr(self, "quick_action_bar"):
+            self.quick_action_bar.setVisible(False)
 
     def clear_chat_area(self) -> None:
         while self.chat_layout.count() > 1:
@@ -11321,6 +11323,8 @@ class AgentPage(QWidget):
         self._streaming_text = ""
         self._reasoning_card = None
         self._task_card = None
+        if hasattr(self, "quick_action_bar"):
+            self.quick_action_bar.setVisible(True)
 
     def scroll_to_bottom(self) -> None:
         bar = self.scroll.verticalScrollBar()
