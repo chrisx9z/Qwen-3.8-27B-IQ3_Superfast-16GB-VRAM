@@ -8975,6 +8975,34 @@ class AgentPage(QWidget):
             lbl = f"Ngữ cảnh: ~{tok_count:,} / 16,384 tokens ({pct:.1f}%)"
         self.token_estimator_lbl.setText(lbl)
 
+    def show_token_breakdown(self) -> None:
+        chat = self.active_chat()
+        history_chars = 0
+        msg_count = 0
+        if chat:
+            hist = self.history(chat)
+            msg_count = len(hist)
+            for msg in hist:
+                history_chars += len(str(msg.get("content", "")))
+        prompt_chars = len(self.prompt_input.toPlainText())
+        hist_tokens = max(0, history_chars // 3)
+        prompt_tokens = max(0, prompt_chars // 3)
+        total_tokens = hist_tokens + prompt_tokens
+        pct = min(100.0, (total_tokens / 16384) * 100)
+        remaining = max(0, 16384 - total_tokens)
+
+        QMessageBox.information(
+            self,
+            "Chi Tiết Ngữ Cảnh Token",
+            f"📊 <b>PHÂN BỔ NGỮ CẢNH TOKEN (QWEN 27B)</b><br><br>"
+            f"• <b>Tổng giới hạn (Context Window):</b> 16,384 tokens<br>"
+            f"• <b>Lịch sử hội thoại ({msg_count} tin nhắn):</b> ~{hist_tokens:,} tokens<br>"
+            f"• <b>Câu lệnh đang soạn:</b> ~{prompt_tokens:,} tokens<br>"
+            f"• <b>Tổng sử dụng:</b> ~{total_tokens:,} tokens ({pct:.1f}%)<br>"
+            f"• <b>Dung lượng còn lại:</b> ~{remaining:,} tokens<br><br>"
+            f"💡 <i>Gợi ý: Dùng lệnh <code>/clear</code> hoặc phím <code>Ctrl+L</code> khi muốn làm sạch ngữ cảnh.</i>",
+        )
+
     # ------------------------------------------------ Phase 7 Actions
     def open_database_viewer(self) -> None:
         dialog = DatabaseViewerDialog(self)
@@ -10287,7 +10315,9 @@ class AgentPage(QWidget):
         
         status_dot = QLabel("● Local")
         status_dot.setObjectName("BrandStatus")
-        status_dot.setToolTip("Qwen3.8-27B-UD-IQ3_S 16GB VRAM (Single Model Architecture)")
+        status_dot.setToolTip("Qwen3.8-27B-UD-IQ3_S 16GB VRAM\nBấm để mở bảng điều khiển Turbo")
+        status_dot.setCursor(Qt.CursorShape.PointingHandCursor)
+        status_dot.mousePressEvent = lambda _: self.open_turbo_dialog()
         brand_row.addWidget(status_dot)
         sidebar_layout.addLayout(brand_row)
 
@@ -10541,7 +10571,9 @@ class AgentPage(QWidget):
 
         self.token_estimator_lbl = QLabel("~0 / 16.3k")
         self.token_estimator_lbl.setObjectName("TokenEstimator")
-        self.token_estimator_lbl.setToolTip("Dung lượng Token Ngữ Cảnh: Ước tính / 16,384 tokens")
+        self.token_estimator_lbl.setToolTip("Dung lượng Token Ngữ Cảnh: Ước tính / 16,384 tokens\nBấm để xem chi tiết phân bổ")
+        self.token_estimator_lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.token_estimator_lbl.mousePressEvent = lambda _: self.show_token_breakdown()
         bottom_row.addWidget(self.token_estimator_lbl)
 
         self.send_button = QPushButton("↑")
