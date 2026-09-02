@@ -258,6 +258,8 @@ class AutoResizingTextBrowser(QTextBrowser):
 class ChatInput(QPlainTextEdit):
     submit = Signal()
     files_dropped = Signal(list)
+    history_up = Signal()
+    history_down = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -282,6 +284,18 @@ class ChatInput(QPlainTextEdit):
                 self.submit.emit()
             event.accept()
             return
+        elif event.key() == Qt.Key.Key_Up and not (event.modifiers() & (Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier)):
+            cursor = self.textCursor()
+            if cursor.blockNumber() == 0:
+                self.history_up.emit()
+                event.accept()
+                return
+        elif event.key() == Qt.Key.Key_Down and not (event.modifiers() & (Qt.KeyboardModifier.ShiftModifier | Qt.KeyboardModifier.ControlModifier)):
+            cursor = self.textCursor()
+            if cursor.blockNumber() >= self.document().blockCount() - 1:
+                self.history_down.emit()
+                event.accept()
+                return
         super().keyPressEvent(event)
 
     def dragEnterEvent(self, event: Any) -> None:
@@ -8063,6 +8077,9 @@ class AgentPage(QWidget):
         self._reasoning_card: ReasoningCard | None = None
         self._terminal_card: TerminalCard | None = None
         self.attached_files: list[Path] = []
+        self._prompt_history: list[str] = []
+        self._history_index: int = -1
+        self._saved_current_prompt: str = ""
         self.load_chats()
         self.build_ui()
         self.refresh_chat_list()
@@ -10421,6 +10438,8 @@ class AgentPage(QWidget):
         self.prompt_input.setMaximumHeight(160)
         self.prompt_input.submit.connect(self.on_send_clicked)
         self.prompt_input.files_dropped.connect(self.on_files_dropped)
+        self.prompt_input.history_up.connect(self._on_prompt_history_up)
+        self.prompt_input.history_down.connect(self._on_prompt_history_down)
         input_card_layout.addWidget(self.prompt_input)
 
         # 2. Bottom Tool Bar inside Capsule Card
@@ -10985,10 +11004,47 @@ class AgentPage(QWidget):
             return
         self.run_prompt()
 
+    def _on_prompt_history_up(self) -> None:
+        if not self._prompt_history:
+            return
+        if self._history_index == -1:
+            self._saved_current_prompt = self.prompt_input.toPlainText()
+            self._history_index = len(self._prompt_history) - 1
+        elif self._history_index > 0:
+            self._history_index -= 1
+        else:
+            return
+        
+        target_text = self._prompt_history[self._history_index]
+        self.prompt_input.setPlainText(target_text)
+        cursor = self.prompt_input.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.prompt_input.setTextCursor(cursor)
+
+    def _on_prompt_history_down(self) -> None:
+        if self._history_index == -1:
+            return
+        if self._history_index < len(self._prompt_history) - 1:
+            self._history_index += 1
+            target_text = self._prompt_history[self._history_index]
+        else:
+            self._history_index = -1
+            target_text = self._saved_current_prompt
+            
+        self.prompt_input.setPlainText(target_text)
+        cursor = self.prompt_input.textCursor()
+        cursor.movePosition(QTextCursor.MoveOperation.End)
+        self.prompt_input.setTextCursor(cursor)
+
     def run_prompt(self) -> None:
         prompt = self.prompt_input.toPlainText().strip()
         if not prompt or self.worker is not None:
             return
+
+        if not self._prompt_history or self._prompt_history[-1] != prompt:
+            self._prompt_history.append(prompt)
+        self._history_index = -1
+        self._saved_current_prompt = ""
 
         # Slash commands check
         if prompt.startswith("/"):
