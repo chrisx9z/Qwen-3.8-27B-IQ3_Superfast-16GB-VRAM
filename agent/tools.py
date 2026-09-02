@@ -4739,11 +4739,21 @@ class LocalToolRegistry:
             )
         }
 
-    def definitions(self) -> list[dict[str, Any]]:
-        return [
+    def definitions(self, include_plugins: bool = False) -> list[dict[str, Any]]:
+        tool_defs = [
             spec.definition()
             for spec in self._specs.values()
         ]
+        if include_plugins:
+            try:
+                from agent.plugin_manager import PluginManager
+                pm = PluginManager()
+                for tool_name, p_def in pm.get_tool_definitions().items():
+                    if tool_name not in self._specs:
+                        tool_defs.append(p_def)
+            except Exception:
+                pass
+        return tool_defs
 
     def execute(
         self,
@@ -4755,6 +4765,25 @@ class LocalToolRegistry:
         spec = self._specs.get(name)
 
         if spec is None:
+            # Check dynamic tools from PluginManager
+            try:
+                from agent.plugin_manager import PluginManager
+                pm = PluginManager()
+                tool_func = pm.get_tool(name)
+                if tool_func is not None:
+                    try:
+                        # Inspect if tool_func takes dict arguments or kwargs
+                        import inspect
+                        sig = inspect.signature(tool_func)
+                        if len(sig.parameters) == 1 and list(sig.parameters.keys())[0] in ("arguments", "args", "data", "payload"):
+                            p_res = tool_func(arguments)
+                        else:
+                            p_res = tool_func(**arguments)
+                        return {"ok": True, "result": p_res}
+                    except Exception as p_err:
+                        return {"ok": False, "error": str(p_err)}
+            except Exception:
+                pass
             return {
                 "ok": False,
                 "error": f"Tool không được phép: {name}",
