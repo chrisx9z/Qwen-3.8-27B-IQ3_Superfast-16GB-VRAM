@@ -11010,6 +11010,22 @@ class AgentPage(QWidget):
                 self.prompt_input.clear()
                 self.refresh_resource_status()
                 return
+            elif cmd == "/swarm":
+                self.prompt_input.clear()
+                self.open_research_swarm_dialog()
+                return
+            elif cmd in ("/kvault", "/knowledge"):
+                self.prompt_input.clear()
+                self.open_knowledge_vault_dialog()
+                return
+            elif cmd in ("/omni", "/deepsearch"):
+                self.prompt_input.clear()
+                self.open_deep_research_dialog()
+                return
+            elif cmd in ("/tools", "/hub"):
+                self.prompt_input.clear()
+                self.open_all_tools_dialog()
+                return
             elif cmd in ("/help", "/h", "/?"):
                 self.prompt_input.clear()
                 lang = get_current_language()
