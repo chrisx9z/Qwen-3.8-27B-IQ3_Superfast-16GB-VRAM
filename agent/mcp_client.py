@@ -232,50 +232,70 @@ class MCPClientManager:
             self._definitions.clear()
 
     def _load_specs(self) -> list[MCPServerSpec]:
-        if self.config_path is None or not self.config_path.is_file():
-            return []
-        try:
-            payload = json.loads(self.config_path.read_text(encoding="utf-8"))
-        except Exception as error:
-            self._errors["config"] = str(error)
-            return []
-        if isinstance(payload, dict) and isinstance(payload.get("servers"), dict):
-            payload = payload["servers"]
-        if not isinstance(payload, dict):
-            self._errors["config"] = "Cấu hình MCP phải là object server."
-            return []
         specs: list[MCPServerSpec] = []
-        for name, value in payload.items():
-            if not isinstance(value, dict) or value.get("enabled", True) is False:
-                continue
-            command = value.get("command")
-            if not isinstance(command, str) or not command.strip():
-                self._errors[str(name)] = "Thiếu command MCP."
-                continue
-            args = value.get("args", [])
-            if not isinstance(args, list) or not all(isinstance(item, str) for item in args):
-                self._errors[str(name)] = "args MCP phải là mảng chuỗi."
-                continue
-            cwd = value.get("cwd")
-            if isinstance(cwd, str) and cwd:
-                cwd_path = Path(cwd).expanduser()
-                if not cwd_path.is_absolute():
-                    cwd_path = APP_ROOT / cwd_path
-                cwd = str(cwd_path.resolve())
-            else:
-                cwd = None
-            env_value = value.get("env")
-            env = None
-            if isinstance(env_value, dict):
-                env = dict(os.environ)
-                env.update({str(key): str(item) for key, item in env_value.items()})
-            specs.append(MCPServerSpec(
-                name=str(name),
-                command=command,
-                args=tuple(args),
-                cwd=cwd,
-                env=env,
-            ))
+        if self.config_path is not None and self.config_path.is_file():
+            try:
+                payload = json.loads(self.config_path.read_text(encoding="utf-8"))
+                if isinstance(payload, dict) and isinstance(payload.get("servers"), dict):
+                    payload = payload["servers"]
+                if isinstance(payload, dict):
+                    for name, value in payload.items():
+                        if not isinstance(value, dict) or value.get("enabled", True) is False:
+                            continue
+                        command = value.get("command")
+                        if not isinstance(command, str) or not command.strip():
+                            self._errors[str(name)] = "Thiếu command MCP."
+                            continue
+                        args = value.get("args", [])
+                        if not isinstance(args, list) or not all(isinstance(item, str) for item in args):
+                            self._errors[str(name)] = "args MCP phải là mảng chuỗi."
+                            continue
+                        cwd = value.get("cwd")
+                        if isinstance(cwd, str) and cwd:
+                            cwd_path = Path(cwd).expanduser()
+                            if not cwd_path.is_absolute():
+                                cwd_path = APP_ROOT / cwd_path
+                            cwd = str(cwd_path.resolve())
+                        else:
+                            cwd = None
+                        env_value = value.get("env")
+                        env = None
+                        if isinstance(env_value, dict):
+                            env = dict(os.environ)
+                            env.update({str(key): str(item) for key, item in env_value.items()})
+                        specs.append(MCPServerSpec(
+                            name=str(name),
+                            command=command,
+                            args=tuple(args),
+                            cwd=cwd,
+                            env=env,
+                        ))
+            except Exception as error:
+                self._errors["config"] = str(error)
+
+        # Load active MCP servers configured via PluginManager
+        try:
+            from agent.plugin_manager import PluginManager
+            pm = PluginManager()
+            for pid, p in pm.plugins.items():
+                if p.enabled and p.plugin_type == "mcp_server":
+                    s_name = p.name.replace("MCP: ", "").strip()
+                    if any(s.name == s_name for s in specs):
+                        continue
+                    cmd = p.metadata.get("command") or p.entrypoint
+                    args = p.metadata.get("args") or []
+                    env_dict = p.metadata.get("env")
+                    if cmd and str(cmd).strip():
+                        specs.append(MCPServerSpec(
+                            name=s_name,
+                            command=str(cmd).strip(),
+                            args=tuple(str(a) for a in args),
+                            cwd=None,
+                            env=env_dict or None,
+                        ))
+        except Exception:
+            pass
+
         return specs
 
     def _exposed_name(self, server_name: str, tool_name: str) -> str:
