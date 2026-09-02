@@ -8080,6 +8080,7 @@ class AgentPage(QWidget):
         self._prompt_history: list[str] = []
         self._history_index: int = -1
         self._saved_current_prompt: str = ""
+        self._current_zoom_level: int = 13
         self.load_chats()
         self.build_ui()
         self.refresh_chat_list()
@@ -10279,6 +10280,11 @@ class AgentPage(QWidget):
         QShortcut(QKeySequence("Ctrl+N"), self, self.new_chat)
         QShortcut(QKeySequence("Ctrl+F"), self, self.search_input.setFocus)
         QShortcut(QKeySequence("Escape"), self, self.on_escape_pressed)
+        QShortcut(QKeySequence("Ctrl+="), self, self.zoom_in)
+        QShortcut(QKeySequence("Ctrl++"), self, self.zoom_in)
+        QShortcut(QKeySequence("Ctrl+-"), self, self.zoom_out)
+        QShortcut(QKeySequence("Ctrl+0"), self, self.zoom_reset)
+        QShortcut(QKeySequence("Ctrl+L"), self, lambda: self.on_quick_action_clicked("/clear"))
 
         # Bottom Profile & Tools Capsule
         profile_capsule = QFrame()
@@ -10895,12 +10901,43 @@ class AgentPage(QWidget):
         row_layout.addStretch(1)
         bubble = QLabel(text)
         bubble.setObjectName("UserBubble")
+        f = bubble.font()
+        f.setPointSize(getattr(self, '_current_zoom_level', 13))
+        bubble.setFont(f)
         bubble.setWordWrap(True)
         bubble.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
         )
         row_layout.addWidget(bubble, 0)
         self.chat_layout.insertWidget(self.chat_layout.count() - 1, row)
+
+    # ------------------------------------------------ Dynamic Font Zoom
+    def zoom_in(self) -> None:
+        self._set_zoom_level(min(24, self._current_zoom_level + 1))
+
+    def zoom_out(self) -> None:
+        self._set_zoom_level(max(10, self._current_zoom_level - 1))
+
+    def zoom_reset(self) -> None:
+        self._set_zoom_level(13)
+
+    def _set_zoom_level(self, level: int) -> None:
+        self._current_zoom_level = level
+        self.status_label.setText(f"Cỡ chữ: {level}px (Ctrl+0 để đặt lại)")
+        for i in range(self.chat_layout.count()):
+            item = self.chat_layout.itemAt(i)
+            if not item or not item.widget():
+                continue
+            w = item.widget()
+            for browser in w.findChildren(QTextBrowser):
+                f = browser.font()
+                f.setPointSize(level)
+                browser.setFont(f)
+            for lbl in w.findChildren(QLabel):
+                if lbl.objectName() == "UserBubble":
+                    f = lbl.font()
+                    f.setPointSize(level)
+                    lbl.setFont(f)
 
     def _copy_message_text(self, btn: QPushButton, text: str) -> None:
         from PySide6.QtWidgets import QApplication
@@ -10919,6 +10956,9 @@ class AgentPage(QWidget):
         row_layout.setSpacing(6)
         browser = AutoResizingTextBrowser()
         browser.setObjectName("ChatBrowser")
+        f = browser.font()
+        f.setPointSize(getattr(self, '_current_zoom_level', 13))
+        browser.setFont(f)
         browser.setOpenExternalLinks(False)
         browser.anchorClicked.connect(self._on_anchor_clicked)
         browser.setHtml(markdown_to_html(text))
@@ -10951,6 +10991,9 @@ class AgentPage(QWidget):
         row_layout.setSpacing(6)
         browser = AutoResizingTextBrowser()
         browser.setObjectName("ChatBrowser")
+        f = browser.font()
+        f.setPointSize(getattr(self, '_current_zoom_level', 13))
+        browser.setFont(f)
         browser.setOpenExternalLinks(False)
         browser.anchorClicked.connect(self._on_anchor_clicked)
         browser.setMinimumHeight(40)
