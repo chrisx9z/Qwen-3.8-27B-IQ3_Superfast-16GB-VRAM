@@ -10656,10 +10656,13 @@ class AgentPage(QWidget):
             key=lambda chat: not chat.get("pinned", False),
         )
         for chat in ordered:
-            marker = "★ " if chat.get("pinned", False) else ""
+            marker = "📌 " if chat.get("pinned", False) else "💬 "
             item = QListWidgetItem(marker + chat.get("title", "New chat"))
             item.setData(32, chat["id"])
+            item.setToolTip(f"{chat.get('title', 'Chat')}\nCập nhật: {chat.get('updated', 'Chưa có')}")
             self.chat_list.addItem(item)
+            if chat["id"] == self.active_chat_id:
+                self.chat_list.setCurrentItem(item)
         if hasattr(self, "pin_button"):
             self.pin_button.setEnabled(bool(self.active_chat_id))
         if hasattr(self, "rename_button"):
