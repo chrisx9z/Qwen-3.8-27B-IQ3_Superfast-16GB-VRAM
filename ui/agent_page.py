@@ -11236,32 +11236,33 @@ class AgentPage(QWidget):
         hero.setObjectName("WelcomeHeroFrame")
         hero.setStyleSheet("""
             QFrame#WelcomeHeroFrame {
-                background: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #1a1d24, stop:1 #13151a);
-                border: 1px solid #2a2d36;
-                border-radius: 12px;
-                padding: 20px;
+                background: #12141c;
+                border: 1px solid #1f2332;
+                border-radius: 14px;
+                padding: 24px;
                 margin: 20px 10px;
             }
             QLabel#HeroTitle {
                 color: #ffffff;
-                font-size: 17px;
+                font-size: 19px;
                 font-weight: 700;
+                letter-spacing: -0.3px;
             }
             QLabel#HeroSubtitle {
-                color: #8b949e;
-                font-size: 12px;
+                color: #7d869c;
+                font-size: 12.5px;
             }
             QPushButton#HeroCard {
-                background: #1e222b;
-                border: 1px solid #2e323e;
-                border-radius: 8px;
-                padding: 10px 14px;
+                background: #171a24;
+                border: 1px solid #232738;
+                border-radius: 10px;
+                padding: 12px 16px;
                 text-align: left;
                 color: #e6e6eb;
                 font-size: 12px;
             }
             QPushButton#HeroCard:hover {
-                background: #252a36;
+                background: #1e2332;
                 border: 1px solid #3b82f6;
                 color: #ffffff;
             }
