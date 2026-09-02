@@ -10902,6 +10902,16 @@ class AgentPage(QWidget):
         row_layout.addWidget(bubble, 0)
         self.chat_layout.insertWidget(self.chat_layout.count() - 1, row)
 
+    def _copy_message_text(self, btn: QPushButton, text: str) -> None:
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app is not None:
+            cb = app.clipboard()
+            if cb is not None:
+                cb.setText(text)
+                orig_text = btn.text()
+                btn.setText("✓ Đã sao chép")
+                QTimer.singleShot(2000, lambda: btn.setText(orig_text))
     def _add_assistant_bubble(self, text: str, ts: str = "") -> None:
         row = QWidget()
         row_layout = QVBoxLayout(row)
@@ -10914,9 +10924,24 @@ class AgentPage(QWidget):
         browser.setHtml(markdown_to_html(text))
         browser.setMinimumHeight(40)
         row_layout.addWidget(browser)
+        
+        footer = QWidget()
+        footer_layout = QHBoxLayout(footer)
+        footer_layout.setContentsMargins(0, 0, 0, 0)
+        footer_layout.setSpacing(8)
         meta = QLabel(f"M Auto Pilot · {ts}" if ts else "M Auto Pilot")
         meta.setObjectName("MutedText")
-        row_layout.addWidget(meta)
+        footer_layout.addWidget(meta)
+        footer_layout.addStretch(1)
+        
+        copy_btn = QPushButton("📋 Sao chép")
+        copy_btn.setObjectName("GhostButton")
+        copy_btn.setToolTip("Sao chép toàn bộ nội dung câu trả lời vào Clipboard")
+        copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        copy_btn.clicked.connect(lambda _, t=text, b=copy_btn: self._copy_message_text(b, t))
+        footer_layout.addWidget(copy_btn)
+        
+        row_layout.addWidget(footer)
         self.chat_layout.insertWidget(self.chat_layout.count() - 1, row)
 
     def _start_assistant_stream(self) -> QTextBrowser:
@@ -10956,6 +10981,30 @@ class AgentPage(QWidget):
         if self._streaming_browser is not None:
             if text:
                 self._streaming_browser.setHtml(markdown_to_html(text))
+                if self._streaming_row is not None and self._streaming_row.layout() is not None:
+                    footer = QWidget()
+                    footer_layout = QHBoxLayout(footer)
+                    footer_layout.setContentsMargins(0, 0, 0, 0)
+                    footer_layout.setSpacing(8)
+                    meta = QLabel(f"M Auto Pilot · {self._timestamp()}")
+                    meta.setObjectName("MutedText")
+                    footer_layout.addWidget(meta)
+                    footer_layout.addStretch(1)
+                    
+                    copy_btn = QPushButton("📋 Sao chép")
+                    copy_btn.setObjectName("GhostButton")
+                    copy_btn.setToolTip("Sao chép toàn bộ nội dung câu trả lời vào Clipboard")
+                    copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+                    copy_btn.clicked.connect(lambda _, t=text, b=copy_btn: self._copy_message_text(b, t))
+                    footer_layout.addWidget(copy_btn)
+                    
+                    # Remove the old static meta label if any and replace with footer
+                    layout = self._streaming_row.layout()
+                    if layout.count() > 1:
+                        old_meta_item = layout.takeAt(1)
+                        if old_meta_item and old_meta_item.widget():
+                            old_meta_item.widget().deleteLater()
+                    layout.addWidget(footer)
             else:
                 row = self._streaming_row
                 if row is not None:
