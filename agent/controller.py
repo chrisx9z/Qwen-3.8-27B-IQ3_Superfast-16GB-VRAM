@@ -353,9 +353,15 @@ At the conclusion of technical or creative solutions, always provide a dedicated
         conversation = list(messages or [])
 
         if not conversation:
+            exemplar_snippet = ""
+            try:
+                from agent.exemplar_engine import DynamicExemplarEngine
+                exemplar_snippet = DynamicExemplarEngine().get_exemplar_context(user_prompt)
+            except Exception:
+                pass
             conversation.append({
                 "role": "system",
-                "content": self.system_prompt + _get_system_memory_context(),
+                "content": self.system_prompt + exemplar_snippet + _get_system_memory_context(),
             })
 
         user_content = _inject_attachment_context(user_prompt)
@@ -376,6 +382,23 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                                 f"{md_text}\n"
                                 f"--- Hết dữ liệu liên kết ---"
                             )
+                            # Tự động theo dõi các link nguồn gốc trong mô tả video (YouTube, Web)
+                            nested_urls = re.findall(r"(https?://(?:www\.)?(?:youtube\.com/watch\?v=[^\s)\]\"'>]+|youtu\.be/[^\s)\]\"'>]+))", md_text)
+                            if nested_urls and any(kw in user_prompt.lower() for kw in ("podcast", "nguồn", "video", "gốc", "bài viết", "tác giả")):
+                                secondary_url = nested_urls[0]
+                                self._emit(
+                                    "status",
+                                    {"message": f"Đang tra cứu liên kết nguồn được nhắc đến: {secondary_url[:60]}..."},
+                                )
+                                sec_res = self.registry.execute("extract_webpage_markdown", {"url": secondary_url})
+                                if sec_res.get("ok"):
+                                    sec_md = (sec_res.get("result") or {}).get("markdown") or ""
+                                    if sec_md:
+                                        user_content += (
+                                            f"\n\n--- Thông tin từ liên kết nguồn gốc ({secondary_url}): ---\n"
+                                            f"{sec_md[:3000]}\n"
+                                            f"--- Hết thông tin nguồn gốc ---"
+                                        )
                 except Exception:
                     pass
 
@@ -1125,8 +1148,8 @@ At the conclusion of technical or creative solutions, always provide a dedicated
         except Exception:
             pass
 
-        mcp_defs = self.mcp_client.definitions()[:3]
-        return filtered_defs[:22] + plugin_defs[:5] + mcp_defs
+        mcp_defs = self.mcp_client.definitions()[:2]
+        return filtered_defs[:8] + plugin_defs[:2] + mcp_defs
 
     def _max_tokens_for_prompt(self, prompt: str) -> int:
         lowered = prompt.lower()
@@ -1197,14 +1220,17 @@ At the conclusion of technical or creative solutions, always provide a dedicated
             self._actual_context_size = ctx_limit
 
         tools_overhead = len(json.dumps(tool_definitions)) // 3
-        safe_budget = max(2048, ctx_limit - max_tokens - tools_overhead - 600)
+        safe_budget = max(1500, ctx_limit - max_tokens - tools_overhead - 300)
         safe_messages = _enforce_context_window_limit(messages, max_tokens=safe_budget)
+
+        prompt_tokens_est = sum(len(str(m.get("content", ""))) for m in safe_messages) // 3 + tools_overhead
+        effective_max = min(max_tokens, max(256, ctx_limit - prompt_tokens_est - 64))
 
         try:
             return self._chat_stream(
                 safe_messages,
                 tool_definitions,
-                max_tokens,
+                effective_max,
                 abort_check=abort_check,
             )
         except requests.RequestException as err:
@@ -1214,17 +1240,19 @@ At the conclusion of technical or creative solutions, always provide a dedicated
 
             if "exceed" in err_text.lower() or "context" in err_text.lower():
                 self._emit("status", {"message": "⚡ Ngữ cảnh lớn: Tự động phân đoạn và tối ưu hoá ngữ cảnh..."})
-                halved_messages = _enforce_context_window_limit(messages, max_tokens=max(1500, safe_budget // 2))
+                halved_messages = _enforce_context_window_limit(messages, max_tokens=max(1200, safe_budget // 2))
+                prompt_halved = sum(len(str(m.get("content", ""))) for m in halved_messages) // 3 + tools_overhead
+                effective_halved = min(max_tokens, max(256, ctx_limit - prompt_halved - 64))
                 return self._chat_plain(
                     halved_messages,
                     tool_definitions,
-                    max_tokens,
+                    effective_halved,
                 )
 
             return self._chat_plain(
                 safe_messages,
                 tool_definitions,
-                max_tokens,
+                effective_max,
             )
 
     def _chat_stream(
@@ -1553,22 +1581,26 @@ def _enforce_context_window_limit(
 
         compacted.append(copy_m)
 
-    # Nếu sau khi nén từng tin nhắn mà vẫn vượt quá, trượt cửa sổ giữ System prompt + User first + 6 turns gần nhất
+    # Nếu sau khi nén từng tin nhắn mà vẫn vượt quá, tóm lược kết quả tool sâu hơn
     total_chars_after = sum(len(str(m.get("content", ""))) for m in compacted)
-    if (total_chars_after // 3) > max_tokens and len(compacted) > 8:
-        system_msg = compacted[0]
-        user_first = compacted[1] if len(compacted) > 1 and compacted[1].get("role") == "user" else None
-        
-        # Lấy 6 lượt gần nhất, đảm bảo nếu tin nhắn đầu tiên trong cụm là 'tool' thì lấy thêm assistant gọi nó
-        recent = compacted[-6:]
-        while recent and recent[0].get("role") == "tool":
-            recent.pop(0)
-            
-        final_list = [system_msg]
-        if user_first and user_first not in recent:
-            final_list.append(user_first)
-        final_list.extend(recent)
-        return final_list
+    if (total_chars_after // 3) > max_tokens:
+        for m in compacted:
+            if m.get("role") == "tool" and len(str(m.get("content", ""))) > 1500:
+                c = str(m.get("content", ""))
+                m["content"] = c[:1000] + "\n\n... [Tóm lược an toàn kết quả công cụ] ...\n\n" + c[-300:]
+
+        total_chars_after = sum(len(str(m.get("content", ""))) for m in compacted)
+        if (total_chars_after // 3) > max_tokens and len(compacted) > 4:
+            system_msg = compacted[0]
+            user_first = compacted[1] if len(compacted) > 1 and compacted[1].get("role") == "user" else None
+            recent = compacted[-4:]
+            while recent and recent[0].get("role") == "tool":
+                recent.pop(0)
+            final_list = [system_msg]
+            if user_first and user_first not in recent:
+                final_list.append(user_first)
+            final_list.extend(recent)
+            return final_list
 
     return compacted
 

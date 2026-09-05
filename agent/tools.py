@@ -10736,6 +10736,31 @@ build
         results = []
         seen_urls = set()
 
+        # 0. Specialized Engine: Podcast & Talkshow Directory Search (Apple Podcasts API)
+        if any(kw in search_query.lower() for kw in ("podcast", "talkshow", "phỏng vấn", "diary of a ceo", "host", "tập")):
+            try:
+                pod_term = re.sub(r"(?i)tìm\s+thông\s+tin|về\s+podcast|podcast\s+gốc|được\s+nhắc\s+đến|trong\s+video", "", search_query).strip()
+                itunes_url = f"https://itunes.apple.com/search?term={quote(pod_term or search_query)}&media=podcast&limit={limit}"
+                resp_pod = requests.get(itunes_url, headers={"User-Agent": "Mozilla/5.0"}, timeout=8)
+                if resp_pod.status_code == 200:
+                    for pod in resp_pod.json().get("results", []):
+                        p_url = pod.get("collectionViewUrl") or pod.get("feedUrl")
+                        p_title = pod.get("collectionName", "")
+                        p_artist = pod.get("artistName", "")
+                        p_genre = pod.get("primaryGenreName", "")
+                        if p_url and p_url not in seen_urls:
+                            seen_urls.add(p_url)
+                            results.append({
+                                "title": f"Podcast: {p_title} ({p_artist})",
+                                "url": p_url,
+                                "snippet": f"Kênh Podcast chính thức: '{p_title}' do {p_artist} dẫn chương trình. Thể loại: {p_genre}.",
+                                "engine": "ApplePodcasts/Directory",
+                            })
+                            if len(results) >= limit:
+                                break
+            except Exception:
+                pass
+
         # 1. Primary Engine: Google Search (Google Official Feed & Article Endpoints)
         try:
             gnews_vi_url = f"https://news.google.com/rss/search?q={quote(search_query)}&hl=vi&gl=VN&ceid=VN:vi"
