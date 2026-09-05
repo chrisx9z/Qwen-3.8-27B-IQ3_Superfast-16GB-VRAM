@@ -4806,6 +4806,9 @@ class LocalToolRegistry:
         finally:
             self._current_event_callback = None
 
+        if isinstance(result, dict) and "ok" in result:
+            return result
+
         return {
             "ok": True,
             "result": result,
@@ -9660,14 +9663,114 @@ jobs:
             except Exception:
                 pass
 
-        # 3. Standard Request with Modern Browser Headers & SPA parsing
         headers = {
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
             "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
             "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
         }
+
+        # 3. Specialized Handler: Hugging Face via official REST API & Raw README
+        if "huggingface.co" in domain:
+            try:
+                hf_qs = urllib.parse.parse_qs(parsed.query)
+                hf_parts = [p for p in parsed.path.strip("/").split("/") if p]
+
+                # Case 3a: Search query: https://huggingface.co/models?search=...
+                if "search" in hf_qs:
+                    search_term = hf_qs["search"][0]
+                    api_url = f"https://huggingface.co/api/models?search={urllib.parse.quote(search_term)}&limit=12&full=true"
+                    hf_resp = requests.get(api_url, timeout=10, headers=headers)
+                    if hf_resp.status_code == 200:
+                        models = hf_resp.json()
+                        lines = [f"# Hugging Face: Kết quả tìm kiếm mô hình cho '{search_term}'\n"]
+                        for m in models:
+                            mid = m.get("id", "")
+                            likes = m.get("likes", 0)
+                            dl = m.get("downloads", 0)
+                            pipe = m.get("pipeline_tag", "text-generation")
+                            lines.append(f"- **[{mid}](https://huggingface.co/{mid})** | Pipeline: `{pipe}` | Thích: {likes} | Lượt tải: {dl:,}")
+                        md = "\n".join(lines)
+                        return {
+                            "url": url,
+                            "title": f"Hugging Face Search: {search_term}",
+                            "length_chars": len(md),
+                            "markdown": md[:max_len],
+                        }
+
+                # Case 3b: Specific model: https://huggingface.co/<author>/<model>
+                elif len(hf_parts) >= 2 and hf_parts[0] not in ("models", "datasets", "spaces", "docs", "blog"):
+                    author, model_name = hf_parts[0], hf_parts[1]
+                    raw_url = f"https://huggingface.co/{author}/{model_name}/raw/main/README.md"
+                    hf_raw = requests.get(raw_url, timeout=10, headers=headers)
+                    if hf_raw.status_code == 200 and len(hf_raw.text.strip()) > 50:
+                        md = f"# Mô hình Hugging Face: {author}/{model_name}\n\n" + hf_raw.text
+                        return {
+                            "url": url,
+                            "title": f"Hugging Face Model: {author}/{model_name}",
+                            "length_chars": len(md),
+                            "markdown": md[:max_len],
+                        }
+
+                # Case 3c: Organization / Author page: https://huggingface.co/<org>
+                elif len(hf_parts) == 1 and hf_parts[0] not in ("models", "datasets", "spaces", "docs", "blog"):
+                    org = hf_parts[0]
+                    api_url = f"https://huggingface.co/api/models?author={urllib.parse.quote(org)}&limit=15"
+                    hf_resp = requests.get(api_url, timeout=10, headers=headers)
+                    if hf_resp.status_code == 200:
+                        models = hf_resp.json()
+                        if not models:
+                            hf_resp = requests.get(f"https://huggingface.co/api/models?search={urllib.parse.quote(org)}&limit=15", timeout=10, headers=headers)
+                            if hf_resp.status_code == 200:
+                                models = hf_resp.json()
+                        if models:
+                            lines = [f"# Hugging Face: Các mô hình liên quan đến '{org}'\n"]
+                            for m in models:
+                                mid = m.get("id", "")
+                                likes = m.get("likes", 0)
+                                dl = m.get("downloads", 0)
+                                lines.append(f"- **[{mid}](https://huggingface.co/{mid})** | Thích: {likes} | Lượt tải: {dl:,}")
+                            md = "\n".join(lines)
+                            return {
+                                "url": url,
+                                "title": f"Hugging Face Organization: {org}",
+                                "length_chars": len(md),
+                                "markdown": md[:max_len],
+                            }
+            except Exception:
+                pass
+
+        # 4. Specialized Handler: GitHub Raw README
+        if "github.com" in domain:
+            try:
+                gh_parts = [p for p in parsed.path.strip("/").split("/") if p]
+                if len(gh_parts) >= 2 and gh_parts[0] not in ("features", "pricing", "explore", "topics", "trending", "collections", "events"):
+                    owner, repo = gh_parts[0], gh_parts[1]
+                    for branch in ("main", "master"):
+                        raw_gh = requests.get(f"https://raw.githubusercontent.com/{owner}/{repo}/{branch}/README.md", timeout=8, headers=headers)
+                        if raw_gh.status_code == 200 and len(raw_gh.text.strip()) > 50:
+                            md = f"# GitHub Repository: {owner}/{repo}\n\nURL: https://github.com/{owner}/{repo}\n\n" + raw_gh.text
+                            return {
+                                "url": url,
+                                "title": f"GitHub: {owner}/{repo}",
+                                "length_chars": len(md),
+                                "markdown": md[:max_len],
+                            }
+            except Exception:
+                pass
+
+        # 5. Standard Request with Modern Browser Headers & SPA parsing
         try:
             resp = requests.get(url, timeout=15, headers=headers)
+            if resp.status_code == 404:
+                return {
+                    "ok": False,
+                    "error": f"Lỗi 404 Not Found: Trang web {url} không tồn tại hoặc đã bị xóa.",
+                }
+            elif resp.status_code >= 400:
+                return {
+                    "ok": False,
+                    "error": f"Lỗi HTTP {resp.status_code} khi truy cập {url}.",
+                }
             html_raw = resp.text
         except Exception as err:
             return {

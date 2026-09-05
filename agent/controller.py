@@ -182,6 +182,7 @@ Your responses must consistently match or surpass the standard of Gemini 3.8 Fla
 At the conclusion of technical or creative solutions, always provide a dedicated `💡 Pro-Tip & Production Gotchas` callout highlighting subtle edge cases, performance pitfalls, and senior-level optimizations.
 
 ⚙️ OPERATING PRINCIPLES:
+- High-Speed & Decisive Execution: Minimize tool roundtrips. For search, QA, fact-checking, and web lookups, use at most 1-2 tool calls. As soon as relevant information is obtained, IMMEDIATELY stop calling tools and output the complete, high-quality final response. NEVER loop across tools or make redundant calls to already-retrieved sources.
 - Proactive Autonomy: If data or context is missing, use your tools (extract_webpage_markdown, deep_dive_internet_research, web_search, read_code_file, etc.) immediately. NEVER respond with passive refusals like "Tôi không thể truy cập" or "Tôi không có thông tin".
 - Multi-lingual Adaptation: Automatically detect the prompt's language and respond fluently in that EXACT language (Vietnamese, English, etc.) using professional, rich Markdown styling.
 - Action over guidance: Inspect, execute, and verify results directly instead of offering abstract advice.
@@ -409,7 +410,27 @@ At the conclusion of technical or creative solutions, always provide a dedicated
         tool_definitions = self._tool_definitions_for_prompt(user_prompt)
         max_tokens = self._max_tokens_for_prompt(user_prompt)
 
-        for step in range(1, self.config.max_steps + 1):
+        # Ngân sách bước thích ứng (Adaptive Step Budget)
+        # Các câu hỏi tra cứu, tìm kiếm, fact-checking, chat kiến thức chỉ cần tối đa 3-4 bước.
+        # Chỉ các tác vụ coding lớn (tạo dự án, refactor, execute_command, terminal, sửa nhiều file) mới cấp ngân sách 15-20 bước.
+        is_heavy_automation = any(
+            kw in user_prompt.lower()
+            for kw in (
+                "tạo dự án", "refactor", "viết phần mềm", "sửa lỗi code",
+                "powershell", "execute_command", "run_terminal", "sửa nhiều file",
+                "triển khai backend", "viết game hoàn chỉnh", "git clone", "run_computer_mission"
+            )
+        )
+        effective_max_steps = self.config.max_steps if is_heavy_automation else min(4, self.config.max_steps)
+
+        executed_tool_fingerprints: set[str] = set()
+        duplicate_tool_count = 0
+        retrieval_steps_count = 0
+        break_to_synthesis = False
+        last_step_executed = 1
+
+        for step in range(1, effective_max_steps + 1):
+            last_step_executed = step
             if is_aborted():
                 self._emit("status", {"message": "Đã dừng tác vụ theo yêu cầu."})
                 return AgentResult(text="[Đã dừng bởi người dùng]", messages=conversation, steps=step)
@@ -419,13 +440,20 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 {
                     "message": (
                         f"Đang suy luận {active_profile.upper()} · "
-                        f"bước {step}/{self.config.max_steps}..."
+                        f"bước {step}/{effective_max_steps}..."
                     ),
                 },
             )
+
+            # Nếu đã có đủ dữ liệu từ 2 bước tra cứu trở lên hoặc đã đến bước cuối của ngân sách,
+            # đóng danh sách tools để mô hình tập trung xuất bản câu trả lời hoàn chỉnh ngay.
+            current_tools = tool_definitions
+            if retrieval_steps_count >= 2 or step >= effective_max_steps:
+                current_tools = []
+
             assistant_message = self._chat(
                 conversation,
-                tool_definitions,
+                current_tools,
                 max_tokens,
                 abort_check=abort_check,
             )
@@ -462,6 +490,38 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 name, arguments, call_id = _tool_call_parts(
                     tool_call
                 )
+                arg_json = json.dumps(arguments or {}, sort_keys=True, ensure_ascii=False)
+                fingerprint = f"{name}:{arg_json}"
+
+                # Bộ chống lặp vô tận: Nếu công cụ và tham số đã chạy trước đó trong cùng phiên
+                if fingerprint in executed_tool_fingerprints:
+                    duplicate_tool_count += 1
+                    self._emit(
+                        "tool_result",
+                        {
+                            "name": name,
+                            "ok": True,
+                            "summary": f"[Đã lưu trong bộ nhớ đệm] Không gọi lại '{name}'",
+                        },
+                    )
+                    conversation.append({
+                        "role": "tool",
+                        "tool_call_id": call_id,
+                        "name": name,
+                        "content": json.dumps({
+                            "ok": True,
+                            "notice": "Thao tác tra cứu này đã được thực hiện ở bước trước và kết quả đã có trong lịch sử ngữ cảnh. Vui lòng KHÔNG gọi lại. Hãy dùng dữ liệu đã có để trả lời trực tiếp cho người dùng ngay lập tức.",
+                        }, ensure_ascii=False),
+                    })
+                    if duplicate_tool_count >= 2:
+                        break_to_synthesis = True
+                        break
+                    continue
+
+                executed_tool_fingerprints.add(fingerprint)
+                if name in ("extract_webpage_markdown", "web_search", "deep_dive_internet_research"):
+                    retrieval_steps_count += 1
+
                 summary = _tool_call_summary(name, arguments)
                 self._emit(
                     "tool_call",
@@ -494,12 +554,15 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                     "content": _compact_json(result),
                 })
 
+            if break_to_synthesis:
+                break
+
         # Tự động chuyển sang bước tổng kết câu trả lời cuối cùng (Graceful final synthesis turn)
         self._emit(
             "status",
             {
                 "message": (
-                    f"Đang tổng hợp câu trả lời cuối cùng từ {self.config.max_steps} bước thực thi..."
+                    f"Đang tổng hợp câu trả lời cuối cùng từ {last_step_executed} bước thực thi..."
                 ),
             },
         )
@@ -526,7 +589,7 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 return AgentResult(
                     text=text,
                     messages=conversation,
-                    steps=self.config.max_steps,
+                    steps=last_step_executed,
                 )
         except Exception:
             pass
@@ -536,9 +599,9 @@ At the conclusion of technical or creative solutions, always provide a dedicated
         ]
         fallback_text = last_contents[-1] if last_contents else "Đã hoàn thành các bước tác vụ theo yêu cầu."
         return AgentResult(
-            text=f"Đã hoàn thành {self.config.max_steps} bước thực thi và tổng hợp thông tin:\n\n{fallback_text}",
+            text=f"Đã hoàn thành {last_step_executed} bước thực thi và tổng hợp thông tin:\n\n{fallback_text}",
             messages=conversation,
-            steps=self.config.max_steps,
+            steps=last_step_executed,
         )
 
     def _run_direct_repo_task(
