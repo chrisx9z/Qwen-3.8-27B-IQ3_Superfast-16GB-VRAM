@@ -159,7 +159,7 @@ def train_lora_sft(
         BitsAndBytesConfig,
         TrainingArguments,
     )
-    from trl import SFTTrainer
+    from trl import SFTTrainer, SFTConfig
 
     output_dir.mkdir(parents=True, exist_ok=True)
     server_pid: Optional[int] = None
@@ -225,7 +225,7 @@ def train_lora_sft(
         model = get_peft_model(model, peft_config)
         model.print_trainable_parameters()
 
-        training_args = TrainingArguments(
+        training_args = SFTConfig(
             output_dir=str(output_dir),
             num_train_epochs=epochs,
             per_device_train_batch_size=batch_size,
@@ -238,18 +238,18 @@ def train_lora_sft(
             fp16=not torch.cuda.is_bf16_supported(),
             bf16=torch.cuda.is_bf16_supported(),
             max_grad_norm=0.3,
-            warmup_ratio=0.03,
+            warmup_steps=10,
             lr_scheduler_type="cosine",
             report_to="none",
+            max_length=max_seq_length,
+            dataset_text_field="text",
         )
 
         trainer = SFTTrainer(
             model=model,
             train_dataset=train_dataset,
             peft_config=peft_config,
-            dataset_text_field="text",
-            max_seq_length=max_seq_length,
-            tokenizer=tokenizer,
+            processing_class=tokenizer,
             args=training_args,
         )
 
