@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+from html import escape
 import json
 import os
 import re
@@ -9,6 +10,7 @@ import threading
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+from uuid import uuid4
 from core.project import APP_ROOT
 from core.i18n import t, set_language, get_current_language
 
@@ -32,6 +34,7 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QListWidget,
     QListWidgetItem,
+    QMenu,
     QMessageBox,
     QPlainTextEdit,
     QProgressBar,
