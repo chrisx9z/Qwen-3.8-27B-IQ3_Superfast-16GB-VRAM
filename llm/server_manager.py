@@ -236,6 +236,15 @@ class LocalLLMServerManager:
         if draft_model and Path(draft_model).is_file():
             cmd.extend(["--model-draft", draft_model, "--draft-max", "16", "--draft-min", "2"])
 
+        lora_adapter = os.environ.get("M_AUTO_PILOT_LORA_ADAPTER", "").strip()
+        if not lora_adapter:
+            default_lora = APP_ROOT / "work" / "lora_checkpoints" / "lora_adapter.gguf"
+            if default_lora.is_file():
+                lora_adapter = str(default_lora)
+
+        if lora_adapter and Path(lora_adapter).is_file():
+            cmd.extend(["--lora", lora_adapter])
+
         return cmd
 
     def stop(self) -> None:
