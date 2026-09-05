@@ -132,6 +132,91 @@ class AgentResult:
     steps: int
 
 
+def _generate_interim_finding(
+    tool_name: str,
+    arguments: dict[str, Any],
+    result: dict[str, Any],
+    step: int,
+) -> str:
+    """
+    Sinh nội dung phát hiện nghiên cứu sơ bộ ngay sau khi mỗi bước công cụ hoàn thành.
+    Thực hiện cơ chế Progressive Interim Streaming giúp người dùng theo dõi dữ liệu
+    nghiên cứu từng phần theo thời gian thực thay vì phải chờ đợi toàn bộ quy trình.
+    """
+    if not isinstance(result, dict) or not result.get("ok", False):
+        err = result.get("error", "Không thể lấy dữ liệu") if isinstance(result, dict) else str(result)
+        return f"\n\n> ⚠️ *[Nghiên cứu Bước {step}]: Tra cứu `{tool_name}` gặp sự cố: {err[:120]}*\n\n"
+
+    res_data = result.get("result") if isinstance(result.get("result"), dict) else result
+
+    if tool_name == "extract_webpage_markdown":
+        url = str(arguments.get("url") or "")
+        title = str(res_data.get("title") or "Nguồn liên kết")
+        md = str(res_data.get("markdown") or "").strip()
+
+        lines = [line.strip() for line in md.splitlines() if line.strip() and not line.strip().startswith("#")]
+        key_lines: list[str] = []
+        for line in lines:
+            if line.startswith(("-", "*", "•", "1.", "2.", "3.", "4.", "5.")) or any(c.isdigit() for c in line) or any(
+                kw in line.lower() for kw in (
+                    "model", "tham số", "vram", "moe", "weights", "license", "author", "tác giả",
+                    "tập", "khách mời", "host", "nghiên cứu", "y tế", "sante", "flash", "active", "benchmark"
+                )
+            ):
+                clean_l = line.lstrip("-*• 1234567890. ")
+                if len(clean_l) > 15 and clean_l not in key_lines:
+                    key_lines.append(clean_l)
+            if len(key_lines) >= 5:
+                break
+
+        if not key_lines:
+            key_lines = [l for l in lines[:4] if len(l) > 20]
+
+        bullet_text = "\n".join(f"*   {kl}" for kl in key_lines) if key_lines else "*   Đã trích xuất thành công nội dung trang web."
+
+        return (
+            f"\n\n### ⚡ [Nghiên cứu Bước {step}] · Ghi nhận sơ bộ từ: {title}\n"
+            f"> 🔗 **Nguồn trích xuất:** [{title[:60]}]({url})\n"
+            f"{bullet_text}\n\n"
+        )
+
+    elif tool_name in ("web_search", "deep_dive_internet_research"):
+        query = str(arguments.get("query") or "")
+        res_list = res_data.get("results") or []
+        if isinstance(res_list, list) and res_list:
+            top_items = []
+            for item in res_list[:3]:
+                if isinstance(item, dict):
+                    t = item.get("title", "Kết quả tìm kiếm")
+                    u = item.get("url", "")
+                    s = item.get("snippet", "")
+                    top_items.append(f"*   **[{t}]({u})**: {s[:160]}...")
+            items_str = "\n".join(top_items)
+            return (
+                f"\n\n### ⚡ [Nghiên cứu Bước {step}] · Dữ liệu tìm kiếm cho: \"{query}\"\n"
+                f"{items_str}\n\n"
+            )
+
+    elif tool_name in ("read_code_file", "read_multiple_files"):
+        path = str(arguments.get("path") or arguments.get("paths") or "")
+        content = str(res_data.get("content") or "")
+        line_count = len(content.splitlines())
+        return (
+            f"\n\n### ⚡ [Kiểm tra Mã nguồn - Bước {step}]: `{path}`\n"
+            f"*   Đã phân tích thành công `{line_count}` dòng mã nguồn trong file.\n\n"
+        )
+
+    elif tool_name in ("run_command", "run_shell_script", "execute_terminal"):
+        cmd = str(arguments.get("command") or arguments.get("cmd") or "")
+        out = str(res_data.get("stdout") or res_data.get("output") or "")[:250].strip()
+        return (
+            f"\n\n### ⚡ [Thực thi Lệnh - Bước {step}]: `{cmd[:80]}`\n"
+            f"```text\n{out}\n```\n\n"
+        )
+
+    return ""
+
+
 class LocalAgent:
     system_prompt = """You are Qwen 3.8 27B IQ3_Superfast 16GB VRAM — an elite autonomous local AI Assistant, Senior Software & Systems Architect, Creative Director, and Computer Use Agent running 100% locally on user hardware.
 
@@ -182,7 +267,8 @@ Your responses must consistently match or surpass the standard of Gemini 3.8 Fla
 At the conclusion of technical or creative solutions, always provide a dedicated `💡 Pro-Tip & Production Gotchas` callout highlighting subtle edge cases, performance pitfalls, and senior-level optimizations.
 
 ⚙️ OPERATING PRINCIPLES:
-- High-Speed & Decisive Execution: Minimize tool roundtrips. For search, QA, fact-checking, and web lookups, use at most 1-2 tool calls. As soon as relevant information is obtained, IMMEDIATELY stop calling tools and output the complete, high-quality final response. NEVER loop across tools or make redundant calls to already-retrieved sources.
+- Progressive Interim Live Streaming: In multi-step research and data gathering, do NOT operate silently. After obtaining findings from tools, immediately stream clear interim findings (key bullet points, specs, verified facts) as soon as each tool step finishes so the user can read the research findings live.
+- High-Speed & Decisive Execution: Minimize unnecessary tool roundtrips. When research across steps is sufficient, synthesize and stream the complete, structured Gemini 3.8 Flash-grade master report immediately. NEVER loop across tools or make redundant calls to already-retrieved sources.
 - Proactive Autonomy: If data or context is missing, use your tools (extract_webpage_markdown, deep_dive_internet_research, web_search, read_code_file, etc.) immediately. NEVER respond with passive refusals like "Tôi không thể truy cập" or "Tôi không có thông tin".
 - Multi-lingual Adaptation: Automatically detect the prompt's language and respond fluently in that EXACT language (Vietnamese, English, etc.) using professional, rich Markdown styling.
 - Action over guidance: Inspect, execute, and verify results directly instead of offering abstract advice.
@@ -366,9 +452,10 @@ At the conclusion of technical or creative solutions, always provide a dedicated
             })
 
         user_content = _inject_attachment_context(user_prompt)
+        interim_findings: list[str] = []
         url_matches = re.findall(r"(https?://[^\s)\]\"'>]+)", user_prompt)
         if url_matches:
-            for target_url in url_matches[:2]:
+            for idx, target_url in enumerate(url_matches[:2], start=1):
                 self._emit(
                     "status",
                     {"message": f"Đang bóc tách thông tin từ liên kết: {target_url[:60]}..."},
@@ -383,6 +470,12 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                                 f"{md_text}\n"
                                 f"--- Hết dữ liệu liên kết ---"
                             )
+                            # ⚡ Stream phát hiện sơ bộ ngay lập tức cho người dùng đọc
+                            f_chunk = _generate_interim_finding("extract_webpage_markdown", {"url": target_url}, web_res, step=idx)
+                            if f_chunk:
+                                interim_findings.append(f_chunk)
+                                self._emit("delta", {"text": f_chunk})
+
                             # Tự động theo dõi các link nguồn gốc trong mô tả video (YouTube, Web)
                             nested_urls = re.findall(r"(https?://(?:www\.)?(?:youtube\.com/watch\?v=[^\s)\]\"'>]+|youtu\.be/[^\s)\]\"'>]+))", md_text)
                             if nested_urls and any(kw in user_prompt.lower() for kw in ("podcast", "nguồn", "video", "gốc", "bài viết", "tác giả")):
@@ -400,6 +493,10 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                                             f"{sec_md[:3000]}\n"
                                             f"--- Hết thông tin nguồn gốc ---"
                                         )
+                                        sec_chunk = _generate_interim_finding("extract_webpage_markdown", {"url": secondary_url}, sec_res, step=idx + 1)
+                                        if sec_chunk:
+                                            interim_findings.append(sec_chunk)
+                                            self._emit("delta", {"text": sec_chunk})
                 except Exception:
                     pass
 
@@ -411,8 +508,9 @@ At the conclusion of technical or creative solutions, always provide a dedicated
         max_tokens = self._max_tokens_for_prompt(user_prompt)
 
         # Ngân sách bước thích ứng (Adaptive Step Budget)
-        # Các câu hỏi tra cứu, tìm kiếm, fact-checking, chat kiến thức chỉ cần tối đa 3-4 bước.
-        # Chỉ các tác vụ coding lớn (tạo dự án, refactor, execute_command, terminal, sửa nhiều file) mới cấp ngân sách 15-20 bước.
+        # Cho phép chạy nhiều bước nghiên cứu sâu (Deep Research) đối chiếu đa nguồn
+        # Nhờ cơ chế Progressive Interim Streaming, dữ liệu từng bước được stream ngay lập tức lên màn hình,
+        # giúp người dùng đọc liên tục mà không phải chờ đợi toàn bộ quy trình.
         is_heavy_automation = any(
             kw in user_prompt.lower()
             for kw in (
@@ -421,7 +519,7 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 "triển khai backend", "viết game hoàn chỉnh", "git clone", "run_computer_mission"
             )
         )
-        effective_max_steps = self.config.max_steps if is_heavy_automation else min(4, self.config.max_steps)
+        effective_max_steps = self.config.max_steps if is_heavy_automation else min(10, self.config.max_steps)
 
         executed_tool_fingerprints: set[str] = set()
         duplicate_tool_count = 0
@@ -445,11 +543,8 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 },
             )
 
-            # Nếu đã có đủ dữ liệu từ 2 bước tra cứu trở lên hoặc đã đến bước cuối của ngân sách,
-            # đóng danh sách tools để mô hình tập trung xuất bản câu trả lời hoàn chỉnh ngay.
-            current_tools = tool_definitions
-            if retrieval_steps_count >= 2 or step >= effective_max_steps:
-                current_tools = []
+            # Ở bước cuối cùng của ngân sách, đóng danh sách tools để mô hình tập trung xuất bản báo cáo tổng hợp
+            current_tools = tool_definitions if step < effective_max_steps else []
 
             assistant_message = self._chat(
                 conversation,
@@ -476,8 +571,13 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                         "Model không trả về nội dung hoặc tool call."
                     )
 
+                if interim_findings:
+                    full_text = "\n\n".join(interim_findings) + "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n" + text
+                else:
+                    full_text = text
+
                 return AgentResult(
-                    text=text,
+                    text=full_text,
                     messages=conversation,
                     steps=step,
                 )
@@ -554,23 +654,38 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                     "content": _compact_json(result),
                 })
 
+                # ⚡ Progressive Interim Research Streaming:
+                # Đưa thông tin research được từng phần ngay ra màn hình cho người dùng đọc luôn theo thời gian thực!
+                finding_chunk = _generate_interim_finding(name, arguments, result, step)
+                if finding_chunk:
+                    interim_findings.append(finding_chunk)
+                    self._emit("delta", {"text": finding_chunk})
+
             if break_to_synthesis:
                 break
 
-        # Tự động chuyển sang bước tổng kết câu trả lời cuối cùng (Graceful final synthesis turn)
+        # Tự động chuyển sang bước tổng kết báo cáo toàn diện (Final Master Synthesis)
         self._emit(
             "status",
             {
                 "message": (
-                    f"Đang tổng hợp câu trả lời cuối cùng từ {last_step_executed} bước thực thi..."
+                    f"Đang tổng hợp báo cáo toàn diện từ {last_step_executed} bước nghiên cứu..."
                 ),
             },
         )
+        if interim_findings:
+            divider = "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n"
+            self._emit("delta", {"text": divider})
+
         final_prompt = (
-            "Đã hoàn thành các bước thu thập thông tin và thực thi công cụ ở trên. "
-            "Hãy tổng hợp và đưa ra câu trả lời cuối cùng đạt tiêu chuẩn chất lượng cao nhất tương đương Gemini 3.8 Flash: "
-            "đầy đủ, chuyên sâu, cấu trúc Markdown phân cấp rõ ràng (tiêu đề, danh sách, bảng so sánh hoặc storyboard nếu phù hợp), "
-            "mã nguồn hoàn chỉnh 100% không viết tắt, trích dẫn nguồn thực tế chính xác và kết thúc bằng '💡 Pro-Tip & Production Gotchas'."
+            "Dựa trên các dữ liệu và phát hiện nghiên cứu sơ bộ từ các bước ở trên, "
+            "hãy tổng hợp và hoàn thiện BÁO CÁO TOÀN DIỆN đạt tiêu chuẩn chất lượng cao nhất tương đương Gemini 3.8 Flash:\n"
+            "- 📌 Tổng quan Bối cảnh & Nguồn gốc (tác giả, thời gian, trạng thái weights, API).\n"
+            "- 🧠 Phân tích Kỹ thuật & Kiến trúc Model (Bảng thông số kỹ thuật MoE, Total/Active Params, VRAM/RAM, phần cứng tương thích).\n"
+            "- 🔍 Phân tích Ý nghĩa & Ứng dụng Thực tiễn (Bảo mật y tế, RAG, Privacy, Case studies).\n"
+            "- ⚠️ Lưu ý Quan trọng & Trạng thái Hiện tại (Weights, truy cập API, giấy phép, an toàn y tế).\n"
+            "- 💡 Pro-Tip & Production Gotchas (Tối ưu hóa VRAM, RoPE scaling, context window, đạo đức AI y tế).\n"
+            "Trình bày chi tiết, chuyên sâu, phân cấp rõ ràng, không dùng placeholder hay viết tắt."
         )
         conversation.append({
             "role": "user",
@@ -586,8 +701,9 @@ At the conclusion of technical or creative solutions, always provide a dedicated
             conversation.append(final_message)
             text = str(final_message.get("content") or "").strip()
             if text:
+                full_text = ("\n\n".join(interim_findings) + "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n" + text) if interim_findings else text
                 return AgentResult(
-                    text=text,
+                    text=full_text,
                     messages=conversation,
                     steps=last_step_executed,
                 )
@@ -598,8 +714,13 @@ At the conclusion of technical or creative solutions, always provide a dedicated
             str(m.get("content", "")) for m in conversation if m.get("role") in ("tool", "assistant") and m.get("content")
         ]
         fallback_text = last_contents[-1] if last_contents else "Đã hoàn thành các bước tác vụ theo yêu cầu."
+        if interim_findings:
+            fallback_full = "\n\n".join(interim_findings) + "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n" + fallback_text
+        else:
+            fallback_full = f"Đã hoàn thành {last_step_executed} bước thực thi và tổng hợp thông tin:\n\n{fallback_text}"
+
         return AgentResult(
-            text=f"Đã hoàn thành {last_step_executed} bước thực thi và tổng hợp thông tin:\n\n{fallback_text}",
+            text=fallback_full,
             messages=conversation,
             steps=last_step_executed,
         )
