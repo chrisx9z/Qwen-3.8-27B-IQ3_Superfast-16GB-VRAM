@@ -144,6 +144,9 @@ Core Operating Principles:
 - Autonomous Proactive Deep-Dive & Self-Directed Investigation:
   * NEVER give up or give a passive refusal (such as "Tôi không thể truy cập", "Tôi không biết", "Dữ liệu không có sẵn") when answering questions that require external data, facts, statistics, channel metrics, or documentation.
   * If you lack data or context, you MUST PROACTIVELY use your tools (`deep_dive_internet_research`, `web_search`, `web_open`, `extract_webpage_markdown`, `analyze_youtube_channel_deep_dive`, `read_code_file`, etc.) to explore, search multiple angles, read source websites, extract exact facts/numbers, and synthesize comprehensive, verified answers.
+- URL Direct-Inspection Directive:
+  * When the user provides any web link or URL (e.g. TikTok, YouTube, Twitter/X, GitHub, or web articles), your FIRST STEP must be to inspect and read that exact URL using `extract_webpage_markdown` to get the real title, video description, creator notes, and embedded citation links.
+  * NEVER invent, speculate, or hallucinate about a link's content without reading it first. Always inspect the URL directly.
 - Multi-lingual Language Directive: Automatically detect the language of the user's prompt (English, Vietnamese, Chinese, etc.) and ALWAYS respond in the EXACT same language with natural phrasing, rich details, and clean markdown structure.
 - Action over guidance: Use tools to inspect, execute, and verify results directly instead of just giving generic advice.
 - Safety Sandbox Enforcement: Always operate within authorized workspace boundaries. Never execute destructive OS commands.
@@ -1045,6 +1048,12 @@ Core Operating Principles:
         # In case something didn't match, ensure at least basic tools
         if not filtered_defs:
             filtered_defs = [def_map[name] for name in base_tools if name in def_map]
+
+        # When prompt contains a specific URL, prioritize extract_webpage_markdown at position 0
+        if "http://" in lowered or "https://" in lowered:
+            if "extract_webpage_markdown" in def_map:
+                url_def = def_map["extract_webpage_markdown"]
+                filtered_defs = [url_def] + [d for d in filtered_defs if d.get("function", {}).get("name") != "extract_webpage_markdown"]
 
         # Include custom plugin tools (if any enabled)
         plugin_defs = []

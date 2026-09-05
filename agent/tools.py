@@ -9611,11 +9611,92 @@ jobs:
         max_len = _bounded_int(arguments.get("max_length", 10000), minimum=1000, maximum=50000)
 
         import requests
-        resp = requests.get(url, timeout=15, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"})
-        html_raw = resp.text
+        import urllib.parse
 
-        title_m = re.search(r"<title>(.*?)</title>", html_raw, re.IGNORECASE)
-        page_title = title_m.group(1).strip() if title_m else "Webpage"
+        parsed = urllib.parse.urlparse(url)
+        domain = parsed.netloc.lower()
+
+        # 1. Specialized Handler: TikTok via public oEmbed API (avoids Slardar WAF anti-scraping blocks)
+        if "tiktok.com" in domain:
+            clean_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
+            try:
+                o_resp = requests.get(f"https://www.tiktok.com/oembed?url={clean_url}", timeout=10)
+                if o_resp.status_code == 200:
+                    data = o_resp.json()
+                    author = data.get("author_name", "")
+                    title = data.get("title", "")
+                    raw_html = data.get("html", "")
+                    links = re.findall(r'<a[^>]+href=["\'](.*?)["\'][^>]*>(.*?)</a>', raw_html)
+                    md = f"# TikTok Video - {author}\n\n**Tác giả:** {author}\n\n### Nội dung / Mô tả video:\n{title}\n\n"
+                    if links:
+                        md += "### Các liên kết trích dẫn trong video:\n"
+                        for href, txt in links:
+                            clean_txt = re.sub(r"<[^>]+>", "", txt).strip()
+                            md += f"- [{clean_txt}]({href})\n"
+                    return {
+                        "url": url,
+                        "title": f"TikTok: {author} - {title[:60]}",
+                        "length_chars": len(md),
+                        "markdown": md[:max_len],
+                    }
+            except Exception:
+                pass
+
+        # 2. Specialized Handler: YouTube via public oEmbed API
+        if "youtube.com" in domain or "youtu.be" in domain:
+            try:
+                o_resp = requests.get(f"https://www.youtube.com/oembed?url={url}&format=json", timeout=10)
+                if o_resp.status_code == 200:
+                    data = o_resp.json()
+                    title = data.get("title", "")
+                    author = data.get("author_name", "")
+                    md = f"# YouTube Video: {title}\n\n**Kênh:** {author}\n**URL:** {url}\n"
+                    return {
+                        "url": url,
+                        "title": f"YouTube: {title}",
+                        "length_chars": len(md),
+                        "markdown": md,
+                    }
+            except Exception:
+                pass
+
+        # 3. Standard Request with Modern Browser Headers & SPA parsing
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+            "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
+        }
+        try:
+            resp = requests.get(url, timeout=15, headers=headers)
+            html_raw = resp.text
+        except Exception as err:
+            return {
+                "ok": False,
+                "error": f"Lỗi kết nối tới {url}: {err}",
+            }
+
+        title_m = re.search(r"<title[^>]*>(.*?)</title>", html_raw, re.IGNORECASE | re.DOTALL)
+        page_title = html.unescape(title_m.group(1).strip()) if title_m else "Webpage"
+
+        # Extract Meta Descriptions (Essential for React/Next.js/SPA web apps)
+        meta_desc = ""
+        for m in re.finditer(r'<meta[^>]+(?:name|property)=["\']([^"\']+)["\'][^>]+content=(["\'])(.*?)\2', html_raw, re.I | re.DOTALL):
+            prop = m.group(1).lower()
+            val = html.unescape(m.group(3)).strip()
+            if prop in ("description", "og:description", "twitter:description") and len(val) > len(meta_desc):
+                meta_desc = val
+
+        # Extract JSON-LD (Schema.org articles, videos, product descriptions)
+        json_ld_texts = []
+        for j in re.findall(r'<script[^>]+type=["\']application/ld\+json["\'][^>]*>([\s\S]*?)</script>', html_raw, re.I):
+            try:
+                data = json.loads(j)
+                if isinstance(data, dict):
+                    desc = data.get("description") or data.get("text") or data.get("articleBody")
+                    if desc and isinstance(desc, str) and len(desc) > 30:
+                        json_ld_texts.append(desc)
+            except Exception:
+                pass
 
         cleaned = re.sub(r"<(script|style|noscript)[^>]*>[\s\S]*?</\1>", "", html_raw, flags=re.IGNORECASE)
         cleaned = re.sub(r"<!--[\s\S]*?-->", "", cleaned)
@@ -9628,7 +9709,15 @@ jobs:
         cleaned = html.unescape(cleaned)
 
         lines = [line.strip() for line in cleaned.splitlines() if line.strip()]
-        md_text = f"# {page_title}\n\n" + "\n\n".join(lines)
+        body_text = "\n\n".join(lines)
+
+        # If body text is very short (SPA client-side rendered), inject meta_desc or json_ld
+        if len(body_text) < 150 and (meta_desc or json_ld_texts):
+            extra = meta_desc or "\n\n".join(json_ld_texts)
+            md_text = f"# {page_title}\n\n{extra}\n\n{body_text}".strip()
+        else:
+            md_text = f"# {page_title}\n\n{body_text}".strip()
+
         if len(md_text) > max_len:
             md_text = md_text[:max_len] + "\n\n...(Nội dung đã được cắt bớt do độ dài)..."
 
