@@ -322,9 +322,30 @@ Core Operating Principles:
                 "content": self.system_prompt + _get_system_memory_context(),
             })
 
+        user_content = _inject_attachment_context(user_prompt)
+        url_matches = re.findall(r"(https?://[^\s)\]\"'>]+)", user_prompt)
+        if url_matches:
+            for target_url in url_matches[:2]:
+                self._emit(
+                    "status",
+                    {"message": f"Đang bóc tách thông tin từ liên kết: {target_url[:60]}..."},
+                )
+                try:
+                    web_res = self.registry.execute("extract_webpage_markdown", {"url": target_url})
+                    if web_res.get("ok"):
+                        md_text = (web_res.get("result") or {}).get("markdown") or ""
+                        if md_text:
+                            user_content += (
+                                f"\n\n--- Dữ liệu trích xuất từ liên kết: {target_url} ---\n"
+                                f"{md_text}\n"
+                                f"--- Hết dữ liệu liên kết ---"
+                            )
+                except Exception:
+                    pass
+
         conversation.append({
             "role": "user",
-            "content": _inject_attachment_context(user_prompt),
+            "content": user_content,
         })
         tool_definitions = self._tool_definitions_for_prompt(user_prompt)
         max_tokens = self._max_tokens_for_prompt(user_prompt)
@@ -1573,23 +1594,36 @@ def _is_direct_repo_task(prompt: str) -> bool:
 
 
 def _is_universal_discovery_task(prompt: str) -> bool:
-    lowered = prompt.lower()
-    has_entity = any(k in lowered for k in [".net", ".com", ".org", ".vn", ".io", ".ai", "http://", "https://", "@", "github.com", "repo "])
+    lowered = prompt.lower().strip()
+    is_specific_query = any(k in lowered for k in [
+        "tìm", "cho biết", "cho tôi biết", "nội dung", "tóm tắt", "giải thích", 
+        "podcast", "video", "ai là", "cái gì", "tại sao", "như thế nào", 
+        "được nhắc đến", "nguồn gốc", "tác giả", "đọc bài", "xem bài", 
+        "trích xuất", "phân tích bài", "tin tức", "sự kiện", "là ai", "ở đâu"
+    ]) or "?" in prompt or "hỏi" in lowered
+    if is_specific_query:
+        return False
+
     explicit_discovery = any(k in lowered for k in [
         "tìm hiểu website", "khảo sát website", "khảo sát kênh", "tìm hiểu kênh", 
         "quét sitemap", "audit trang web", "khảo sát thị trường", "nghiên cứu thị trường", 
         "tìm hiểu thị trường", "báo cáo thị trường"
     ])
+    # Pure entity target: only if user entered solely a domain, handle or URL without complex question
+    is_pure_target = re.fullmatch(r"https?://[^\s]+|[a-zA-Z0-9-]+\.(?:net|com|org|vn|io|ai|dev|co|xyz)|@[a-zA-Z0-9_.-]+", prompt.strip()) is not None
+
     not_pure_reasoning = not any(k in lowered for k in [
         "viết code", "đoạn code", "lập trình", "lên lịch", "hôm nay là", 
         "lập bảng so sánh", "bẫy ảo giác", "nghiên cứu năm 2024 của gs"
     ])
-    return (has_entity or explicit_discovery) and not_pure_reasoning and len(prompt.strip()) >= 5
+    return (explicit_discovery or is_pure_target) and not_pure_reasoning and len(prompt.strip()) >= 5
 
 def _is_direct_website_audit_task(prompt: str) -> bool:
     lowered = prompt.lower()
+    if any(k in lowered for k in ["đọc", "tóm tắt", "cho biết", "nội dung", "podcast", "video", "tìm", "?"]):
+        return False
     has_url = "http://" in lowered or "https://" in lowered or ".net" in lowered or ".com" in lowered or ".org" in lowered or ".vn" in lowered or ".io" in lowered
-    audit_intent = any(k in lowered for k in ["bài viết", "sitemap", "chuyên mục", "chủ đề", "website", "trang web", "phân tích web", "bao nhiêu bài", "hướng phát triển", "audit"])
+    audit_intent = any(k in lowered for k in ["sitemap", "audit trang web", "audit website", "khảo sát cấu trúc", "phân tích web", "quét sitemap", "chuyên mục và sitemap"])
     return has_url and audit_intent
 
 
@@ -1605,6 +1639,8 @@ def _extract_url_from_prompt(prompt: str) -> str:
 
 def _is_direct_youtube_search_task(prompt: str) -> bool:
     lowered = prompt.lower()
+    if "http://" in lowered or "https://" in lowered or "?" in prompt:
+        return False
     has_youtube = "youtube" in lowered or "youtu.be" in lowered
     has_search = any(
         marker in lowered
@@ -1619,6 +1655,8 @@ def _is_direct_youtube_search_task(prompt: str) -> bool:
 
 def _is_direct_bilibili_search_task(prompt: str) -> bool:
     lowered = prompt.lower()
+    if "http://" in lowered or "https://" in lowered or "?" in prompt:
+        return False
     has_bilibili = "bilibili" in lowered or "b23.tv" in lowered
     has_search = any(
         marker in lowered
@@ -1633,6 +1671,8 @@ def _is_direct_bilibili_search_task(prompt: str) -> bool:
 
 def _is_direct_douyin_search_task(prompt: str) -> bool:
     lowered = prompt.lower()
+    if "http://" in lowered or "https://" in lowered or "?" in prompt:
+        return False
     has_douyin = "douyin" in lowered or "抖音" in lowered
     has_search = any(
         marker in lowered
@@ -1647,6 +1687,10 @@ def _is_direct_douyin_search_task(prompt: str) -> bool:
 
 def _is_direct_web_search_task(prompt: str) -> bool:
     lowered = prompt.lower()
+    if "http://" in lowered or "https://" in lowered or "www." in lowered:
+        return False
+    if "?" in prompt or any(k in lowered for k in ["tại sao", "giải thích", "tóm tắt", "như thế nào", "ai là", "gốc", "nguồn gốc", "podcast", "video này", "link này"]):
+        return False
     has_search = any(
         marker in lowered
         for marker in (
