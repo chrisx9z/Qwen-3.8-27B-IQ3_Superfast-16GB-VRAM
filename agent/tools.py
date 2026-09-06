@@ -246,6 +246,134 @@ def _extract_opengraph_and_schema(html_raw: str) -> str:
         lines.append(f"**Mô tả**: {html_module.unescape(desc)}")
     return "\n\n".join(lines)
 
+
+def _extract_twitter_or_x_content(url: str, headers: dict[str, str] | None = None) -> dict[str, Any] | None:
+    import html as html_module
+    import urllib.parse
+
+    req_headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+        "Accept": "application/json, text/html, */*",
+    }
+    if headers:
+        req_headers.update(headers)
+
+    parsed = urllib.parse.urlparse(url)
+    domain = parsed.netloc.lower()
+    if "twitter.com" not in domain and "x.com" not in domain:
+        return None
+
+    path = parsed.path.strip("/")
+    parts = [p for p in path.split("/") if p]
+
+    # 1. Status Tweet (/username/status/123456789)
+    status_match = re.search(r"/(?P<user>[^/]+)/status/(?P<id>\d+)", parsed.path)
+    if status_match:
+        user_name = status_match.group("user")
+        status_id = status_match.group("id")
+        try:
+            fx_url = f"https://api.fxtwitter.com/{user_name}/status/{status_id}"
+            fx_resp = requests.get(fx_url, timeout=10, headers=req_headers)
+            if fx_resp.status_code == 200:
+                tweet_data = fx_resp.json().get("tweet") or {}
+                if tweet_data:
+                    author_info = tweet_data.get("author") or {}
+                    author_name = author_info.get("name") or user_name
+                    screen_name = author_info.get("screen_name") or user_name
+                    author_bio = author_info.get("description") or ""
+                    author_followers = author_info.get("followers", 0)
+                    tweet_text = tweet_data.get("text") or ""
+                    created_at = tweet_data.get("created_at") or ""
+                    likes = tweet_data.get("likes", 0)
+                    retweets = tweet_data.get("retweets", 0)
+                    views = tweet_data.get("views") or 0
+                    bookmarks = tweet_data.get("bookmarks", 0)
+
+                    lines = [
+                        f"# 🐦 Bài Đăng X (Twitter): {author_name} (@{screen_name})\n",
+                        f"- **Tác giả:** {author_name} (@{screen_name})",
+                    ]
+                    if author_followers:
+                        lines.append(f"- **Số người theo dõi (Followers):** {author_followers:,}")
+                    if author_bio:
+                        lines.append(f"- **Tiểu sử tác giả:** {author_bio}")
+                    if created_at:
+                        lines.append(f"- **Thời gian đăng:** {created_at}")
+                    lines.append(f"- **Tương tác:** {likes:,} Thích (Likes) · {retweets:,} Chia sẻ (Retweets) · {bookmarks:,} Dấu trang · {views:,} Lượt xem")
+                    lines.append(f"\n### 📝 Nội dung bài đăng:\n{tweet_text}\n")
+
+                    media_all = (tweet_data.get("media") or {}).get("all") or []
+                    if media_all:
+                        lines.append("### 🎬 Phương tiện đính kèm:")
+                        for med in media_all:
+                            m_type = med.get("type", "media")
+                            m_url = med.get("url") or med.get("thumbnail_url")
+                            if m_url:
+                                lines.append(f"- [{m_type.capitalize()}]({m_url})")
+
+                    md = "\n".join(lines)
+                    return {
+                        "url": url,
+                        "title": f"X/Twitter: {author_name} - {tweet_text[:60]}",
+                        "markdown": md,
+                    }
+        except Exception:
+            pass
+
+        # Fallback to Twitter oEmbed
+        try:
+            o_resp = requests.get(f"https://publish.twitter.com/oembed?url={url}&omit_script=true", timeout=8, headers=req_headers)
+            if o_resp.status_code == 200:
+                o_data = o_resp.json()
+                author_name = o_data.get("author_name", user_name)
+                html_content = o_data.get("html", "")
+                clean_text = re.sub(r"<[^>]+>", " ", html_content).strip()
+                clean_text = html_module.unescape(clean_text)
+                md = f"# 🐦 Bài Đăng X (Twitter): {author_name}\n\n**Tác giả:** {author_name}\n**Liên kết:** {url}\n\n### 📝 Nội dung bài đăng:\n{clean_text}\n"
+                return {
+                    "url": url,
+                    "title": f"X/Twitter: {author_name}",
+                    "markdown": md,
+                }
+        except Exception:
+            pass
+
+    # 2. Profile (/username)
+    elif len(parts) == 1 and parts[0] not in ("home", "explore", "notifications", "messages", "settings", "search", "i"):
+        user_name = parts[0]
+        try:
+            fx_url = f"https://api.fxtwitter.com/{user_name}"
+            fx_resp = requests.get(fx_url, timeout=10, headers=req_headers)
+            if fx_resp.status_code == 200:
+                user_info = fx_resp.json().get("user") or {}
+                if user_info:
+                    name = user_info.get("name") or user_name
+                    screen_name = user_info.get("screen_name") or user_name
+                    desc = user_info.get("description") or ""
+                    followers = user_info.get("followers", 0)
+                    following = user_info.get("following", 0)
+                    tweets_cnt = user_info.get("tweets", 0)
+                    lines = [
+                        f"# 🐦 Hồ Sơ X (Twitter): {name} (@{screen_name})\n",
+                        f"- **Tên hiển thị:** {name} (@{screen_name})",
+                        f"- **Số người theo dõi:** {followers:,}",
+                        f"- **Đang theo dõi:** {following:,}",
+                        f"- **Tổng số bài đăng:** {tweets_cnt:,}",
+                    ]
+                    if desc:
+                        lines.append(f"- **Tiểu sử (Bio):** {desc}")
+                    md = "\n".join(lines)
+                    return {
+                        "url": url,
+                        "title": f"X Profile: {name} (@{screen_name})",
+                        "markdown": md,
+                    }
+        except Exception:
+            pass
+
+    return None
+
+
 class LocalToolRegistry:
     def __init__(self) -> None:
         self._specs = {
@@ -9758,7 +9886,18 @@ jobs:
             except Exception:
                 pass
 
-        # 5. Standard Request with Modern Browser Headers & SPA parsing
+        # 5. Specialized Handler: X / Twitter via public API & oEmbed
+        if "twitter.com" in domain or "x.com" in domain:
+            tw_res = _extract_twitter_or_x_content(url, headers=headers)
+            if tw_res:
+                return {
+                    "url": url,
+                    "title": tw_res.get("title", f"X/Twitter: {url}"),
+                    "length_chars": len(tw_res.get("markdown", "")),
+                    "markdown": tw_res.get("markdown", "")[:max_len],
+                }
+
+        # 6. Standard Request with Modern Browser Headers & SPA parsing
         try:
             resp = requests.get(url, timeout=15, headers=headers)
             if resp.status_code == 404:
@@ -11099,8 +11238,18 @@ build
                     "report_markdown": yt_res.get("report_markdown", f"Đã hoàn thành phân tích {raw_url}."),
                 }
 
-            # TikTok / Twitter / Facebook Profiles
-            if any(plat in raw_url.lower() for plat in ["tiktok.com", "twitter.com", "x.com", "facebook.com", "instagram.com"]):
+            # X / Twitter Status or Profile
+            if any(plat in raw_url.lower() for plat in ["twitter.com", "x.com"]):
+                tw_res = _extract_twitter_or_x_content(raw_url)
+                if tw_res:
+                    return {
+                        "category": "social_media_tweet",
+                        "target": raw_url,
+                        "report_markdown": tw_res.get("markdown", f"Đã hoàn thành bóc tách nội dung X {raw_url}."),
+                    }
+
+            # TikTok / Facebook / Instagram Profiles
+            if any(plat in raw_url.lower() for plat in ["tiktok.com", "facebook.com", "instagram.com"]):
                 clean_target = re.sub(r'https?://(?:www\.)?', '', raw_url).rstrip('/')
                 swarm_res = self._swarm_multi_agent_deep_investigation({"topic": f"Thông tin phân tích kênh {clean_target}", "focus": "Social Media Metrics"})
                 return {
@@ -11747,6 +11896,17 @@ build
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
         }
+        if "twitter.com" in url.lower() or "x.com" in url.lower():
+            tw_res = _extract_twitter_or_x_content(url, headers=headers)
+            if tw_res:
+                content = tw_res.get("markdown", "")
+                return {
+                    "url": url,
+                    "status_code": 200,
+                    "length": len(content),
+                    "content": content[:max_chars],
+                }
+
         resp = requests.get(url, headers=headers, timeout=20)
         resp.raise_for_status()
         
@@ -12240,6 +12400,18 @@ build
             "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
             "Accept-Language": "vi-VN,vi;q=0.9,en-US;q=0.8,en;q=0.7",
         }
+        if "twitter.com" in url.lower() or "x.com" in url.lower():
+            tw_res = _extract_twitter_or_x_content(url, headers=headers)
+            if tw_res:
+                content = tw_res.get("markdown", "")
+                return {
+                    "url": url,
+                    "status_code": 200,
+                    "content_type": "text/markdown",
+                    "content": content[:max_chars],
+                    "truncated": len(content) > max_chars,
+                }
+
         response = requests.get(
             url,
             headers=headers,

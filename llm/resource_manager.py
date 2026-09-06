@@ -28,13 +28,17 @@ class GPUResourceManager:
         with _LOCK:
             state = _load_state()
             active = state.get("active_agent")
-            if active and _pid_alive(active.get("owner_pid")):
+            if active and _is_auto_pilot_process(active.get("owner_pid")):
                 owner_pid = int(active["owner_pid"])
                 if owner_pid != os.getpid():
-                    raise RuntimeError(
-                        "Một Auto Pilot process khác đang giữ resource model "
-                        f"{active.get('profile', '')} trên port {active.get('port', '')}."
-                    )
+                    same_profile = str(active.get("profile", "")).strip().lower() == str(profile).strip().lower()
+                    same_port = int(active.get("port", 0)) == int(port)
+                    # Nếu cùng profile và cùng port, cả 2 tiến trình chia sẻ chung llama-server hoàn toàn an toàn
+                    if not (same_profile and same_port):
+                        raise RuntimeError(
+                            "Một Auto Pilot process khác đang giữ resource model "
+                            f"{active.get('profile', '')} trên port {active.get('port', '')}."
+                        )
             state["active_agent"] = {
                 "owner_pid": os.getpid(),
                 "profile": profile,
@@ -45,11 +49,19 @@ class GPUResourceManager:
             _save_state(state)
             return self.status()
 
+    def release_agent(self) -> None:
+        with _LOCK:
+            state = _load_state()
+            active = state.get("active_agent")
+            if active and int(active.get("owner_pid", 0)) == os.getpid():
+                state.pop("active_agent", None)
+                _save_state(state)
+
     def status(self) -> dict[str, Any]:
         with _LOCK:
             state = _load_state()
             active = state.get("active_agent")
-            if active and not _pid_alive(active.get("owner_pid")):
+            if active and not _is_auto_pilot_process(active.get("owner_pid")):
                 state.pop("active_agent", None)
                 _save_state(state)
                 active = None
@@ -87,11 +99,32 @@ def _save_state(state: dict[str, Any]) -> None:
     )
 
 
-def _pid_alive(value: Any) -> bool:
+def _is_auto_pilot_process(value: Any) -> bool:
     try:
-        return bool(value) and psutil.pid_exists(int(value))
-    except (TypeError, ValueError, psutil.Error):
+        if not value:
+            return False
+        pid = int(value)
+        if not psutil.pid_exists(pid):
+            return False
+        p = psutil.Process(pid)
+        if not p.is_running() or p.status() == psutil.STATUS_ZOMBIE:
+            return False
+        name = p.name().lower()
+        if any(k in name for k in ("auto pilot", "autopilot", "qwen", "llama", "python")):
+            return True
+        try:
+            cmd = " ".join(p.cmdline()).lower()
+            if any(k in cmd for k in ("auto_pilot", "auto pilot", "controller.py", "main.py", "app.py", "llama")):
+                return True
+        except (psutil.Error, OSError):
+            pass
         return False
+    except (TypeError, ValueError, psutil.Error, OSError):
+        return False
+
+
+def _pid_alive(value: Any) -> bool:
+    return _is_auto_pilot_process(value)
 
 
 def _llama_servers() -> list[dict[str, Any]]:

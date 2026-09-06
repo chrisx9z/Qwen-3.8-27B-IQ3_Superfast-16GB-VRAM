@@ -149,10 +149,13 @@ def _generate_interim_finding(
 
     res_data = result.get("result") if isinstance(result.get("result"), dict) else result
 
-    if tool_name == "extract_webpage_markdown":
+    if tool_name in ("extract_webpage_markdown", "web_open", "crawl_and_extract_deep_content"):
         url = str(arguments.get("url") or "")
         title = str(res_data.get("title") or "Nguồn liên kết")
-        md = str(res_data.get("markdown") or "").strip()
+        md = str(res_data.get("markdown") or res_data.get("content") or "").strip()
+
+        tweet_body_match = re.search(r"### 📝 Nội dung bài đăng:\s*\n(.*?)(?:\n###|\Z)", md, re.DOTALL)
+        tweet_body = tweet_body_match.group(1).strip() if tweet_body_match else ""
 
         lines = [line.strip() for line in md.splitlines() if line.strip() and not line.strip().startswith("#")]
         key_lines: list[str] = []
@@ -160,7 +163,8 @@ def _generate_interim_finding(
             if line.startswith(("-", "*", "•", "1.", "2.", "3.", "4.", "5.")) or any(c.isdigit() for c in line) or any(
                 kw in line.lower() for kw in (
                     "model", "tham số", "vram", "moe", "weights", "license", "author", "tác giả",
-                    "tập", "khách mời", "host", "nghiên cứu", "y tế", "sante", "flash", "active", "benchmark"
+                    "tập", "khách mời", "host", "nghiên cứu", "y tế", "sante", "flash", "active", "benchmark",
+                    "thời gian", "tương tác", "followers", "gpt", "game", "3d", "astra", "quota"
                 )
             ):
                 clean_l = line.lstrip("-*• 1234567890. ")
@@ -172,7 +176,13 @@ def _generate_interim_finding(
         if not key_lines:
             key_lines = [l for l in lines[:4] if len(l) > 20]
 
-        bullet_text = "\n".join(f"*   {kl}" for kl in key_lines) if key_lines else "*   Đã trích xuất thành công nội dung trang web."
+        bullet_parts = []
+        if key_lines:
+            bullet_parts.append("\n".join(f"*   {kl}" for kl in key_lines))
+        if tweet_body:
+            bullet_parts.append(f"*   **Trích dẫn nội dung:** \"{tweet_body[:350]}\"")
+
+        bullet_text = "\n".join(bullet_parts) if bullet_parts else "*   Đã trích xuất thành công nội dung trang web."
 
         return (
             f"\n\n### ⚡ [Nghiên cứu Bước {step}] · Ghi nhận sơ bộ từ: {title}\n"
@@ -677,15 +687,35 @@ At the conclusion of technical or creative solutions, always provide a dedicated
             divider = "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n"
             self._emit("delta", {"text": divider})
 
+        context_preview = (user_prompt + " " + " ".join(interim_findings)).lower()
+        is_medical = any(k in context_preview for k in ("y tế", "sante", "bệnh viện", "bác sĩ", "medical", "clinical"))
+        is_model_or_tech = any(k in context_preview for k in ("model", "llm", "ai", "gpt", "qwen", "weights", "moe", "game", "3d", "astra", "architecture"))
+
+        if is_medical:
+            tech_spec_desc = "(Bảng thông số kỹ thuật MoE, Total/Active Params, VRAM/RAM, phần cứng tương thích)"
+            practical_desc = "(Bảo mật y tế, RAG, Privacy, Case studies lâm sàng)"
+            warning_desc = "(Weights, truy cập API, giấy phép, an toàn và quy chuẩn y tế)"
+            protip_desc = "(Tối ưu hóa VRAM, RoPE scaling, context window, đạo đức AI y tế)"
+        elif is_model_or_tech:
+            tech_spec_desc = "(Bảng thông số kỹ thuật/kiến trúc, Total/Active Params nếu có, cấu hình phần cứng/VRAM/quota, workflow hoạt động)"
+            practical_desc = "(Ứng dụng thực tế, workflow sinh dữ liệu/game/code/asset 3D, case study, tiềm năng bứt phá)"
+            warning_desc = "(Trạng thái phát hành, quyền truy cập API/closed-weights, hạn mức quota, giới hạn kỹ thuật)"
+            protip_desc = "(Mẹo prompt/sinh ảnh/3D, kỹ thuật tối ưu hóa chi phí/thời gian, các cạm bẫy cần tránh)"
+        else:
+            tech_spec_desc = "(Phân tích chi tiết cấu trúc, cơ chế hoạt động, dữ liệu định lượng, bảng đối chiếu)"
+            practical_desc = "(Giá trị thực tiễn, kịch bản ứng dụng, tác động đối với người dùng/doanh nghiệp)"
+            warning_desc = "(Lưu ý quan trọng, điều kiện áp dụng, rủi ro tiềm ẩn)"
+            protip_desc = "(Kinh nghiệm thực chiến, mẹo tối ưu hóa, các sai lầm thường gặp)"
+
         final_prompt = (
             "Dựa trên các dữ liệu và phát hiện nghiên cứu sơ bộ từ các bước ở trên, "
             "hãy tổng hợp và hoàn thiện BÁO CÁO TOÀN DIỆN đạt tiêu chuẩn chất lượng cao nhất tương đương Gemini 3.8 Flash:\n"
-            "- 📌 Tổng quan Bối cảnh & Nguồn gốc (tác giả, thời gian, trạng thái weights, API).\n"
-            "- 🧠 Phân tích Kỹ thuật & Kiến trúc Model (Bảng thông số kỹ thuật MoE, Total/Active Params, VRAM/RAM, phần cứng tương thích).\n"
-            "- 🔍 Phân tích Ý nghĩa & Ứng dụng Thực tiễn (Bảo mật y tế, RAG, Privacy, Case studies).\n"
-            "- ⚠️ Lưu ý Quan trọng & Trạng thái Hiện tại (Weights, truy cập API, giấy phép, an toàn y tế).\n"
-            "- 💡 Pro-Tip & Production Gotchas (Tối ưu hóa VRAM, RoPE scaling, context window, đạo đức AI y tế).\n"
-            "Trình bày chi tiết, chuyên sâu, phân cấp rõ ràng, không dùng placeholder hay viết tắt."
+            f"- 📌 Tổng quan Bối cảnh & Nguồn gốc (tác giả, thời gian, nền tảng, bối cảnh phát biểu).\n"
+            f"- 🧠 Phân tích Kỹ thuật & Cơ chế Hoạt động {tech_spec_desc}.\n"
+            f"- 🔍 Phân tích Ý nghĩa & Ứng dụng Thực tiễn {practical_desc}.\n"
+            f"- ⚠️ Lưu ý Quan trọng & Trạng thái Hiện tại {warning_desc}.\n"
+            f"- 💡 Pro-Tips & Production Gotchas {protip_desc}.\n"
+            "Trình bày chi tiết, chuyên sâu, phân cấp rõ ràng, có bảng markdown đối chiếu nếu phù hợp, không dùng placeholder hay viết tắt."
         )
         conversation.append({
             "role": "user",
@@ -1164,6 +1194,10 @@ At the conclusion of technical or creative solutions, always provide a dedicated
             self._http_session.close()
         except Exception:
             pass
+        try:
+            self.resource_manager.release_agent()
+        except Exception:
+            pass
 
     def _ensure_server(self, profile: str) -> None:
         if self.server_manager is None:
@@ -1186,11 +1220,14 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 replace_existing=False,
             )
 
-        self.resource_manager.claim_agent(
-            profile=profile,
-            port=self.server_manager.port,
-            model_path=str(self.server_manager.model_path),
-        )
+        try:
+            self.resource_manager.claim_agent(
+                profile=profile,
+                port=self.server_manager.port,
+                model_path=str(self.server_manager.model_path),
+            )
+        except Exception:
+            pass
         self.server_manager.ensure_running()
 
     def _tool_definitions_for_prompt(

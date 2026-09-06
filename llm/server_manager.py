@@ -34,6 +34,7 @@ def _get_model_dir_candidates() -> list[Path]:
     ])
     
     if IS_WINDOWS:
+        candidates.append(Path(r"D:\AI-Video-Localizer\models"))
         candidates.append(Path(r"D:\models"))
         candidates.append(Path(r"C:\models"))
     elif IS_MACOS:
@@ -65,6 +66,7 @@ def _llama_server_candidates() -> tuple[Path, ...]:
         ])
     elif IS_WINDOWS:
         candidates.extend([
+            Path(r"D:\AI-Video-Localizer\tools\llama.cpp\llama-server.exe"),
             APP_ROOT / "tools" / "llama.cpp" / "llama-server.exe",
             Path.home() / ".local" / "bin" / "llama-server.exe",
         ])
