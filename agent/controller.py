@@ -486,6 +486,56 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                                 interim_findings.append(f_chunk)
                                 self._emit("delta", {"text": f_chunk})
 
+                            # Tự động nghiên cứu đa nguồn (Multi-Hop Autonomous Deep Research)
+                            # Khi trích xuất trang web/bài đăng X và người dùng có ý định nghiên cứu hoặc bài đăng có các khái niệm mới:
+                            is_research_intent = any(
+                                kw in user_prompt.lower()
+                                for kw in ("tìm", "thông tin", "nghiên cứu", "phân tích", "chi tiết", "dự án", "game", "model", "kiến trúc", "đánh giá", "review", "là gì", "sao")
+                            ) or any(
+                                kw in md_text.lower()
+                                for kw in ("turbo-agi", "gpt-", "model", "astra", "blender", "workflow", "process below", "share below", "thread")
+                            )
+                            if is_research_intent:
+                                author_m = re.search(r"@([a-zA-Z0-9_]+)", md_text)
+                                author_tag = author_m.group(1) if author_m else ""
+                                
+                                tech_terms = re.findall(r"([A-Z][a-zA-Z0-9_\-]+(?:\s+[A-Z0-9][a-zA-Z0-9_\-]+)*)", md_text[:600])
+                                filtered_terms = [
+                                    t for t in tech_terms
+                                    if len(t) > 2 and t.lower() not in ("http", "https", "twitter", "post", "posting", "author", "video", "thread", "likes", "views", "retweets", "followers")
+                                ]
+                                query_parts = []
+                                if author_tag:
+                                    query_parts.append(author_tag)
+                                for term in filtered_terms[:3]:
+                                    if term not in query_parts:
+                                        query_parts.append(term)
+                                
+                                if query_parts:
+                                    search_q = " ".join(query_parts)
+                                    self._emit(
+                                        "status",
+                                        {"message": f"Đang đối chiếu dữ liệu chuyên sâu từ Web: {search_q[:50]}..."},
+                                    )
+                                    try:
+                                        s_res = self.registry.execute("web_search", {"query": search_q, "limit": 4})
+                                        if s_res.get("ok"):
+                                            s_list = (s_res.get("result") or {}).get("results") or []
+                                            if s_list:
+                                                s_chunk = _generate_interim_finding("web_search", {"query": search_q}, s_res, step=idx + 1)
+                                                if s_chunk:
+                                                    interim_findings.append(s_chunk)
+                                                    self._emit("delta", {"text": s_chunk})
+                                                
+                                                snippets_md = "\n".join([f"*   **[{r.get('title')}]({r.get('url')})**: {r.get('snippet')}" for r in s_list])
+                                                user_content += (
+                                                    f"\n\n--- Dữ liệu nghiên cứu đối chiếu bổ sung từ Web ({search_q}): ---\n"
+                                                    f"{snippets_md}\n"
+                                                    f"--- Hết dữ liệu nghiên cứu đối chiếu ---"
+                                                )
+                                    except Exception:
+                                        pass
+
                             # Tự động theo dõi các link nguồn gốc trong mô tả video (YouTube, Web)
                             nested_urls = re.findall(r"(https?://(?:www\.)?(?:youtube\.com/watch\?v=[^\s)\]\"'>]+|youtu\.be/[^\s)\]\"'>]+))", md_text)
                             if nested_urls and any(kw in user_prompt.lower() for kw in ("podcast", "nguồn", "video", "gốc", "bài viết", "tác giả")):
@@ -503,12 +553,26 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                                             f"{sec_md[:3000]}\n"
                                             f"--- Hết thông tin nguồn gốc ---"
                                         )
-                                        sec_chunk = _generate_interim_finding("extract_webpage_markdown", {"url": secondary_url}, sec_res, step=idx + 1)
+                                        sec_chunk = _generate_interim_finding("extract_webpage_markdown", {"url": secondary_url}, sec_res, step=idx + 2)
                                         if sec_chunk:
                                             interim_findings.append(sec_chunk)
                                             self._emit("delta", {"text": sec_chunk})
                 except Exception:
                     pass
+
+        # Bổ sung chỉ dẫn tổng hợp báo cáo chuyên sâu khi người dùng yêu cầu tìm kiếm / nghiên cứu
+        if url_matches or any(kw in user_prompt.lower() for kw in ("tìm", "thông tin", "nghiên cứu", "phân tích")):
+            user_content += (
+                "\n\n[CHỈ DẪN BẮT BUỘC KHI XUẤT BÁO CÁO]:\n"
+                "- Dựa trên toàn bộ dữ liệu bài đăng gốc VÀ các tài liệu nghiên cứu đối chiếu chuyên sâu ở trên, "
+                "bạn hãy xuất bản BÁO CÁO TOÀN DIỆN theo tiêu chuẩn chất lượng cao nhất tương đương Gemini 3.8 Flash:\n"
+                "  1. 📌 Tổng quan Bối cảnh & Nguồn gốc (Tác giả, thời gian, số liệu tương tác, đối tượng, sản phẩm demo).\n"
+                "  2. 🧠 Phân tích Kỹ thuật & Cơ chế Hoạt động (Workflow chi tiết, kết nối MCP/Blender/Engine, cơ chế lặp Visual Feedback Loop, bảng thông số kỹ thuật).\n"
+                "  3. 🔍 Phân tích Ý nghĩa & Ứng dụng Thực tiễn trong ngành.\n"
+                "  4. ⚠️ Lưu ý Quan trọng & Trạng thái Hiện tại (Quota, quyền truy cập API, giới hạn kỹ thuật).\n"
+                "  5. 💡 Pro-Tips & Production Gotchas (Mẹo thực chiến, visual anchoring, tối ưu hóa).\n"
+                "- Trình bày chi tiết, chuyên sâu, phân cấp rõ ràng, có bảng markdown đối chiếu nếu phù hợp, tuyệt đối không trả lời sơ sài."
+            )
 
         conversation.append({
             "role": "user",

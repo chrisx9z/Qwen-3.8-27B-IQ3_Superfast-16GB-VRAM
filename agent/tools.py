@@ -310,6 +310,41 @@ def _extract_twitter_or_x_content(url: str, headers: dict[str, str] | None = Non
                             m_url = med.get("url") or med.get("thumbnail_url")
                             if m_url:
                                 lines.append(f"- [{m_type.capitalize()}]({m_url})")
+                    # Tự động theo dõi và trích xuất các bài đăng tiếp theo trong Thread (Quy trình chi tiết của tác giả)
+                    is_thread_opener = any(kw in tweet_text.lower() for kw in ("below", "process below", "thread", "1/", "share below", "read below", "see below", "tutorial", "trick", "process"))
+                    if is_thread_opener:
+                        try:
+                            clean_words = [w for w in re.findall(r"[a-zA-Z0-9_\-]+", tweet_text) if len(w) > 2 and w.lower() not in ("the", "and", "for", "with", "this", "that", "some", "kind", "couple")]
+                            kws = " ".join(clean_words[:4])
+                            ddg_queries = [
+                                f"{user_name} {kws}",
+                                f'{user_name} "All I did was"',
+                            ]
+                            found_thread = False
+                            for ddg_q in ddg_queries:
+                                if found_thread:
+                                    break
+                                ddg_resp = requests.post(
+                                    "https://lite.duckduckgo.com/lite/",
+                                    data={"q": ddg_q},
+                                    headers=req_headers,
+                                    timeout=8,
+                                )
+                                if ddg_resp.status_code == 200:
+                                    candidate_ids = list(dict.fromkeys(re.findall(rf"/{user_name}/status/(\d+)", ddg_resp.text)))
+                                    for sid in candidate_ids:
+                                        if sid != status_id:
+                                            sub_fx = requests.get(f"https://api.fxtwitter.com/{user_name}/status/{sid}", timeout=8, headers=req_headers)
+                                            if sub_fx.status_code == 200:
+                                                sub_data = sub_fx.json().get("tweet") or {}
+                                                if sub_data.get("replying_to_status") == status_id or (sub_data.get("author", {}).get("screen_name") == user_name and any(term in sub_data.get("text", "").lower() for term in ("connect", "blender", "mcp", "step", "1.", "2.", "process", "prompt"))):
+                                                    sub_text = sub_data.get("text") or ""
+                                                    if sub_text and sub_text != tweet_text:
+                                                        lines.append(f"\n### 🧵 Quy trình kỹ thuật chi tiết từ tác giả (@{screen_name}):\n{sub_text}\n")
+                                                        found_thread = True
+                                                        break
+                        except Exception:
+                            pass
 
                     md = "\n".join(lines)
                     return {
@@ -11003,33 +11038,72 @@ build
             except Exception:
                 pass
 
-        # 1. Primary Engine: Google Search (Google Official Feed & Article Endpoints)
+        # 1. Primary Engine: DuckDuckGo Lite Engine (Toàn diện, không chặn IP, index đầy đủ tài liệu & mạng xã hội)
         try:
-            gnews_vi_url = f"https://news.google.com/rss/search?q={quote(search_query)}&hl=vi&gl=VN&ceid=VN:vi"
-            resp_g = requests.get(
-                gnews_vi_url,
-                headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+            ddg_headers = {
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+                "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+                "Accept-Language": "en-US,en;q=0.9,vi-VN;q=0.8,vi;q=0.7",
+            }
+            resp_ddg = requests.post(
+                "https://lite.duckduckgo.com/lite/",
+                data={"q": search_query},
+                headers=ddg_headers,
                 timeout=12,
             )
-            if resp_g.status_code == 200:
-                root = ET.fromstring(resp_g.text)
-                for item in root.findall(".//item"):
-                    u = str(item.findtext("link") or "").strip()
-                    t = " ".join(str(item.findtext("title") or "").split())
-                    desc = " ".join(str(item.findtext("description") or "").split())
-                    desc_clean = re.sub(r"<[^>]+>", "", desc).strip()
-                    if u and u not in seen_urls:
-                        seen_urls.add(u)
+            if resp_ddg.status_code == 200:
+                links = re.findall(r'<a[^>]+href="([^"]+)"[^>]+class=[\'"]result-link[\'"][^>]*>(.*?)</a>', resp_ddg.text)
+                if not links:
+                    links = re.findall(r'<a[^>]+class=[\'"]result-link[\'"][^>]+href="([^"]+)"[^>]*>(.*?)</a>', resp_ddg.text)
+                snippets = re.findall(r'<td[^>]+class=[\'"]result-snippet[\'"][^>]*>([\s\S]*?)</td>', resp_ddg.text)
+                for idx, (raw_u, raw_t) in enumerate(links):
+                    clean_u = urllib.parse.unquote(raw_u)
+                    m = re.search(r'uddg=([^&]+)', clean_u)
+                    final_u = urllib.parse.unquote(m.group(1)) if m else clean_u
+                    clean_t = html.unescape(re.sub(r'<[^>]+>', '', raw_t).strip())
+                    raw_s = snippets[idx] if idx < len(snippets) else ''
+                    clean_s = html.unescape(re.sub(r'<[^>]+>', '', raw_s).strip())
+                    if final_u.startswith("http") and final_u not in seen_urls:
+                        seen_urls.add(final_u)
                         results.append({
-                            "title": t,
-                            "url": u,
-                            "snippet": desc_clean or t,
-                            "engine": "Google",
+                            "title": clean_t or final_u,
+                            "url": final_u,
+                            "snippet": clean_s or clean_t,
+                            "engine": "DuckDuckGo",
                         })
                         if len(results) >= limit:
                             break
         except Exception:
             pass
+
+        # 2. Secondary Engine: Google Search (Google Official Feed & Article Endpoints)
+        if len(results) < limit:
+            try:
+                gnews_vi_url = f"https://news.google.com/rss/search?q={quote(search_query)}&hl=vi&gl=VN&ceid=VN:vi"
+                resp_g = requests.get(
+                    gnews_vi_url,
+                    headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"},
+                    timeout=12,
+                )
+                if resp_g.status_code == 200:
+                    root = ET.fromstring(resp_g.text)
+                    for item in root.findall(".//item"):
+                        u = str(item.findtext("link") or "").strip()
+                        t = " ".join(str(item.findtext("title") or "").split())
+                        desc = " ".join(str(item.findtext("description") or "").split())
+                        desc_clean = re.sub(r"<[^>]+>", "", desc).strip()
+                        if u and u not in seen_urls:
+                            seen_urls.add(u)
+                            results.append({
+                                "title": t,
+                                "url": u,
+                                "snippet": desc_clean or t,
+                                "engine": "Google",
+                            })
+                            if len(results) >= limit:
+                                break
+            except Exception:
+                pass
 
         # Global/English Google query if needed
         if len(results) < limit:
