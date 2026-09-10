@@ -8437,6 +8437,36 @@ class PluginHarnessManagerDialog(QDialog):
         lay.addWidget(self.harness_log, 1)
 
 
+def generate_chat_title_from_prompt(prompt: str, max_words: int = 7, max_chars: int = 40) -> str:
+    """Tạo tiêu đề súc tích từ vài từ đầu tiên của câu hỏi người dùng thay vì 'New Chat'."""
+    text = (prompt or "").strip()
+    if text.startswith("/"):
+        parts = text.split(maxsplit=1)
+        if len(parts) > 1 and parts[0].lower() in ("/chat", "/code", "/auto", "/plan", "/ask"):
+            text = parts[1].strip()
+    clean = re.sub(r"\s+", " ", text).strip()
+    if not clean:
+        return "New Chat"
+    words = clean.split(" ")
+    if len(words) > max_words:
+        snippet = " ".join(words[:max_words])
+    else:
+        snippet = clean
+    if len(snippet) > max_chars:
+        trimmed = snippet[:max_chars].rsplit(" ", 1)[0]
+        snippet = trimmed if trimmed else snippet[:max_chars]
+    return snippet.strip() or "New Chat"
+
+
+def is_placeholder_chat_title(title: str) -> bool:
+    """Kiểm tra xem tiêu đề hiện tại có phải là tên mặc định / placeholder không."""
+    t_clean = (title or "").strip().lower()
+    return t_clean in (
+        "new chat", "new_chat", "chat mới", "chat moi", "cuộc trò chuyện mới",
+        "新对话", "untitled", "", "chat", "new chat..."
+    ) or t_clean.startswith("new chat") or t_clean.startswith("chat mới")
+
+
 class AgentPage(QWidget):
     def __init__(
         self,
@@ -11072,34 +11102,6 @@ class AgentPage(QWidget):
         if transcript:
             display.append({"role": "assistant", "content": transcript})
         return display
-
-def generate_chat_title_from_prompt(prompt: str, max_words: int = 7, max_chars: int = 40) -> str:
-    """Tạo tiêu đề súc tích từ vài từ đầu tiên của câu hỏi người dùng thay vì 'New Chat'."""
-    text = (prompt or "").strip()
-    if text.startswith("/"):
-        parts = text.split(maxsplit=1)
-        if len(parts) > 1 and parts[0].lower() in ("/chat", "/code", "/auto", "/plan", "/ask"):
-            text = parts[1].strip()
-    clean = re.sub(r"\s+", " ", text).strip()
-    if not clean:
-        return "New Chat"
-    words = clean.split(" ")
-    if len(words) > max_words:
-        snippet = " ".join(words[:max_words])
-    else:
-        snippet = clean
-    if len(snippet) > max_chars:
-        trimmed = snippet[:max_chars].rsplit(" ", 1)[0]
-        snippet = trimmed if trimmed else snippet[:max_chars]
-    return snippet.strip() or "New Chat"
-
-def is_placeholder_chat_title(title: str) -> bool:
-    """Kiểm tra xem tiêu đề hiện tại có phải là tên mặc định / placeholder không."""
-    t_clean = (title or "").strip().lower()
-    return t_clean in (
-        "new chat", "new_chat", "chat mới", "chat moi", "cuộc trò chuyện mới",
-        "新对话", "untitled", "", "chat", "new chat..."
-    ) or t_clean.startswith("new chat") or t_clean.startswith("chat mới")
 
     def load_chats(self) -> None:
         try:
