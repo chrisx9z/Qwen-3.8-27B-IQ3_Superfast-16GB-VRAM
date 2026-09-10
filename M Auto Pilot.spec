@@ -97,6 +97,13 @@ a = Analysis(
     noarchive=False,
 )
 
+# Loại bỏ triệt để các DLL xung đột/không tương thích bị PyInstaller kéo từ .cache/codex-runtimes hoặc icu (nguyên nhân gây WinError 127 Procedure Not Found trên QtCore.pyd/Qt6Core.dll)
+a.binaries = [
+    b for b in a.binaries
+    if "codex-runtimes" not in b[1].lower()
+    and not b[0].lower().startswith("icu")
+]
+
 pyz = PYZ(a.pure, a.zipped_data, cipher=block_cipher)
 
 exe = EXE(
