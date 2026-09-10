@@ -14,8 +14,8 @@ from uuid import uuid4
 from core.project import APP_ROOT
 from core.i18n import t, set_language, get_current_language
 
-from PySide6.QtCore import QObject, QProcess, QRunnable, QThreadPool, QTimer, QUrl, Qt, Signal, Slot
-from PySide6.QtGui import QKeySequence, QShortcut, QDesktopServices, QGuiApplication, QTextCursor
+from PySide6.QtCore import QObject, QProcess, QRunnable, QThreadPool, QTimer, QUrl, Qt, Signal, Slot, QPoint
+from PySide6.QtGui import QKeySequence, QShortcut, QDesktopServices, QGuiApplication, QTextCursor, QCursor
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -7975,21 +7975,50 @@ class ReasoningCard(QFrame):
         self._layout.setContentsMargins(10, 8, 10, 8)
         self._layout.setSpacing(6)
 
+        header_row = QWidget()
+        header_layout = QHBoxLayout(header_row)
+        header_layout.setContentsMargins(0, 0, 0, 0)
+        header_layout.setSpacing(8)
+
         self.header_btn = QPushButton(t("reasoning_title") + " (" + t("status_thinking", step=1, max_steps=1) + ")")
         self.header_btn.setObjectName("ReasoningHeader")
         self.header_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.header_btn.clicked.connect(self.toggle_collapse)
-        self._layout.addWidget(self.header_btn)
+        header_layout.addWidget(self.header_btn, 1)
+
+        self.copy_btn = QPushButton("📋 Sao chép suy luận")
+        self.copy_btn.setObjectName("GhostButton")
+        self.copy_btn.setToolTip("Sao chép toàn bộ nội dung suy luận / phân tích vào Clipboard")
+        self.copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.copy_btn.clicked.connect(self._copy_reasoning)
+        header_layout.addWidget(self.copy_btn, 0)
+
+        self._layout.addWidget(header_row)
 
         self.body = QTextBrowser()
         self.body.setObjectName("ReasoningBody")
         self.body.setMinimumHeight(45)
         self.body.setMaximumHeight(200)
+        self.body.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         self._layout.addWidget(self.body)
 
         self._text = ""
         self._collapsed = False
         self._finished = False
+
+    def _copy_reasoning(self) -> None:
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app is not None and self._text:
+            cb = app.clipboard()
+            if cb is not None:
+                cb.setText(self._text)
+                orig = self.copy_btn.text()
+                self.copy_btn.setText("✓ Đã sao chép")
+                QTimer.singleShot(2000, lambda: self.copy_btn.setText(orig))
 
     def append_text(self, text: str) -> None:
         self._text += text
@@ -10500,6 +10529,56 @@ class AgentPage(QWidget):
         QApplication.clipboard().setText(str(export_file))
         self.status_label.setText(f"📄 Đã xuất chat ra {export_file.name} (Đã copy đường dẫn)")
 
+    def copy_entire_chat(self) -> None:
+        chat = self.active_chat()
+        lines: list[str] = []
+        title = str((chat or {}).get("title", "Cuộc trò chuyện M-Auto-Pilot")).strip()
+        lines.append(f"# 💬 {title}\n")
+
+        if chat is not None:
+            for msg in self.history(chat):
+                role = "👤 **Người dùng**" if msg.get("role") == "user" else "🤖 **M Auto Pilot**"
+                ts = msg.get("ts", "")
+                ts_str = f" *({ts})*" if ts else ""
+                content = str(msg.get("content", "")).strip()
+                if content:
+                    lines.append(f"### {role}{ts_str}\n\n{content}\n\n---\n")
+
+        # Kèm nội dung đang stream nếu có
+        if self._streaming_text.strip():
+            lines.append(f"### 🤖 **M Auto Pilot** *(Mới nhất)*\n\n{self._streaming_text.strip()}\n\n---\n")
+
+        # Kèm suy luận nếu có
+        if self._reasoning_card is not None and getattr(self._reasoning_card, "_text", "").strip():
+            lines.append(f"### 🧠 **Quá trình suy luận gần nhất**\n\n```text\n{self._reasoning_card._text.strip()}\n```\n\n---\n")
+
+        full_content = "\n".join(lines).strip()
+        if not full_content or full_content == f"# 💬 {title}":
+            self.status_label.setText("Chưa có nội dung cuộc trò chuyện để sao chép.")
+            return
+
+        from PySide6.QtWidgets import QApplication
+        app = QApplication.instance()
+        if app is not None:
+            cb = app.clipboard()
+            if cb is not None:
+                cb.setText(full_content)
+                if hasattr(self, "copy_chat_button"):
+                    orig_text = self.copy_chat_button.text()
+                    self.copy_chat_button.setText("✓ Đã sao chép toàn bộ")
+                    QTimer.singleShot(2500, lambda: self.copy_chat_button.setText(orig_text))
+                self.status_label.setText("✓ Đã sao chép toàn bộ nội dung cuộc trò chuyện vào Clipboard!")
+
+    def _on_chat_context_menu(self, pos: QPoint) -> None:
+        from PySide6.QtWidgets import QMenu
+        menu = QMenu(self)
+        copy_all_act = menu.addAction("📋 Sao chép toàn bộ cuộc trò chuyện")
+        copy_all_act.triggered.connect(self.copy_entire_chat)
+        if self._reasoning_card is not None and getattr(self._reasoning_card, "_text", "").strip():
+            copy_reasoning_act = menu.addAction("🧠 Sao chép suy luận gần nhất")
+            copy_reasoning_act.triggered.connect(self._reasoning_card._copy_reasoning)
+        menu.exec(QCursor.pos())
+
     # ------------------------------------------------------------- UI
 
     def on_mode_changed(self) -> None:
@@ -10799,6 +10878,14 @@ class AgentPage(QWidget):
         self.lang_combo.currentIndexChanged.connect(self.on_language_combo_changed)
         header_layout.addWidget(self.lang_combo)
 
+        # Copy Entire Chat Button
+        self.copy_chat_button = QPushButton("📋 Sao chép chat")
+        self.copy_chat_button.setObjectName("GhostButton")
+        self.copy_chat_button.setToolTip("Sao chép toàn bộ nội dung cuộc trò chuyện (cả câu hỏi, câu trả lời & suy luận) vào Clipboard")
+        self.copy_chat_button.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.copy_chat_button.clicked.connect(self.copy_entire_chat)
+        header_layout.addWidget(self.copy_chat_button)
+
         # Export Button
         self.export_button = QPushButton("📤 " + t("export_md"))
         self.export_button.setObjectName("GhostButton")
@@ -10813,8 +10900,10 @@ class AgentPage(QWidget):
         self.scroll.setObjectName("ChatScroll")
         self.scroll.setWidgetResizable(True)
         self.scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        
+
         chat_host = QWidget()
+        chat_host.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        chat_host.customContextMenuRequested.connect(self._on_chat_context_menu)
         self.chat_layout = QVBoxLayout(chat_host)
         self.chat_layout.setContentsMargins(4, 10, 4, 10)
         self.chat_layout.setSpacing(14)
@@ -11396,7 +11485,16 @@ class AgentPage(QWidget):
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(6)
         row_layout.addStretch(1)
+
+        copy_btn = QPushButton("📋")
+        copy_btn.setObjectName("GhostIconBtn")
+        copy_btn.setToolTip("Sao chép câu hỏi vào Clipboard")
+        copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        copy_btn.clicked.connect(lambda _, t=text, b=copy_btn: self._copy_message_text(b, t))
+        row_layout.addWidget(copy_btn, 0)
+
         bubble = QLabel(text)
         bubble.setObjectName("UserBubble")
         f = bubble.font()
@@ -11405,6 +11503,7 @@ class AgentPage(QWidget):
         bubble.setWordWrap(True)
         bubble.setTextInteractionFlags(
             Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
         )
         row_layout.addWidget(bubble, 0)
         self.chat_layout.insertWidget(self.chat_layout.count() - 1, row)
@@ -11574,11 +11673,25 @@ class AgentPage(QWidget):
         row = QWidget()
         row_layout = QHBoxLayout(row)
         row_layout.setContentsMargins(0, 0, 0, 0)
+        row_layout.setSpacing(8)
         row_layout.addStretch(1)
+
         label = QLabel("⚠️ " + message)
         label.setObjectName("ErrorText")
         label.setWordWrap(True)
+        label.setTextInteractionFlags(
+            Qt.TextInteractionFlag.TextSelectableByMouse
+            | Qt.TextInteractionFlag.TextSelectableByKeyboard
+        )
         row_layout.addWidget(label)
+
+        copy_btn = QPushButton("📋 Sao chép lỗi")
+        copy_btn.setObjectName("GhostButton")
+        copy_btn.setToolTip("Sao chép thông báo lỗi vào Clipboard")
+        copy_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        copy_btn.clicked.connect(lambda _, m=message, b=copy_btn: self._copy_message_text(b, f"⚠️ {m}"))
+        row_layout.addWidget(copy_btn)
+
         row_layout.addStretch(1)
         self.chat_layout.insertWidget(self.chat_layout.count() - 1, row)
         self.scroll_to_bottom()

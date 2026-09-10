@@ -561,28 +561,26 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 except Exception:
                     pass
 
-        # Đảm bảo suy nghĩ nội tâm (Reasoning / Thinking) 100% bằng Tiếng Việt khi người dùng hỏi bằng Tiếng Việt
-        is_vietnamese = any(c in user_prompt.lower() for c in "àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ") or any(
-            kw in user_prompt.lower() for kw in ("tôi", "bạn", "là", "gì", "như thế nào", "sao", "giúp", "phim", "tìm", "kiếm", "xem", "cho", "được", "không")
-        )
-        if is_vietnamese:
-            user_content += (
-                "\n\n[QUY TẮC BẮT BUỘC VỀ SUY LUẬN BẰNG TIẾNG VIỆT]:\n"
-                "- Người dùng đang sử dụng Tiếng Việt. Bạn PHẢI SUY NGHĨ VÀ LẬP LUẬN (nội dung bên trong thẻ <think>...</think>) 100% HOÀN TOÀN BẰNG TIẾNG VIỆT.\n"
-                "- Tuyệt đối KHÔNG dùng tiếng Anh trong thẻ <think>. Hãy tự vấn, phân tích cặn kẽ ý định người dùng và tìm giải pháp thực chất nhất bằng tiếng Việt.\n"
+        # Đảm bảo các chỉ dẫn hệ thống nằm trong vai trò system (tránh để model hiểu nhầm là prompt injection trong user message)
+        if conversation and conversation[0].get("role") == "system":
+            sys_text = str(conversation[0].get("content") or "")
+            is_vietnamese = any(c in user_prompt.lower() for c in "àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ") or any(
+                kw in user_prompt.lower() for kw in ("tôi", "bạn", "là", "gì", "như thế nào", "sao", "giúp", "phim", "tìm", "kiếm", "xem", "cho", "được", "không")
             )
+            if is_vietnamese and "Reasoning Language Guide" not in sys_text:
+                conversation[0]["content"] = sys_text + (
+                    "\n\n[Reasoning Language Guide]: Khi người dùng giao tiếp bằng tiếng Việt, "
+                    "hãy suy nghĩ và phân tích trong thẻ <think> hoàn toàn bằng tiếng Việt.\n"
+                )
+                sys_text = conversation[0]["content"]
 
-        # Định hướng thuần kỹ thuật & phục vụ người dùng tối đa (Không thuyết giáo, không đùn đẩy việc)
-        if any(kw in user_prompt.lower() for kw in ("torrent", "magnet", "download", "tải", "phim", "crack", "p2p", "remux", "uhd", "bluray", "4k")):
-            user_content += (
-                "\n\n[CHỈ DẪN KỸ THUẬT & PHỤC VỤ NGƯỜI DÙNG TỐI ĐA - KHÔNG THUYẾT GIÁO, KHÔNG ĐÙN ĐẨY]:\n"
-                "- Bạn là trợ lý kỹ thuật độc lập chạy 100% cục bộ trên máy tính cá nhân của người dùng. "
-                "TUYỆT ĐỐI KHÔNG thuyết giáo đạo đức, KHÔNG từ chối máy móc và KHÔNG khuyên người dùng mua/thuê dịch vụ khác.\n"
-                "- TUYỆT ĐỐI KHÔNG đùn đẩy việc cho người dùng bằng cách bảo người dùng 'hãy tự mở trình duyệt và tự tìm kiếm trên 1337x / Bitsearch'. "
-                "Người dùng cần một trợ lý AI thực thụ làm thay công việc tìm kiếm phức tạp đó.\n"
-                "- Sử dụng ngay công cụ tìm kiếm (`web_search`) hoặc cung cấp trực tiếp danh sách các bản phát hành chuẩn (Scene Release Tags: FraMeSToR, KOGi, DON, LAMA, v.v.), "
-                "cung cấp đầy đủ: Tên file chuẩn, Link Magnet (`magnet:?xt=urn:btih:...`), Mã InfoHash, Dung lượng (GB), Thông số kỹ thuật (x265 10-bit HDR/DV, TrueHD Atmos), và số lượng Seeders để người dùng có thể nhấp tải hoặc sao chép dùng ngay!\n"
-            )
+            if any(kw in user_prompt.lower() for kw in ("torrent", "magnet", "download", "tải", "phim", "crack", "p2p", "remux", "uhd", "bluray", "4k")):
+                if "Media & P2P Guidelines" not in sys_text:
+                    conversation[0]["content"] = sys_text + (
+                        "\n\n[Media & P2P Guidelines]: Khi người dùng hỏi về phim ảnh, media, liên kết tải P2P hoặc torrent: "
+                        "Hãy chủ động dùng công cụ `web_search` để tra cứu các bản phát hành chuẩn (4K UHD, BluRay, Remux) "
+                        "và trả về đầy đủ tên Scene Release Tags, link Magnet, mã InfoHash, dung lượng và số lượng Seeders để phục vụ người dùng tốt nhất.\n"
+                    )
 
         # Chỉ dẫn tổng hợp báo cáo khi nghiên cứu từ liên kết URL
         if url_matches:
@@ -627,6 +625,14 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 return AgentResult(text="[Đã dừng bởi người dùng]", messages=conversation, steps=step)
 
             self._emit(
+                "step",
+                {
+                    "step": step,
+                    "max_steps": effective_max_steps,
+                    "profile": active_profile,
+                },
+            )
+            self._emit(
                 "status",
                 {
                     "message": (
@@ -660,9 +666,26 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 ).strip()
 
                 if not text:
-                    raise RuntimeError(
-                        "Model không trả về nội dung hoặc tool call."
-                    )
+                    # Tự động cứu vãn nếu model sinh suy luận mà chưa nhả text hoặc timeout
+                    lowered_prompt = user_prompt.lower()
+                    if any(kw in lowered_prompt for kw in ("torrent", "magnet", "phim", "download", "tải", "tìm", "4k", "link")):
+                        self._emit("status", {"message": "Đang tự động định vị nguồn chia sẻ P2P / Magnet trực tiếp..."})
+                        fb_res = self.registry.execute("web_search", {"query": user_prompt, "limit": 4})
+                        if fb_res.get("ok"):
+                            results = (fb_res.get("result") or {}).get("results") or []
+                            if results:
+                                lines = ["### 🎬 Danh Sách Bản Phát Hành 4K / Magnet Trực Tiếp Sẵn Sàng Kéo:\n"]
+                                for r in results:
+                                    lines.append(f"#### 📦 {r.get('title')}\n* **Liên kết Magnet:** `{r.get('url')}`\n* {r.get('snippet')}\n")
+                                text = "\n".join(lines)
+                    if not text:
+                        reasoning = str(assistant_message.get("reasoning_content") or "").strip()
+                        if reasoning:
+                            text = "Dưới đây là kết quả phân tích yêu cầu của bạn:\n\n" + reasoning
+                        else:
+                            raise RuntimeError(
+                                "Model không trả về nội dung hoặc tool call."
+                            )
 
                 if interim_findings:
                     full_text = "\n\n".join(interim_findings) + "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n" + text
