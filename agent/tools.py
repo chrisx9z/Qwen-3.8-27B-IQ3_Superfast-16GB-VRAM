@@ -11039,27 +11039,33 @@ build
                 pass
 
         # 0.1 Specialized Engine: P2P & Torrent DHT Indexer Search (Apibay / BitSearch)
-        if any(kw in search_query.lower() for kw in ("torrent", "magnet", "p2p", "remux", "2160p", "tải phim", "download phim", "uhd bluray")):
+        has_media_code = bool(re.search(r"\b[A-Za-z]{2,6}[-_]\d{2,5}\b", search_query))
+        if has_media_code or any(kw in search_query.lower() for kw in ("torrent", "magnet", "p2p", "remux", "2160p", "tải phim", "download phim", "uhd bluray", "uncensored", "decensored", "không che")):
             try:
                 p2p_term = search_query.lower()
-                stop_words = (
-                    "tìm giúp tôi", "tìm hộ tôi", "tìm cho tôi", "tìm giúp", "tìm hộ", "tìm kiếm", "tìm",
-                    "giúp tôi", "cho tôi", "hộ tôi", "xin link", "xin", "hãy", "1 bản", "bản",
-                    "của", "phim", "bộ phim", "với", "được không", "nhé", "đi", "link torrent", "link magnet",
-                    "link", "torrent", "magnet", "tải về", "tải xuống", "download"
-                )
-                for rm in sorted(stop_words, key=len, reverse=True):
-                    p2p_term = p2p_term.replace(rm, " ")
-                p2p_term = " ".join(p2p_term.split()).strip()
+                code_match = re.search(r"\b([A-Za-z]{2,6}[-_]\d{2,5})\b", search_query)
+                if code_match:
+                    p2p_term = code_match.group(1).upper()
+                else:
+                    stop_words = (
+                        "tìm giúp tôi", "tìm hộ tôi", "tìm cho tôi", "tìm giúp", "tìm hộ", "tìm kiếm", "tìm",
+                        "giúp tôi", "cho tôi", "hộ tôi", "xin link", "xin", "hãy", "1 bản", "bản",
+                        "của", "phim", "bộ phim", "với", "được không", "nhé", "đi", "link torrent", "link magnet",
+                        "link", "torrent", "magnet", "tải về", "tải xuống", "download"
+                    )
+                    for rm in sorted(stop_words, key=len, reverse=True):
+                        p2p_term = p2p_term.replace(rm, " ")
+                    p2p_term = " ".join(p2p_term.split()).strip()
 
-                # Đẩy các tag chất lượng (4k, 2160p, remux...) về cuối chuỗi để khớp index Apibay/DHT
-                qualities = re.findall(r"\b(4k|2160p|1080p|720p|remux|bluray|hdr|atmos)\b", p2p_term)
-                for qtag in qualities:
-                    p2p_term = re.sub(r"\b" + re.escape(qtag) + r"\b", "", p2p_term)
-                p2p_term = " ".join(p2p_term.split()).strip()
-                if qualities:
-                    p2p_term = p2p_term + " " + " ".join(qualities)
-                p2p_term = p2p_term.strip()
+                    # Đẩy các tag chất lượng (4k, 2160p, remux...) về cuối chuỗi để khớp index Apibay/DHT
+                    qualities = re.findall(r"\b(4k|2160p|1080p|720p|remux|bluray|hdr|atmos)\b", p2p_term)
+                    for qtag in qualities:
+                        p2p_term = re.sub(r"\b" + re.escape(qtag) + r"\b", "", p2p_term)
+                    p2p_term = " ".join(p2p_term.split()).strip()
+                    if qualities:
+                        p2p_term = p2p_term + " " + " ".join(qualities)
+                    p2p_term = p2p_term.strip()
+
                 if p2p_term:
                     p2p_url = f"https://apibay.org/q.php?q={quote(p2p_term)}"
                     resp_p2p = requests.get(p2p_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}, timeout=8)

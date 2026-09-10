@@ -1249,9 +1249,10 @@ At the conclusion of technical or creative solutions, always provide a dedicated
             "status",
             {"message": "Đang tra cứu các bản phát hành P2P DHT toàn cầu..."},
         )
+        p2p_q = _clean_p2p_search_query(prompt)
         result = self._execute_direct_tool(
             "web_search",
-            {"query": prompt, "limit": 8},
+            {"query": p2p_q, "limit": 8},
         )
         payload = result.get("result") if result.get("ok") else None
         results = payload.get("results") if isinstance(payload, dict) else []
@@ -2336,6 +2337,28 @@ def _is_direct_douyin_search_task(prompt: str) -> bool:
     return has_douyin and has_search and not has_download and len(prompt) <= 420
 
 
+def _clean_p2p_search_query(prompt: str) -> str:
+    # 1. Check for specific release code like WANZ-651, SSIS-123
+    code_match = re.search(r"\b([A-Za-z]{2,6}[-_]\d{2,5})\b", prompt)
+    if code_match:
+        code = code_match.group(1).upper()
+        if any(kw in prompt.lower() for kw in ("không che", "uncensored", "decensored", "leak")):
+            return f"{code} uncensored"
+        return code
+
+    # 2. Otherwise clean conversational words
+    q = prompt
+    stop_words = [
+        "tìm giúp tôi", "tìm hộ tôi", "tìm cho tôi", "tìm giúp", "tìm hộ", "tìm kiếm", "tìm",
+        "giúp tôi", "cho tôi", "hộ tôi", "xin link", "xin", "hãy", "1 bản", "bản",
+        "của", "bộ phim", "phim", "với", "được không", "nhé", "đi", "link torrent", "link magnet",
+        "link", "torrent", "magnet", "tải về", "tải xuống", "download", "mã", "có mã"
+    ]
+    for sw in sorted(stop_words, key=len, reverse=True):
+        q = re.sub(rf"\b{re.escape(sw)}\b", " ", q, flags=re.IGNORECASE)
+    return " ".join(q.split()).strip() or prompt
+
+
 def _is_direct_p2p_search_task(prompt: str) -> bool:
     lowered = prompt.lower()
     if "http://" in lowered or "https://" in lowered or "www." in lowered:
@@ -2343,9 +2366,14 @@ def _is_direct_p2p_search_task(prompt: str) -> bool:
     p2p_keywords = (
         "torrent", "magnet", "p2p", "bản torrent", "link torrent",
         "link magnet", "tìm torrent", "4k torrent", "remux", "tracker",
-        "seeders", "infohash"
+        "seeders", "infohash", "không che", "uncensored", "decensored",
+        "leaked"
     )
-    return any(kw in lowered for kw in p2p_keywords) and len(prompt) <= 600
+    has_p2p_kw = any(kw in lowered for kw in p2p_keywords)
+    has_media_code = bool(re.search(r"\b[A-Za-z]{2,6}[-_]\d{2,5}\b", prompt))
+    has_search = any(k in lowered for k in ("tìm", "tải", "download", "cho tôi", "xin link", "mã phim", "có mã"))
+    
+    return (has_p2p_kw or (has_media_code and has_search)) and len(prompt) <= 600
 
 
 def _is_direct_web_search_task(prompt: str) -> bool:
