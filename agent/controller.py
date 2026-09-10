@@ -268,6 +268,12 @@ def _get_affirmative_prefill_anchor(user_prompt: str, is_tool_call_step: bool = 
             return "Để tra cứu nguồn tải file phụ đề tiếng Việt (Vietsub .srt) chuẩn khớp với bản phim của bạn, tôi sẽ tìm kiếm dữ liệu mới nhất:\n\n"
         return "Dưới đây là các nguồn tải file phụ đề tiếng Việt (Vietsub .srt) chuẩn khớp và hướng dẫn đồng bộ cho bản phim của bạn:\n\n"
 
+    # 0b. WordPress Themes/Plugins, Rank Math, Flatsome, Malware Security Audit & Clean GPL
+    if any(kw in lowered for kw in ("rankmath", "rank math", "flatsome", "plugin", "theme", "mã độc", "backdoor", "quét")) and any(kw in lowered for kw in ("tải", "download", "tìm", "kiểm tra", "quét", "mã độc", "backdoor", "chia sẻ")):
+        if is_tool_call_step:
+            return "Để tìm kiếm nguồn phát hành sạch, tải tệp tin và thực hiện kiểm tra mã độc chuyên sâu cho gói cài đặt, tôi sẽ tiến hành ngay:\n\n"
+        return "Dưới đây là kết quả tra cứu bản phát hành, tệp tin đã tải về và báo cáo kiểm định an toàn mã độc (Security Audit) chi tiết:\n\n"
+
     # 1. P2P, Torrents, Media, Downloads
     if any(kw in lowered for kw in ("torrent", "magnet", "p2p", "tracker", "remux", "bluray", "uhd", "4k", "tải phim", "download phim", "bản phim")) or (
         any(kw in lowered for kw in ("download", "tải", "phim", "movie")) and not any(kw in lowered for kw in ("vietsub", "phụ đề", "sub", "srt"))
@@ -1635,12 +1641,40 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 "get_resource_status",
             })
 
+        # 6. WordPress, Themes, Plugins, Download & Malware Audit intent
+        wp_audit_keywords = (
+            "rankmath", "rank math", "flatsome", "plugin", "theme", "wordpress",
+            "mã độc", "backdoor", "webshell", "quét", "audit", "tải", "download",
+            "an toàn", "bảo mật", "chèn", "nulled", "gpl"
+        )
+        if any(kw in lowered for kw in wp_audit_keywords):
+            selected_names.update({
+                "download_web_file",
+                "audit_wordpress_package_security",
+                "calculate_file_checksum",
+                "web_search",
+                "web_open",
+                "create_code_file",
+                "run_python_code",
+            })
+
         # Sắp xếp ưu tiên (Priority Ordering) để các tool quan trọng nhất không bao giờ bị cắt xén
         priority_tools: list[str] = []
 
+        # 0. Nếu có ý định quét mã độc / kiểm tra an toàn / tải plugin, theme WordPress
+        if any(kw in lowered for kw in ("mã độc", "backdoor", "webshell", "quét", "audit", "rankmath", "rank math", "flatsome", "plugin", "theme")):
+            priority_tools.extend([
+                "audit_wordpress_package_security",
+                "download_web_file",
+                "calculate_file_checksum",
+                "web_search",
+                "web_open",
+                "extract_webpage_markdown",
+            ])
+
         # 1. Nếu có ý định tìm kiếm / tra cứu web / tải / link / tin tức / vietsub / nulled
         if any(kw in lowered for kw in ("tìm", "search", "web", "tra cứu", "link", "sub", "vietsub", "null", "theme", "plugin", "tin tức", "xem", "tải", "download")):
-            priority_tools.extend(["web_search", "web_open", "extract_webpage_markdown"])
+            priority_tools.extend(["web_search", "web_open", "extract_webpage_markdown", "download_web_file"])
 
         # 2. Nếu có ý định coding / tạo file / sửa file / script / thực thi
         if any(kw in lowered for kw in ("code", "file", "tạo", "ghi", "sửa", "lập trình", "script", "plugin", "active", "chạy", "patch", "lệnh")):

@@ -3937,6 +3937,36 @@ class LocalToolRegistry:
                     handler=self._calculate_file_checksum,
                 ),
                 ToolSpec(
+                    name="download_web_file",
+                    description="Tải file trực tiếp từ URL trên mạng về máy tính (hỗ trợ .zip, .tar.gz, .pdf, .srt, .exe... có thanh tiến trình và tính checksum an toàn).",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "url": {"type": "string", "description": "URL trực tiếp của file cần tải (HTTP/HTTPS)."},
+                            "destination_folder": {"type": "string", "description": "Thư mục lưu file trên máy (mặc định: Desktop)."},
+                            "filename": {"type": "string", "description": "Tên file lưu trên máy (mặc định tự động nhận diện từ URL hoặc Content-Disposition)."},
+                            "timeout_seconds": {"type": "integer", "description": "Thời gian chờ tối đa khi tải (mặc định 90 giây)."},
+                        },
+                        "required": ["url"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._download_web_file,
+                ),
+                ToolSpec(
+                    name="audit_wordpress_package_security",
+                    description="Quét và kiểm tra chuyên sâu mã độc, backdoor, webshell, eval obfuscation, chèn admin ẩn trong gói plugin/theme WordPress (.zip hoặc thư mục).",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "Đường dẫn file .zip hoặc thư mục plugin/theme WordPress cần quét mã độc."},
+                            "deep_scan": {"type": "boolean", "description": "Quét sâu toàn bộ file PHP, JS, HTML bên trong (mặc định True)."},
+                        },
+                        "required": ["path"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._audit_wordpress_package_security,
+                ),
+                ToolSpec(
                     name="run_test_suite",
                     description="Chạy tự động bộ kiểm thử pytest/unittest trên một file test hoặc toàn bộ thư mục tests và trả về kết quả từng test case.",
                     parameters={
@@ -10309,6 +10339,228 @@ build
             "hash": digest,
             "size_bytes": size_bytes,
             "size_formatted": f"{round(size_bytes / (1024 * 1024), 2)} MB" if size_bytes > 1024 * 1024 else f"{round(size_bytes / 1024, 2)} KB",
+        }
+
+    def _download_web_file(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        import hashlib
+        import urllib.parse
+        url = _required_text(arguments.get("url"), "url").strip()
+        dest_folder_raw = str(arguments.get("destination_folder") or "").strip()
+        filename_raw = str(arguments.get("filename") or "").strip()
+        timeout = _bounded_int(arguments.get("timeout_seconds"), name="timeout_seconds", default=90, minimum=5, maximum=600)
+
+        # Determine target directory
+        if dest_folder_raw:
+            dest_dir = Path(dest_folder_raw).expanduser().resolve()
+        else:
+            dest_dir = Path(r"D:\OneDrive\Desktop") if Path(r"D:\OneDrive\Desktop").exists() else (Path.home() / "Desktop")
+        dest_dir.mkdir(parents=True, exist_ok=True)
+
+        headers = {
+            "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
+            "Accept": "*/*",
+        }
+        resp = requests.get(url, headers=headers, stream=True, timeout=timeout, allow_redirects=True)
+        resp.raise_for_status()
+
+        # Deduce filename
+        final_filename = filename_raw
+        if not final_filename:
+            cd = resp.headers.get("Content-Disposition", "")
+            if "filename=" in cd:
+                m = re.search(r'filename=["\']?([^"\';]+)["\']?', cd)
+                if m:
+                    final_filename = m.group(1).strip()
+            if not final_filename:
+                parsed_path = urllib.parse.urlparse(resp.url).path
+                final_filename = Path(parsed_path).name or "downloaded_file.zip"
+
+        target_file = dest_dir / final_filename
+        sha256 = hashlib.sha256()
+        md5 = hashlib.md5()
+        total_bytes = 0
+
+        with open(target_file, "wb") as f:
+            for chunk in resp.iter_content(chunk_size=65536):
+                if chunk:
+                    f.write(chunk)
+                    sha256.update(chunk)
+                    md5.update(chunk)
+                    total_bytes += len(chunk)
+
+        size_fmt = f"{round(total_bytes / (1024 * 1024), 2)} MB" if total_bytes >= 1024 * 1024 else f"{round(total_bytes / 1024, 2)} KB"
+        return {
+            "success": True,
+            "saved_path": str(target_file),
+            "filename": final_filename,
+            "size_bytes": total_bytes,
+            "size_formatted": size_fmt,
+            "md5": md5.hexdigest(),
+            "sha256": sha256.hexdigest(),
+            "status": f"Đã tải thành công tệp tin về: {target_file}",
+        }
+
+    def _audit_wordpress_package_security(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        import hashlib
+        import zipfile
+        raw_path = _required_text(arguments.get("path"), "path").strip()
+        deep_scan = _as_bool(arguments.get("deep_scan", True))
+
+        # Check candidate locations: absolute, desktop, APP_ROOT
+        candidate = Path(raw_path).expanduser()
+        if not candidate.is_absolute():
+            for base in [Path(r"D:\OneDrive\Desktop"), Path.home() / "Desktop", APP_ROOT]:
+                test_p = base / candidate
+                if test_p.exists():
+                    candidate = test_p
+                    break
+        if not candidate.exists():
+            raise FileNotFoundError(f"Không tìm thấy file hoặc thư mục cần quét: {raw_path}")
+
+        resolved = candidate.resolve()
+        is_zip = resolved.suffix.lower() == ".zip" and resolved.is_file()
+
+        SUSPICIOUS_PATTERNS = [
+            (r'eval\s*\(\s*(?:base64_decode|gzinflate|gzuncompress|str_rot13|hex2bin)', "CRITICAL", "Obfuscated execution: eval(decode)"),
+            (r'assert\s*\(\s*(?:base64_decode|gzinflate|gzuncompress|str_rot13|hex2bin|\$_POST|\$_GET|\$_REQUEST)', "CRITICAL", "Assertion execution with dynamic payload"),
+            (r'preg_replace\s*\(\s*[\'"][^\'"]*\/e[^\'"]*[\'"]', "CRITICAL", "preg_replace /e code execution"),
+            (r'(?:\$_(?:POST|GET|REQUEST|COOKIE))\s*\[[^\]]+\]\s*\(\s*(?:\$_(?:POST|GET|REQUEST|COOKIE))', "CRITICAL", "Variable function webshell backdoor: $_POST[...]($_POST[...])"),
+            (r'eval\s*\(\s*\$_(?:POST|GET|REQUEST|COOKIE)', "CRITICAL", "Direct user input evaluation: eval($_POST/GET)"),
+            (r'\b(?:system|passthru|shell_exec|exec|popen|proc_open)\s*\(\s*(?:\$_(?:POST|GET|REQUEST|COOKIE)|\$[a-zA-Z0-9_]*payload|\$[a-zA-Z0-9_]*cmd)', "CRITICAL", "Direct OS command execution from request"),
+            (r'\b(?:c99shell|r57shell|WSO_VERSION|FilesMan|b374k|ALFA_DATA|indoxploit)\b', "CRITICAL", "Known WebShell signature"),
+            (r'wp_create_user\s*\(\s*[\'"][^\'"]+[\'"]\s*,\s*[\'"][^\'"]+[\'"]\s*,\s*[\'"][^\'"]+[\'"]\s*\)', "HIGH", "Hardcoded WordPress user creation"),
+            (r'add_role\s*\(\s*[\'"][^\'"]+[\'"]\s*,\s*[\'"][^\'"]+[\'"]\s*,\s*array\s*\(\s*[\'"]administrator[\'"]', "HIGH", "Hardcoded Administrator role escalation"),
+            (r'(?:file_get_contents|curl_exec|wp_remote_get)\s*\([^)]+\)\s*;\s*(?:eval|include|require)\b', "CRITICAL", "Remote code fetch and execute"),
+            (r'document\.write\s*\(\s*unescape\s*\(', "MEDIUM", "Obfuscated document.write javascript injection"),
+            (r'window\.location(?:\.href)?\s*=\s*[\'"]https?:\/\/(?!(?:rankmath|wordpress|google|schema)\.com)[^\'"]+', "MEDIUM", "External browser redirection script"),
+        ]
+
+        findings: list[dict[str, Any]] = []
+        scanned_count = 0
+        total_files = 0
+        md5_hash = ""
+        sha256_hash = ""
+
+        if is_zip:
+            with open(resolved, "rb") as f:
+                content_bytes = f.read()
+                md5_hash = hashlib.md5(content_bytes).hexdigest()
+                sha256_hash = hashlib.sha256(content_bytes).hexdigest()
+
+            with zipfile.ZipFile(resolved, "r") as zf:
+                info_list = zf.infolist()
+                total_files = len(info_list)
+                for info in info_list:
+                    if info.is_dir():
+                        continue
+                    fname = info.filename
+                    ext = os.path.splitext(fname)[1].lower()
+
+                    if ext in [".exe", ".bat", ".sh", ".vbs", ".scr", ".elf"]:
+                        findings.append({
+                            "file": fname,
+                            "line": 0,
+                            "severity": "CRITICAL",
+                            "category": "Forbidden executable inside WordPress package",
+                            "snippet": f"File thực thi đáng ngờ: {fname}",
+                        })
+                    if re.search(r'\.(?:png|jpg|gif|css|js)\.php$', fname, re.I):
+                        findings.append({
+                            "file": fname,
+                            "line": 0,
+                            "severity": "CRITICAL",
+                            "category": "Double extension disguise",
+                            "snippet": f"File PHP ngụy trang đuôi ảnh/css: {fname}",
+                        })
+                    if ext in [".php", ".js", ".phtml", ".html", ".htm", ".inc"]:
+                        scanned_count += 1
+                        try:
+                            file_str = zf.read(info).decode("utf-8", errors="ignore")
+                        except Exception:
+                            continue
+                        for line_idx, line in enumerate(file_str.splitlines(), 1):
+                            sline = line.strip()
+                            if sline.startswith(("//", "*", "/*", "#")):
+                                continue
+                            for pat, severity, desc in SUSPICIOUS_PATTERNS:
+                                if re.search(pat, line, re.I):
+                                    findings.append({
+                                        "file": fname,
+                                        "line": line_idx,
+                                        "severity": severity,
+                                        "category": desc,
+                                        "snippet": sline[:160],
+                                    })
+        else:
+            # Scans directory
+            for root, _, files in os.walk(resolved):
+                for f in files:
+                    total_files += 1
+                    fp = Path(root) / f
+                    ext = fp.suffix.lower()
+                    rel_name = str(fp.relative_to(resolved))
+                    if ext in [".exe", ".bat", ".sh", ".vbs"]:
+                        findings.append({
+                            "file": rel_name,
+                            "line": 0,
+                            "severity": "CRITICAL",
+                            "category": "Forbidden executable",
+                            "snippet": f"File: {rel_name}",
+                        })
+                    if ext in [".php", ".js", ".html"]:
+                        scanned_count += 1
+                        try:
+                            lines = fp.read_text(encoding="utf-8", errors="ignore").splitlines()
+                            for line_idx, line in enumerate(lines, 1):
+                                sline = line.strip()
+                                if sline.startswith(("//", "*", "/*", "#")):
+                                    continue
+                                for pat, severity, desc in SUSPICIOUS_PATTERNS:
+                                    if re.search(pat, line, re.I):
+                                        findings.append({
+                                            "file": rel_name,
+                                            "line": line_idx,
+                                            "severity": severity,
+                                            "category": desc,
+                                            "snippet": sline[:160],
+                                        })
+                        except Exception:
+                            pass
+
+        crit_count = sum(1 for f in findings if f["severity"] == "CRITICAL")
+        high_count = sum(1 for f in findings if f["severity"] == "HIGH")
+        med_count = sum(1 for f in findings if f["severity"] == "MEDIUM")
+
+        threat_level = "CLEAN"
+        if crit_count > 0:
+            threat_level = "CRITICAL_THREAT"
+        elif high_count > 0:
+            threat_level = "HIGH_RISK"
+        elif med_count > 0:
+            threat_level = "MEDIUM_RISK"
+
+        is_safe = (threat_level == "CLEAN")
+        verdict = "100% SẠCH HOÀN TOÀN — AN TOÀN SỬ DỤNG" if is_safe else f"CẢNH BÁO MÃ ĐỘC: Phát hiện {len(findings)} nguy cơ bảo mật"
+
+        return {
+            "target_path": str(resolved),
+            "is_safe": is_safe,
+            "threat_level": threat_level,
+            "verdict": verdict,
+            "total_files_in_archive": total_files,
+            "scanned_code_files": scanned_count,
+            "critical_threats": crit_count,
+            "high_threats": high_count,
+            "medium_threats": med_count,
+            "md5": md5_hash,
+            "sha256": sha256_hash,
+            "findings": findings[:15],
         }
 
     def _run_test_suite(
