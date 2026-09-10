@@ -11643,21 +11643,39 @@ class AgentPage(QWidget):
         elif url_str.startswith("magnet:"):
             clipboard = QGuiApplication.clipboard()
             clipboard.setText(url_str)
-            has_handler = True
-            if sys.platform == "win32":
-                import winreg
-                try:
-                    with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"magnet\shell\open\command"):
-                        has_handler = True
-                except OSError:
-                    has_handler = False
+            
+            qb_paths = [
+                Path(r"C:\Program Files\qBittorrent\qbittorrent.exe"),
+                Path(r"C:\Program Files (x86)\qBittorrent\qbittorrent.exe"),
+                Path(os.path.expandvars(r"%LOCALAPPDATA%\Programs\qBittorrent\qbittorrent.exe")),
+            ]
+            launched = False
+            for p in qb_paths:
+                if p.exists():
+                    try:
+                        import subprocess
+                        subprocess.Popen([str(p), url_str])
+                        launched = True
+                        break
+                    except Exception:
+                        pass
 
-            if has_handler:
-                opened = QDesktopServices.openUrl(QUrl(url_str))
-                if opened:
-                    self.status_label.setText("Đã mở link Magnet trong ứng dụng Torrent 🧲")
-                else:
-                    self.status_label.setText("Đã sao chép link Magnet vào Clipboard 📋")
+            if not launched:
+                has_handler = False
+                if sys.platform == "win32":
+                    import winreg
+                    try:
+                        with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"magnet\shell\open\command"):
+                            has_handler = True
+                    except OSError:
+                        has_handler = False
+                if has_handler:
+                    opened = QDesktopServices.openUrl(QUrl(url_str))
+                    if opened:
+                        launched = True
+
+            if launched:
+                self.status_label.setText("Đã mở link Magnet trong qBittorrent (và đã sao chép) 🧲")
             else:
                 self.status_label.setText("Đã copy link Magnet vào Clipboard 📋 (Chưa có ứng dụng Torrent)")
                 from PySide6.QtWidgets import QMessageBox
