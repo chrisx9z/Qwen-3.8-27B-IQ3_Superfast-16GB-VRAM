@@ -15,7 +15,7 @@ SUPPORTED_LANGUAGES = {
     "zh": "简体中文",
 }
 
-DEFAULT_LANGUAGE = "en"
+DEFAULT_LANGUAGE = "vi"
 
 TRANSLATIONS: dict[str, dict[str, str]] = {
     "en": {
@@ -305,11 +305,24 @@ TRANSLATIONS: dict[str, dict[str, str]] = {
 _CURRENT_LANGUAGE: str = DEFAULT_LANGUAGE
 
 
+def _get_settings_file() -> Path:
+    candidates = [
+        SETTINGS_FILE,
+        Path.home() / ".auto_pilot" / "app_settings.json",
+        Path(r"D:\Vibe Code\M-Auto-Pilot\work\auto_pilot\app_settings.json"),
+    ]
+    for c in candidates:
+        if c.is_file():
+            return c
+    return SETTINGS_FILE
+
+
 def load_saved_language() -> str:
     global _CURRENT_LANGUAGE
     try:
-        if SETTINGS_FILE.is_file():
-            data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+        cfg = _get_settings_file()
+        if cfg.is_file():
+            data = json.loads(cfg.read_text(encoding="utf-8"))
             lang = str(data.get("language", DEFAULT_LANGUAGE)).strip().lower()
             if lang in SUPPORTED_LANGUAGES:
                 _CURRENT_LANGUAGE = lang
@@ -326,15 +339,16 @@ def save_language(lang_code: str) -> None:
         lang_code = DEFAULT_LANGUAGE
     _CURRENT_LANGUAGE = lang_code
     try:
-        SETTINGS_FILE.parent.mkdir(parents=True, exist_ok=True)
+        cfg = _get_settings_file()
+        cfg.parent.mkdir(parents=True, exist_ok=True)
         data = {}
-        if SETTINGS_FILE.is_file():
+        if cfg.is_file():
             try:
-                data = json.loads(SETTINGS_FILE.read_text(encoding="utf-8"))
+                data = json.loads(cfg.read_text(encoding="utf-8"))
             except Exception:
                 data = {}
         data["language"] = lang_code
-        SETTINGS_FILE.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
+        cfg.write_text(json.dumps(data, indent=2, ensure_ascii=False), encoding="utf-8")
     except Exception:
         pass
 

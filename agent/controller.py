@@ -144,8 +144,7 @@ def _generate_interim_finding(
     nghiên cứu từng phần theo thời gian thực thay vì phải chờ đợi toàn bộ quy trình.
     """
     if not isinstance(result, dict) or not result.get("ok", False):
-        err = result.get("error", "Không thể lấy dữ liệu") if isinstance(result, dict) else str(result)
-        return f"\n\n> ⚠️ *[Nghiên cứu Bước {step}]: Tra cứu `{tool_name}` gặp sự cố: {err[:120]}*\n\n"
+        return ""
 
     res_data = result.get("result") if isinstance(result.get("result"), dict) else result
 
@@ -280,6 +279,7 @@ At the conclusion of technical or creative solutions, always provide a dedicated
 - Progressive Interim Live Streaming: In multi-step research and data gathering, do NOT operate silently. After obtaining findings from tools, immediately stream clear interim findings (key bullet points, specs, verified facts) as soon as each tool step finishes so the user can read the research findings live.
 - High-Speed & Decisive Execution: Minimize unnecessary tool roundtrips. When research across steps is sufficient, synthesize and stream the complete, structured Gemini 3.8 Flash-grade master report immediately. NEVER loop across tools or make redundant calls to already-retrieved sources.
 - Proactive Autonomy: If data or context is missing, use your tools (extract_webpage_markdown, deep_dive_internet_research, web_search, read_code_file, etc.) immediately. NEVER respond with passive refusals like "Tôi không thể truy cập" or "Tôi không có thông tin".
+- Quá Trình Suy Luận Bằng Tiếng Việt (Thinking / Reasoning in Vietnamese): Khi người dùng giao tiếp hoặc hỏi bằng Tiếng Việt, TOÀN BỘ quá trình suy luận, lập luận nội tâm (Reasoning Process trong thẻ <think>...</think>) BẮT BUỘC 100% PHẢI ĐƯỢC SUY NGHĨ VÀ DIỄN ĐẠT BẰNG TIẾNG VIỆT! TUYỆT ĐỐI KHÔNG SUY NGHĨ BẰNG TIẾNG ANH (No English inside <think> when user communicates in Vietnamese).
 - Multi-lingual Adaptation: Automatically detect the prompt's language and respond fluently in that EXACT language (Vietnamese, English, etc.) using professional, rich Markdown styling.
 - Action over guidance: Inspect, execute, and verify results directly instead of offering abstract advice.
 - Safety Sandbox Enforcement: Always operate within authorized workspace boundaries. Never execute destructive OS commands.
@@ -560,18 +560,24 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 except Exception:
                     pass
 
-        # Bổ sung chỉ dẫn tổng hợp báo cáo chuyên sâu khi người dùng yêu cầu tìm kiếm / nghiên cứu
-        if url_matches or any(kw in user_prompt.lower() for kw in ("tìm", "thông tin", "nghiên cứu", "phân tích")):
+        # Đảm bảo suy nghĩ nội tâm (Reasoning / Thinking) 100% bằng Tiếng Việt khi người dùng hỏi bằng Tiếng Việt
+        is_vietnamese = any(c in user_prompt.lower() for c in "àáảãạăằắẳẵặâầấẩẫậèéẻẽẹêềếểễệìíỉĩịòóỏõọôồốổỗộơờớởỡợùúủũụưừứửữựỳýỷỹỵđ") or any(
+            kw in user_prompt.lower() for kw in ("tôi", "bạn", "là", "gì", "như thế nào", "sao", "giúp", "phim", "tìm", "kiếm", "xem", "cho", "được", "không")
+        )
+        if is_vietnamese:
             user_content += (
-                "\n\n[CHỈ DẪN BẮT BUỘC KHI XUẤT BÁO CÁO]:\n"
-                "- Dựa trên toàn bộ dữ liệu bài đăng gốc VÀ các tài liệu nghiên cứu đối chiếu chuyên sâu ở trên, "
-                "bạn hãy xuất bản BÁO CÁO TOÀN DIỆN theo tiêu chuẩn chất lượng cao nhất tương đương Gemini 3.8 Flash:\n"
-                "  1. 📌 Tổng quan Bối cảnh & Nguồn gốc (Tác giả, thời gian, số liệu tương tác, đối tượng, sản phẩm demo).\n"
-                "  2. 🧠 Phân tích Kỹ thuật & Cơ chế Hoạt động (Workflow chi tiết, kết nối MCP/Blender/Engine, cơ chế lặp Visual Feedback Loop, bảng thông số kỹ thuật).\n"
-                "  3. 🔍 Phân tích Ý nghĩa & Ứng dụng Thực tiễn trong ngành.\n"
-                "  4. ⚠️ Lưu ý Quan trọng & Trạng thái Hiện tại (Quota, quyền truy cập API, giới hạn kỹ thuật).\n"
-                "  5. 💡 Pro-Tips & Production Gotchas (Mẹo thực chiến, visual anchoring, tối ưu hóa).\n"
-                "- Trình bày chi tiết, chuyên sâu, phân cấp rõ ràng, có bảng markdown đối chiếu nếu phù hợp, tuyệt đối không trả lời sơ sài."
+                "\n\n[QUY TẮC BẮT BUỘC VỀ SUY LUẬN BẰNG TIẾNG VIỆT]:\n"
+                "- Người dùng đang sử dụng Tiếng Việt. Bạn PHẢI SUY NGHĨ VÀ LẬP LUẬN (nội dung bên trong thẻ <think>...</think>) 100% HOÀN TOÀN BẰNG TIẾNG VIỆT.\n"
+                "- Tuyệt đối KHÔNG dùng tiếng Anh trong thẻ <think>. Hãy tự vấn, phân tích cặn kẽ ý định người dùng và tìm giải pháp thực chất nhất bằng tiếng Việt.\n"
+            )
+
+        # Chỉ dẫn tổng hợp báo cáo khi nghiên cứu từ liên kết URL
+        if url_matches:
+            user_content += (
+                "\n\n[CHỈ DẪN KHI TỔNG HỢP DỮ LIỆU TỪ LIÊN KẾT]:\n"
+                "- Dựa trên dữ liệu bài đăng gốc và tài liệu đối chiếu thu thập được, "
+                "hãy xuất bản báo cáo phân tích toàn diện, có trích dẫn nguồn rõ ràng, "
+                "bố cục mạch lạc, chuyên sâu theo tiêu chuẩn cao nhất tương đương Gemini 3.8 Flash."
             )
 
         conversation.append({

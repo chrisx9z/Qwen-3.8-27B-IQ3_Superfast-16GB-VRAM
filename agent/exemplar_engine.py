@@ -173,6 +173,7 @@ class DynamicExemplarEngine:
             f"\n\n[TIÊU CHUẨN ĐẦU RA GEMINI 3.8 FLASH — LĨNH VỰC: {ex['domain_name'].upper()}]\n"
             f"{ex['guidelines']}\n"
             f"Mẫu thực hiện tham chiếu:\n{ex['mini_example']}\n"
+            f"👉 QUY TẮC SUY NGHĨ: Suy luận nội tâm trong thẻ <think>...</think> phải 100% bằng TIẾNG VIỆT.\n"
             f"👉 ÁP DỤNG NGAY: Trả lời câu hỏi của người dùng với phong cách, cấu trúc phân cấp, "
             f"đầy đủ 100% không viết tắt, và độ sâu sắc tương đương mẫu trên.\n"
         )

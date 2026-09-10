@@ -12486,12 +12486,54 @@ build
                     "truncated": len(content) > max_chars,
                 }
 
-        response = requests.get(
-            url,
-            headers=headers,
-            timeout=30,
-        )
-        response.raise_for_status()
+        try:
+            response = requests.get(
+                url,
+                headers=headers,
+                timeout=30,
+            )
+            response.raise_for_status()
+        except requests.RequestException as e:
+            # Fallback thông minh: nếu URL bị 404/403 (đặc biệt khi model tự sinh URL tìm kiếm),
+            # tự động trích xuất truy vấn và tìm kiếm web thực tế để trả về dữ liệu chuẩn
+            extracted_query = ""
+            if "search" in url.lower() or "q=" in url.lower() or "query=" in url.lower():
+                try:
+                    q_params = parse_qs(parsed.query)
+                    if "q" in q_params:
+                        extracted_query = " ".join(q_params["q"])
+                    elif "query" in q_params:
+                        extracted_query = " ".join(q_params["query"])
+                except Exception:
+                    pass
+            if not extracted_query:
+                slug = parsed.path.strip("/").replace("-", " ").replace("_", " ").replace("/", " ")
+                if len(slug) > 3:
+                    extracted_query = f"{parsed.netloc.replace('www.', '')} {slug}".strip()
+
+            if extracted_query:
+                try:
+                    search_res = self._web_search({"query": extracted_query, "limit": 4})
+                    results = search_res.get("results") or []
+                    if results:
+                        fallback_lines = [
+                            f"Lưu ý: URL `{url}` gặp lỗi ({e}). "
+                            f"Đã tự động chuyển sang tra cứu dữ liệu web thay thế cho \"{extracted_query}\":\n"
+                        ]
+                        for r in results:
+                            fallback_lines.append(f"*   **[{r.get('title')}]({r.get('url')})**: {r.get('snippet')}")
+                        fallback_content = "\n".join(fallback_lines)
+                        return {
+                            "url": url,
+                            "status_code": 200,
+                            "content_type": "text/markdown",
+                            "content": fallback_content[:max_chars],
+                            "truncated": len(fallback_content) > max_chars,
+                            "fallback_query": extracted_query,
+                        }
+                except Exception:
+                    pass
+            raise
         content_type = response.headers.get("content-type", "")
         
         # Xử lý chuyên sâu cho YouTube & các nền tảng mạng xã hội động (SPA)
