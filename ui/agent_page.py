@@ -11643,12 +11643,37 @@ class AgentPage(QWidget):
         elif url_str.startswith("magnet:"):
             clipboard = QGuiApplication.clipboard()
             clipboard.setText(url_str)
-            opened = QDesktopServices.openUrl(QUrl(url_str))
-            if opened:
-                self.status_label.setText("Đã mở link Magnet trong ứng dụng Torrent 🧲")
+            has_handler = True
+            if sys.platform == "win32":
+                import winreg
+                try:
+                    with winreg.OpenKey(winreg.HKEY_CLASSES_ROOT, r"magnet\shell\open\command"):
+                        has_handler = True
+                except OSError:
+                    has_handler = False
+
+            if has_handler:
+                opened = QDesktopServices.openUrl(QUrl(url_str))
+                if opened:
+                    self.status_label.setText("Đã mở link Magnet trong ứng dụng Torrent 🧲")
+                else:
+                    self.status_label.setText("Đã sao chép link Magnet vào Clipboard 📋")
             else:
-                self.status_label.setText("Đã sao chép link Magnet vào Clipboard 📋")
-            QTimer.singleShot(3500, lambda: self.status_label.setText(t("status_ready")) if self.worker is None else None)
+                self.status_label.setText("Đã copy link Magnet vào Clipboard 📋 (Chưa có ứng dụng Torrent)")
+                from PySide6.QtWidgets import QMessageBox
+                msg_box = QMessageBox(self)
+                msg_box.setWindowTitle("Chưa Cài Đặt Ứng Dụng Torrent")
+                msg_box.setText(
+                    "<b>Máy tính của bạn chưa có ứng dụng tải Torrent / Magnet (như qBittorrent)</b><br><br>"
+                    "• Chuỗi link Magnet đã được <b>tự động sao chép vào Clipboard</b>.<br>"
+                    "• Bạn cần cài đặt một phần mềm Torrent (khuyến nghị <b>qBittorrent</b>: mã nguồn mở, nhẹ, miễn phí 100%, không quảng cáo) để tải phim về máy.<br><br>"
+                    "Bạn có muốn mở trang tải chính thức của qBittorrent ngay bây giờ không?"
+                )
+                msg_box.setStandardButtons(QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No)
+                msg_box.setDefaultButton(QMessageBox.StandardButton.Yes)
+                if msg_box.exec() == QMessageBox.StandardButton.Yes:
+                    QDesktopServices.openUrl(QUrl("https://www.qbittorrent.org/download"))
+            QTimer.singleShot(4000, lambda: self.status_label.setText(t("status_ready")) if self.worker is None else None)
         elif url_str.startswith(("http://", "https://")):
             QDesktopServices.openUrl(QUrl(url_str))
 
