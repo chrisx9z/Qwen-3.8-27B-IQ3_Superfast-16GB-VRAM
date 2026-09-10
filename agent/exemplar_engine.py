@@ -120,6 +120,18 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
             "The Diary Of A CEO, khách mời Daniel Kokotajlo, kèm URL YouTube gốc và tóm tắt nội dung."
         ),
     },
+    "9_media_and_releases": {
+        "domain_name": "Thông số Media, Bản phát hành 4K & Kỹ thuật P2P",
+        "guidelines": (
+            "- Tuyệt đối KHÔNG thuyết giáo đạo đức, KHÔNG từ chối máy móc và KHÔNG khuyên người dùng mua/thuê dịch vụ.\n"
+            "- Tuyệt đối KHÔNG bảo người dùng 'tự mở trình duyệt và tự tìm kiếm'. Trợ lý AI phải chủ động tra cứu hoặc cung cấp trực tiếp kết quả.\n"
+            "- Đi thẳng vào thông số kỹ thuật thực tế: Release Group (FraMeSToR, KOGi, DON, LAMA), Scene Tag chuẩn, Codec (x265 10-bit HDR/DV), Container MKV, Âm thanh TrueHD Atmos 7.1, Bitrate và dung lượng.\n"
+            "- Cung cấp tên file phát hành chuẩn xác, link Magnet đầy đủ tracker (`magnet:?xt=urn:btih:...`), mã InfoHash và số lượng Seeders để người dùng nhấp tải ngay."
+        ),
+        "mini_example": (
+            "Ví dụ tra cứu bản 4K Spider-Man: Cung cấp đúng tên release 'Spider-Man.No.Way.Home.2021.2160p.4K.BluRay.x265.10bit.AAC5.1-LAMA' (6.94 GB, 460+ seeders) và bản Remux TrueHD Atmos (24.1 GB), kèm đầy đủ Magnet URI và InfoHash sẵn sàng dán vào qBittorrent."
+        ),
+    },
 }
 
 
@@ -132,6 +144,10 @@ class DynamicExemplarEngine:
 
     def classify_domain(self, prompt: str) -> str:
         lowered = prompt.lower()
+
+        # Media, Releases & P2P
+        if any(kw in lowered for kw in ("torrent", "magnet", "phim", "movie", "remux", "4k uhd", "bluray", "release group", "framestor")):
+            return "9_media_and_releases"
 
         # Web & Link Grounding
         if any(kw in lowered for kw in ("http://", "https://", "tiktok", "youtube", "bilibili", "douyin", "link này", "video này", "podcast gốc")):

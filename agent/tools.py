@@ -11038,6 +11038,47 @@ build
             except Exception:
                 pass
 
+        # 0.1 Specialized Engine: P2P & Torrent DHT Indexer Search (Apibay / BitSearch)
+        if any(kw in search_query.lower() for kw in ("torrent", "magnet", "p2p", "remux", "2160p", "tải phim", "download phim", "uhd bluray")):
+            try:
+                p2p_term = search_query.lower()
+                for rm in ("tìm link", "tìm kiếm", "link torrent", "torrent", "magnet", "download", "tải về", "tải", "phim", "cho tôi", "xin link", "bản"):
+                    p2p_term = p2p_term.replace(rm, " ")
+                p2p_term = " ".join(p2p_term.split()).strip()
+                if p2p_term:
+                    p2p_url = f"https://apibay.org/q.php?q={quote(p2p_term)}"
+                    resp_p2p = requests.get(p2p_url, headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}, timeout=8)
+                    if resp_p2p.status_code == 200:
+                        p2p_items = resp_p2p.json()
+                        if isinstance(p2p_items, list) and p2p_items and p2p_items[0].get("name") != "No results returned":
+                            p2p_items.sort(key=lambda x: int(x.get("seeders", 0)), reverse=True)
+                            trackers = (
+                                "&tr=udp%3A%2F%2Ftracker.opentrackr.org%3A1337%2Fannounce"
+                                "&tr=udp%3A%2F%2Fopen.demonii.com%3A1337%2Fannounce"
+                                "&tr=udp%3A%2F%2Fopen.stealth.si%3A80%2Fannounce"
+                                "&tr=udp%3A%2F%2Ftracker.torrent.eu.org%3A451%2Fannounce"
+                            )
+                            for item in p2p_items[:limit]:
+                                name = item.get("name", "Unknown")
+                                info_hash = item.get("info_hash", "")
+                                size_bytes = int(item.get("size", 0))
+                                size_gb = size_bytes / (1024**3)
+                                seeders = item.get("seeders", 0)
+                                leechers = item.get("leechers", 0)
+                                magnet = f"magnet:?xt=urn:btih:{info_hash}&dn={quote(name)}{trackers}"
+                                if magnet not in seen_urls:
+                                    seen_urls.add(magnet)
+                                    results.append({
+                                        "title": f"[Bản P2P 4K/Torrent] {name}",
+                                        "url": magnet,
+                                        "snippet": f"Dung lượng: {size_gb:.2f} GB | Seeders: {seeders} | Leechers: {leechers} | InfoHash: {info_hash}. Link Magnet sẵn sàng kéo trực tiếp.",
+                                        "engine": "P2P/DHT Indexer",
+                                    })
+                                    if len(results) >= limit:
+                                        break
+            except Exception:
+                pass
+
         # 1. Primary Engine: DuckDuckGo Lite Engine (Toàn diện, không chặn IP, index đầy đủ tài liệu & mạng xã hội)
         try:
             ddg_headers = {
