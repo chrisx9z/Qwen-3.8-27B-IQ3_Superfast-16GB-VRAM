@@ -1635,9 +1635,28 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                 "get_resource_status",
             })
 
-        # Filter and cap at max 22 tools to guarantee prompt tokens stay around 1,500 - 2,500 tokens
-        filtered_defs = [def_map[name] for name in selected_names if name in def_map]
-        
+        # Sắp xếp ưu tiên (Priority Ordering) để các tool quan trọng nhất không bao giờ bị cắt xén
+        priority_tools: list[str] = []
+
+        # 1. Nếu có ý định tìm kiếm / tra cứu web / tải / link / tin tức / vietsub / nulled
+        if any(kw in lowered for kw in ("tìm", "search", "web", "tra cứu", "link", "sub", "vietsub", "null", "theme", "plugin", "tin tức", "xem", "tải", "download")):
+            priority_tools.extend(["web_search", "web_open", "extract_webpage_markdown"])
+
+        # 2. Nếu có ý định coding / tạo file / sửa file / script / thực thi
+        if any(kw in lowered for kw in ("code", "file", "tạo", "ghi", "sửa", "lập trình", "script", "plugin", "active", "chạy", "patch", "lệnh")):
+            priority_tools.extend(["create_code_file", "replace_code", "read_code_file", "run_python_code", "run_workspace_command"])
+
+        # 3. Gom danh sách có thứ tự ưu tiên
+        ordered_names: list[str] = []
+        for name in priority_tools:
+            if name in selected_names and name not in ordered_names:
+                ordered_names.append(name)
+        for name in sorted(selected_names):
+            if name not in ordered_names:
+                ordered_names.append(name)
+
+        filtered_defs = [def_map[name] for name in ordered_names if name in def_map]
+
         # In case something didn't match, ensure at least basic tools
         if not filtered_defs:
             filtered_defs = [def_map[name] for name in base_tools if name in def_map]
@@ -1660,7 +1679,7 @@ At the conclusion of technical or creative solutions, always provide a dedicated
             pass
 
         mcp_defs = self.mcp_client.definitions()[:2]
-        return filtered_defs[:8] + plugin_defs[:2] + mcp_defs
+        return filtered_defs[:12] + plugin_defs[:2] + mcp_defs
 
     def _max_tokens_for_prompt(self, prompt: str) -> int:
         lowered = prompt.lower()
@@ -2410,50 +2429,9 @@ def _is_direct_p2p_search_task(prompt: str) -> bool:
 
 
 def _is_direct_web_search_task(prompt: str) -> bool:
-    lowered = prompt.lower()
-    if "http://" in lowered or "https://" in lowered or "www." in lowered:
-        return False
-    if "?" in prompt or any(k in lowered for k in ["tại sao", "giải thích", "tóm tắt", "như thế nào", "ai là", "gốc", "nguồn gốc", "podcast", "video này", "link này"]):
-        return False
-    has_search = any(
-        marker in lowered
-        for marker in (
-            "tìm",
-            "tra cứu",
-            "search",
-            "look up",
-            "tìm tài liệu",
-            "tìm thông tin",
-        )
-    )
-    has_topic = any(
-        marker in lowered
-        for marker in (
-            "internet",
-            "trên web",
-            "website",
-            "trang web",
-            "tài liệu",
-            "thông tin",
-            "video",
-            "phim",
-            "tin tức",
-        )
-    )
-    has_action = any(
-        marker in lowered
-        for marker in (
-            "cài đặt",
-            "tải xuống",
-            "download",
-            "sửa lỗi",
-            "viết code",
-            "lập trình",
-            "chạy code",
-            "mở ứng dụng",
-        )
-    )
-    return has_search and has_topic and not has_action and len(prompt) <= 1200
+    # Luôn chuyển hướng vào Qwen 27B để model phân tích, suy luận và tổng hợp báo cáo chuyên sâu
+    # thay vì trả về danh sách link thô như máy tìm kiếm cổ điển.
+    return False
 
 
 def _is_direct_localizer_task(prompt: str) -> bool:

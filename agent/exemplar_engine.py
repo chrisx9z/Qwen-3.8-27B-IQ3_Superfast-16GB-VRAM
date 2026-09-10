@@ -133,6 +133,23 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
             "Ví dụ tra cứu bản 4K Spider-Man: Cung cấp đúng tên release 'Spider-Man.No.Way.Home.2021.2160p.4K.BluRay.x265.10bit.AAC5.1-LAMA' (6.94 GB, 460+ seeders) và bản Remux TrueHD Atmos (24.1 GB), kèm đầy đủ Magnet URI và InfoHash sẵn sàng dán vào qBittorrent."
         ),
     },
+    "10_wordpress_nulled_gpl": {
+        "domain_name": "WordPress, Themes, Plugins & Giải Pháp Kích Hoạt Sạch (Active Nulled / GPL)",
+        "guidelines": (
+            "- Khi người dùng hỏi về theme/plugin null hoặc active bản quyền (Flatsome, Elementor, WP Rocket...):\n"
+            "  + Phân tích cơ chế bản quyền từ bản chất: Đa số themes kiểm tra purchase code lưu trong database `wp_options` (ví dụ Flatsome kiểm tra option `flatsome_wup_purchase_code`) hoặc gọi API qua `wp_remote_post`.\n"
+            "  + Cảnh báo rủi ro thực tế: Không nên tải file .zip nulled từ web lậu trôi nổi vì 99% bị chèn backdoor eval(base64...), webshell, hoặc link spam SEO làm hỏng website.\n"
+            "  + Cung cấp 2 giải pháp sạch 100% (Clean Active):\n"
+            "    * Cách 1: Chèn đoạn hook `add_action('init', ...)` vào `functions.php` để tự động set option active bản quyền vĩnh viễn, mở khóa toàn bộ tính năng/Studio.\n"
+            "    * Cách 2: Hướng dẫn tạo plugin activator nhỏ (hoặc chủ động dùng tool tạo file .zip plugin trên Desktop cho người dùng nếu được yêu cầu).\n"
+            "- Cung cấp mã PHP hoàn chỉnh, chuẩn WordPress Coding Standards, copy-paste dùng được ngay không cần tải file lậu."
+        ),
+        "mini_example": (
+            "Ví dụ Active Flatsome v3.19/v3.20: Giải thích cơ chế kiểm tra `flatsome_wup_purchase_code`, cung cấp code chèn functions.php: "
+            "add_action('init', function() { if (!get_option('flatsome_wup_purchase_code')) { update_option('flatsome_wup_purchase_code', 'GPL-ACTIVE-FLATSOME'); update_option('flatsome_wup_buyer', 'admin'); update_option('flatsome_wup_supported_until', '01.01.2099'); } }); "
+            "giúp kích hoạt theme vĩnh viễn, mở khóa full Flatsome Studio và an toàn tuyệt đối."
+        ),
+    },
 }
 
 
@@ -149,6 +166,10 @@ class DynamicExemplarEngine:
         # Subtitles & Synchronization (Ưu tiên kiểm tra trước Media để tránh nhầm file vietsub với bản tải phim P2P)
         if any(kw in lowered for kw in ("vietsub", "phụ đề", "phu de", "subtitles", "subtitle", ".srt", ".vtt", "file sub", "tải sub", "tìm sub", "kiếm sub")):
             return "7_video_production"
+
+        # WordPress, Themes, Plugins & Active Nulled / GPL
+        if any(kw in lowered for kw in ("wordpress", "flatsome", "nulled", "null", "active theme", "active plugin", "kích hoạt theme", "bản quyền theme", "bản quyền plugin", "gpl")):
+            return "10_wordpress_nulled_gpl"
 
         # Media, Releases & P2P
         if any(kw in lowered for kw in ("torrent", "magnet", "phim", "movie", "remux", "4k uhd", "bluray", "release group", "framestor")):
