@@ -11039,8 +11039,9 @@ build
                 pass
 
         # 0.1 Specialized Engine: P2P & Torrent DHT Indexer Search (Apibay / BitSearch)
+        is_subtitle_query = any(kw in search_query.lower() for kw in ("vietsub", "phụ đề", "phu de", "subtitle", "subtitles", ".srt", ".vtt", ".ass", "file sub", "tải sub", "tìm sub", "kiếm sub"))
         has_media_code = bool(re.search(r"\b[A-Za-z]{2,6}[-_]\d{2,5}\b", search_query))
-        if has_media_code or any(kw in search_query.lower() for kw in ("torrent", "magnet", "p2p", "remux", "2160p", "tải phim", "download phim", "uhd bluray", "uncensored", "decensored", "không che")):
+        if not is_subtitle_query and (has_media_code or any(kw in search_query.lower() for kw in ("torrent", "magnet", "p2p", "remux", "2160p", "tải phim", "download phim", "uhd bluray", "uncensored", "decensored", "không che"))):
             try:
                 p2p_term = search_query.lower()
                 code_match = re.search(r"\b([A-Za-z]{2,6}[-_]\d{2,5})\b", search_query)

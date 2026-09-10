@@ -98,14 +98,15 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
         ),
     },
     "7_video_production": {
-        "domain_name": "Sản xuất & Biên tập Video (FFmpeg Automation, Audio Sync)",
+        "domain_name": "Sản xuất, Biên tập Video & Phụ đề (Subtitles Sync, Vietsub, FFmpeg)",
         "guidelines": (
-            "- Lệnh FFmpeg chính xác 100% copy-paste chạy được ngay, giải thích từng cờ (flag).\n"
-            "- Thiết lập codec tối ưu: libx264/libx265, crf, preset, bộ lọc scale, crop, drawtext.\n"
-            "- Xử lý đồng bộ phụ đề SRT/ASS và cấu hình tỷ lệ khung hình (16:9 vs 9:16 dọc)."
+            "- Khi người dùng tìm phụ đề/vietsub: Cung cấp trực tiếp các link tải phụ đề (.srt) từ các nguồn uy tín (Subdl, Subsource, OpenSubtitles, YIFY Subtitles) khớp đúng phiên bản phát hành (BluRay, WEB-DL, Remux).\n"
+            "- Hướng dẫn cách xem cùng bản đã tải: Đặt tên file .srt trùng khớp 100% với tên file video .mkv/.mp4 trong cùng thư mục để trình phát tự động nhận diện.\n"
+            "- Cung cấp phím tắt tinh chỉnh độ trễ phụ đề (delay/speed) trên trình phát media: VLC (phím G/H), PotPlayer (phím >/< hoặc [/]), MPC-HC (phím F1/F2), hoặc tính năng tự tải sub (VLsub trên VLC).\n"
+            "- Lệnh FFmpeg ghép phụ đề vào video nếu cần: softsub không cần re-encode (ffmpeg -i in.mp4 -i sub.srt -c copy -c:s mov_text out.mp4) hoặc hardsub."
         ),
         "mini_example": (
-            "Ví dụ cắt video ngắn 9:16: ffmpeg -i in.mp4 -filter_complex '[0:v]scale=1080:1920:force_original_aspect_ratio=increase,boxblur=20:5[bg];[0:v]scale=1080:-1[fg];[bg][fg]overlay=(W-w)/2:(H-h)/2' -c:a copy out.mp4"
+            "Ví dụ phụ đề Spider-Man No Way Home: Cung cấp link phụ đề tiếng Việt từ Subdl / Subsource khớp bản 2160p BluRay (LAMA/MUSHR00M, 23.976 fps, 02:28:07), hướng dẫn đặt tên file video.srt trong cùng thư mục và phím 'G/H' trên VLC để sync mili-giây."
         ),
     },
     "8_agent_web_grounding": {
@@ -144,6 +145,10 @@ class DynamicExemplarEngine:
 
     def classify_domain(self, prompt: str) -> str:
         lowered = prompt.lower()
+
+        # Subtitles & Synchronization (Ưu tiên kiểm tra trước Media để tránh nhầm file vietsub với bản tải phim P2P)
+        if any(kw in lowered for kw in ("vietsub", "phụ đề", "phu de", "subtitles", "subtitle", ".srt", ".vtt", "file sub", "tải sub", "tìm sub", "kiếm sub")):
+            return "7_video_production"
 
         # Media, Releases & P2P
         if any(kw in lowered for kw in ("torrent", "magnet", "phim", "movie", "remux", "4k uhd", "bluray", "release group", "framestor")):
