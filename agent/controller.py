@@ -747,7 +747,7 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                             if results:
                                 lines = ["### 🎬 Danh Sách Bản Phát Hành 4K / Magnet Trực Tiếp Sẵn Sàng Kéo:\n"]
                                 for r in results:
-                                    lines.append(f"#### 📦 {r.get('title')}\n* **Liên kết Magnet:** `{r.get('url')}`\n* {r.get('snippet')}\n")
+                                    lines.append(f"#### 📦 {r.get('title')}\n* **Liên kết Magnet:** [🧲 Mở Trong qBittorrent]({r.get('url')})\n* {r.get('snippet')}\n")
                                 text = "\n".join(lines)
                     if not text:
                         reasoning = str(assistant_message.get("reasoning_content") or "").strip()
@@ -1297,7 +1297,7 @@ At the conclusion of technical or creative solutions, always provide a dedicated
                     f"**{idx}. {raw_title}**",
                     f"- **InfoHash**: `{info_hash}`",
                     f"- **Thông số**: {snippet}",
-                    f"- **Link Magnet**: `{magnet_url}`",
+                    f"- **Link Magnet**: [🧲 Mở Trong qBittorrent]({magnet_url})",
                     "",
                 ])
 

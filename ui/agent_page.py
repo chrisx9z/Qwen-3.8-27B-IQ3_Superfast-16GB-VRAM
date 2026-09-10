@@ -147,7 +147,7 @@ def markdown_to_html(text: str) -> str:
         def flush_paragraph() -> None:
             nonlocal paragraph
             if paragraph:
-                output.append("<p>" + "<br>".join(paragraph) + "</p>")
+                output.append("<p style=\"margin: 5px 0;\">" + "<br>".join(paragraph) + "</p>")
                 paragraph = []
 
         def close_list() -> None:
@@ -162,7 +162,43 @@ def markdown_to_html(text: str) -> str:
                 output.append("</blockquote>")
                 in_quote = False
 
-        for raw_line in lines:
+        def is_table_separator(s: str) -> bool:
+            line_str = s.strip()
+            if not line_str or "|" not in line_str:
+                return False
+            cells = [c.strip() for c in line_str.strip("|").split("|")]
+            if not cells:
+                return False
+            for c in cells:
+                if not re.fullmatch(r":?-+:?", c):
+                    return False
+            return True
+
+        def split_table_row(s: str) -> list[str]:
+            line_str = s.strip()
+            if line_str.startswith("|"):
+                line_str = line_str[1:]
+            if line_str.endswith("|"):
+                line_str = line_str[:-1]
+            cells: list[str] = []
+            current: list[str] = []
+            in_backtick = False
+            for ch in line_str:
+                if ch == "`":
+                    in_backtick = not in_backtick
+                    current.append(ch)
+                elif ch == "|" and not in_backtick:
+                    cells.append("".join(current).strip())
+                    current = []
+                else:
+                    current.append(ch)
+            cells.append("".join(current).strip())
+            return cells
+
+        i = 0
+        n = len(lines)
+        while i < n:
+            raw_line = lines[i]
             line = raw_line.rstrip()
             stripped = line.strip()
 
@@ -170,6 +206,69 @@ def markdown_to_html(text: str) -> str:
                 flush_paragraph()
                 close_list()
                 close_quote()
+                i += 1
+                continue
+
+            # Check for Markdown Table
+            if "|" in stripped and i + 1 < n and is_table_separator(lines[i + 1]):
+                flush_paragraph()
+                close_list()
+                close_quote()
+
+                header_cells = split_table_row(stripped)
+                sep_cells = split_table_row(lines[i + 1])
+                col_count = max(len(header_cells), len(sep_cells))
+
+                alignments: list[str] = []
+                for col_idx in range(col_count):
+                    sc = sep_cells[col_idx] if col_idx < len(sep_cells) else ""
+                    if sc.startswith(":") and sc.endswith(":"):
+                        alignments.append("center")
+                    elif sc.endswith(":"):
+                        alignments.append("right")
+                    elif sc.startswith(":"):
+                        alignments.append("left")
+                    else:
+                        alignments.append("left")
+
+                table_html = [
+                    '<table border="1" cellpadding="6" cellspacing="0" style="border-collapse: collapse; width: 100%; margin: 10px 0; border: 1px solid #282c3c; background-color: #141720;">',
+                    '<thead>',
+                    '<tr style="background-color: #1c202b;">',
+                ]
+                for col_idx, h in enumerate(header_cells):
+                    align = alignments[col_idx] if col_idx < len(alignments) else "left"
+                    table_html.append(
+                        f'<th align="{align}" style="padding: 7px 10px; border: 1px solid #2d3345; color: #8a92a6; font-size: 12px; font-weight: bold; text-align: {align};">'
+                        f'{_inline_md(h)}'
+                        f'</th>'
+                    )
+                table_html.append('</tr></thead>')
+                table_html.append('<tbody>')
+
+                i += 2
+                row_idx = 0
+                while i < n:
+                    row_raw = lines[i].strip()
+                    if not row_raw or "|" not in row_raw:
+                        break
+                    row_cells = split_table_row(row_raw)
+                    bg_color = "#161a22" if row_idx % 2 == 0 else "#11141a"
+                    table_html.append(f'<tr style="background-color: {bg_color};">')
+                    for col_idx in range(col_count):
+                        val = row_cells[col_idx] if col_idx < len(row_cells) else ""
+                        align = alignments[col_idx] if col_idx < len(alignments) else "left"
+                        table_html.append(
+                            f'<td align="{align}" style="padding: 7px 10px; border: 1px solid #282c3c; font-size: 12.5px; text-align: {align}; color: #e6e6eb;">'
+                            f'{_inline_md(val)}'
+                            f'</td>'
+                        )
+                    table_html.append('</tr>')
+                    row_idx += 1
+                    i += 1
+
+                table_html.append('</tbody></table>')
+                output.append("".join(table_html))
                 continue
 
             heading = re.match(r"^(#{1,4})\s+(.*)$", stripped)
@@ -179,15 +278,17 @@ def markdown_to_html(text: str) -> str:
                 close_quote()
                 level = len(heading.group(1))
                 output.append(
-                    f"<h{level}>{_inline_md(heading.group(2))}</h{level}>"
+                    f"<h{level} style=\"color: #ffffff; margin: 12px 0 6px 0;\">{_inline_md(heading.group(2))}</h{level}>"
                 )
+                i += 1
                 continue
 
             if re.match(r"^---+$", stripped) or re.match(r"^\*\*\*+$", stripped):
                 flush_paragraph()
                 close_list()
                 close_quote()
-                output.append("<hr>")
+                output.append("<hr style=\"border: none; border-top: 1px solid #282c3c; margin: 10px 0;\">")
+                i += 1
                 continue
 
             quote = re.match(r"^&gt;\s?(.*)$", stripped)
@@ -198,6 +299,7 @@ def markdown_to_html(text: str) -> str:
                     output.append("<blockquote>")
                     in_quote = True
                 output.append(_inline_md(quote.group(1)))
+                i += 1
                 continue
 
             unordered = re.match(r"^[-*]\s+(.*)$", stripped)
@@ -209,6 +311,7 @@ def markdown_to_html(text: str) -> str:
                     output.append("<ul>")
                     in_list = "ul"
                 output.append(f"<li>{_inline_md(unordered.group(1))}</li>")
+                i += 1
                 continue
 
             ordered = re.match(r"^\d+[.)]\s+(.*)$", stripped)
@@ -220,19 +323,27 @@ def markdown_to_html(text: str) -> str:
                     output.append("<ol>")
                     in_list = "ol"
                 output.append(f"<li>{_inline_md(ordered.group(1))}</li>")
+                i += 1
                 continue
 
             close_list()
             if in_quote:
                 output.append("<br>")
             paragraph.append(_inline_md(line))
+            i += 1
 
         flush_paragraph()
         close_list()
         close_quote()
         parts.append("\n".join(output))
 
-    return "\n".join(parts)
+    body_content = "\n".join(parts)
+    return (
+        f'<div style="font-family: -apple-system, BlinkMacSystemFont, \'Segoe UI\', Roboto, Helvetica, Arial, sans-serif; '
+        f'font-size: 13.5px; line-height: 1.55; color: #e6e6eb;">'
+        f'{body_content}'
+        f'</div>'
+    )
 
 
 def _inline_md(value: str) -> str:
@@ -250,22 +361,28 @@ def _inline_md(value: str) -> str:
     # 2. Inline code
     value = re.sub(
         r"`([^`]+)`",
-        lambda m: f'<code class="inline-code">{m.group(1)}</code>',
+        lambda m: f'<code class="inline-code" style="background-color: #1a1e29; color: #c9d1d9; border-radius: 4px; padding: 2px 5px; font-family: Consolas, monospace; font-size: 12px;">{m.group(1)}</code>',
         value,
     )
-    # 3. Links
+    # 3. Links (supports http, https, file, and magnet)
     value = re.sub(
-        r"\[([^\]]+)\]\((https?://[^)\s]+|file://[^)\s]+)\)",
-        r'<a href="\2" style="color: #58a6ff; text-decoration: underline;">\1</a>',
+        r"\[([^\]]+)\]\((https?://[^\)\s]+|file://[^\)\s]+|magnet:\?[^\)\s]+)\)",
+        r'<a href="\2" style="color: #58a6ff; text-decoration: underline; font-weight: 500;">\1</a>',
         value,
     )
-    # 4. Bold
+    # 4. Auto-link bare magnet URLs not inside href or tags
+    value = re.sub(
+        r'(?<!href=["\'])(?<!">)(magnet:\?xt=urn:[^\s<>"\'\)]+)',
+        r'<a href="\1" style="color: #58a6ff; text-decoration: underline; font-weight: 500;">🧲 Mở Magnet Link</a>',
+        value,
+    )
+    # 5. Bold
     value = re.sub(
         r"\*\*([^*]+)\*\*",
         r"<b>\1</b>",
         value,
     )
-    # 5. Italic
+    # 6. Italic
     value = re.sub(
         r"(?<!\*)\*([^*\n]+)\*(?!\*)",
         r"<i>\1</i>",
@@ -11523,6 +11640,15 @@ class AgentPage(QWidget):
                 QDesktopServices.openUrl(QUrl.fromLocalFile(str(p)))
             else:
                 QDesktopServices.openUrl(QUrl(url_str))
+        elif url_str.startswith("magnet:"):
+            clipboard = QGuiApplication.clipboard()
+            clipboard.setText(url_str)
+            opened = QDesktopServices.openUrl(QUrl(url_str))
+            if opened:
+                self.status_label.setText("Đã mở link Magnet trong ứng dụng Torrent 🧲")
+            else:
+                self.status_label.setText("Đã sao chép link Magnet vào Clipboard 📋")
+            QTimer.singleShot(3500, lambda: self.status_label.setText(t("status_ready")) if self.worker is None else None)
         elif url_str.startswith(("http://", "https://")):
             QDesktopServices.openUrl(QUrl(url_str))
 
