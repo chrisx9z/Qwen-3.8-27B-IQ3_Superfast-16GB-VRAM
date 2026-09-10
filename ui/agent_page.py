@@ -11073,6 +11073,34 @@ class AgentPage(QWidget):
             display.append({"role": "assistant", "content": transcript})
         return display
 
+def generate_chat_title_from_prompt(prompt: str, max_words: int = 7, max_chars: int = 40) -> str:
+    """Tạo tiêu đề súc tích từ vài từ đầu tiên của câu hỏi người dùng thay vì 'New Chat'."""
+    text = (prompt or "").strip()
+    if text.startswith("/"):
+        parts = text.split(maxsplit=1)
+        if len(parts) > 1 and parts[0].lower() in ("/chat", "/code", "/auto", "/plan", "/ask"):
+            text = parts[1].strip()
+    clean = re.sub(r"\s+", " ", text).strip()
+    if not clean:
+        return "New Chat"
+    words = clean.split(" ")
+    if len(words) > max_words:
+        snippet = " ".join(words[:max_words])
+    else:
+        snippet = clean
+    if len(snippet) > max_chars:
+        trimmed = snippet[:max_chars].rsplit(" ", 1)[0]
+        snippet = trimmed if trimmed else snippet[:max_chars]
+    return snippet.strip() or "New Chat"
+
+def is_placeholder_chat_title(title: str) -> bool:
+    """Kiểm tra xem tiêu đề hiện tại có phải là tên mặc định / placeholder không."""
+    t_clean = (title or "").strip().lower()
+    return t_clean in (
+        "new chat", "new_chat", "chat mới", "chat moi", "cuộc trò chuyện mới",
+        "新对话", "untitled", "", "chat", "new chat..."
+    ) or t_clean.startswith("new chat") or t_clean.startswith("chat mới")
+
     def load_chats(self) -> None:
         try:
             data = json.loads(self.chats_path.read_text(encoding="utf-8"))
@@ -11083,6 +11111,20 @@ class AgentPage(QWidget):
             for chat in data
             if isinstance(chat, dict) and chat.get("id")
         ]
+        has_updates = False
+        for chat in self.chats:
+            if is_placeholder_chat_title(chat.get("title", "")):
+                p = chat.get("prompt", "")
+                if not p:
+                    for msg in chat.get("history", []):
+                        if msg.get("role") == "user" and msg.get("content"):
+                            p = msg["content"]
+                            break
+                if p:
+                    chat["title"] = generate_chat_title_from_prompt(p)
+                    has_updates = True
+        if has_updates:
+            self.save_chats()
 
     def save_chats(self) -> None:
         try:
@@ -11117,10 +11159,23 @@ class AgentPage(QWidget):
             key=lambda chat: not chat.get("pinned", False),
         )
         for chat in ordered:
+            title = chat.get("title", "")
+            if is_placeholder_chat_title(title):
+                p = chat.get("prompt", "")
+                if not p:
+                    for msg in chat.get("history", []):
+                        if msg.get("role") == "user" and msg.get("content"):
+                            p = msg["content"]
+                            break
+                if p:
+                    title = generate_chat_title_from_prompt(p)
+                    chat["title"] = title
+            if not title:
+                title = t("default_new_chat_title")
             marker = "📌 " if chat.get("pinned", False) else "💬 "
-            item = QListWidgetItem(marker + chat.get("title", "New chat"))
+            item = QListWidgetItem(marker + title)
             item.setData(32, chat["id"])
-            item.setToolTip(f"{chat.get('title', 'Chat')}\nCập nhật: {chat.get('updated', 'Chưa có')}")
+            item.setToolTip(f"{title}\nCập nhật: {chat.get('updated', 'Chưa có')}")
             self.chat_list.addItem(item)
             if chat["id"] == self.active_chat_id:
                 self.chat_list.setCurrentItem(item)
@@ -12938,8 +12993,8 @@ class AgentPage(QWidget):
         if chat is None:
             return
 
-        if chat["title"] == "New chat":
-            chat["title"] = prompt[:42].replace("\n", " ").strip()
+        if is_placeholder_chat_title(chat.get("title", "")):
+            chat["title"] = generate_chat_title_from_prompt(prompt)
 
         self.append_message({
             "role": "user",
