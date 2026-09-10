@@ -11058,6 +11058,15 @@ class AgentPage(QWidget):
         self.scroll.setWidget(chat_host)
         main_layout.addWidget(self.scroll, 1)
 
+        # Tự động cuộn xuống tin nhắn cuối cùng khi mở hoặc chuyển đoạn chat (kể cả khi các thẻ markdown đang render bất đồng bộ)
+        self._stick_to_bottom_ticks = 0
+        def _on_chat_scroll_range_changed(min_val: int, max_val: int) -> None:
+            if getattr(self, "_stick_to_bottom_ticks", 0) > 0:
+                self.scroll.verticalScrollBar().setValue(max_val)
+                self._stick_to_bottom_ticks -= 1
+        self.scroll.verticalScrollBar().rangeChanged.connect(_on_chat_scroll_range_changed)
+        self.scroll.verticalScrollBar().sliderPressed.connect(lambda: setattr(self, "_stick_to_bottom_ticks", 0))
+
         # ---- Quick Action Chips Bar (Codex Minimalist) ----
         quick_action_bar = QWidget()
         quick_action_layout = QHBoxLayout(quick_action_bar)
@@ -11357,7 +11366,8 @@ class AgentPage(QWidget):
                 self.chat_list.setCurrentItem(item)
                 break
         self.refresh_chat_list()
-        self.scroll_to_bottom()
+        self._stick_to_bottom_ticks = 30
+        self.scroll_to_bottom(force=True)
         self.update_token_estimate()
 
     def on_chat_context_menu(self, pos: Any) -> None:
@@ -11598,9 +11608,22 @@ class AgentPage(QWidget):
         if hasattr(self, "quick_action_bar"):
             self.quick_action_bar.setVisible(True)
 
-    def scroll_to_bottom(self) -> None:
+    def scroll_to_bottom(self, force: bool = False) -> None:
         bar = self.scroll.verticalScrollBar()
         bar.setValue(bar.maximum())
+
+        def _do_scroll() -> None:
+            b = self.scroll.verticalScrollBar()
+            b.setValue(b.maximum())
+            count = self.chat_layout.count()
+            if count > 1:
+                item = self.chat_layout.itemAt(count - 2)
+                if item and item.widget():
+                    self.scroll.ensureWidgetVisible(item.widget(), 0, 0)
+
+        # Đảm bảo cuộn chính xác xuống tin nhắn cuối cùng bất chấp việc các thẻ markdown/code blocks render bất đồng bộ
+        for delay in (0, 15, 40, 80, 160, 300, 600):
+            QTimer.singleShot(delay, _do_scroll)
 
     def scroll_to_bottom_if_near_end(self) -> None:
         bar = self.scroll.verticalScrollBar()
@@ -11617,6 +11640,8 @@ class AgentPage(QWidget):
                 self.zoom_out()
             event.accept()
             return
+        # Khi người dùng chủ động lăn chuột thì dừng chế độ tự ghim đáy
+        self._stick_to_bottom_ticks = 0
         super().wheelEvent(event)
 
     def _on_anchor_clicked(self, url: Any) -> None:
