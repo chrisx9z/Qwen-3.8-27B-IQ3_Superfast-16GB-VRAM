@@ -216,7 +216,23 @@ class LocalLLMServerManager:
 
         raise TimeoutError(f"llama-server timed out after {self.startup_timeout}s.")
 
+    def _probe_help_text(self) -> str:
+        if not hasattr(self, "_cached_help_text"):
+            try:
+                res = subprocess.run(
+                    [str(self.server_path), "--help"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5,
+                )
+                self._cached_help_text = res.stdout + res.stderr
+            except Exception:
+                self._cached_help_text = ""
+        return self._cached_help_text
+
     def _build_command(self) -> list[str]:
+        help_txt = self._probe_help_text()
+
         cmd = [
             str(self.server_path),
             "--model", str(self.model_path),
@@ -228,15 +244,29 @@ class LocalLLMServerManager:
             "-b", "2048",
             "-ub", "512",
             "--cont-batching",
-            "--ctx-shift",
         ]
+
+        # Context shifting: --context-shift (new llama.cpp) vs --ctx-shift (legacy)
+        if "--context-shift" in help_txt:
+            cmd.append("--context-shift")
+        elif "--ctx-shift" in help_txt:
+            cmd.append("--ctx-shift")
+        elif not help_txt:
+            cmd.append("--context-shift")
+
         lookup_ngram = os.environ.get("M_AUTO_PILOT_LOOKUP_NGRAM", "3").strip()
         if lookup_ngram and lookup_ngram != "0":
-            cmd.extend(["--lookup-ngram-min", lookup_ngram])
+            if "--lookup-ngram-min" in help_txt:
+                cmd.extend(["--lookup-ngram-min", lookup_ngram])
+            elif "--spec-type" in help_txt:
+                cmd.extend(["--spec-type", "ngram-mod"])
 
         draft_model = os.environ.get("M_AUTO_PILOT_DRAFT_MODEL", "").strip()
         if draft_model and Path(draft_model).is_file():
-            cmd.extend(["--model-draft", draft_model, "--draft-max", "16", "--draft-min", "2"])
+            if "--spec-draft-n-max" in help_txt:
+                cmd.extend(["--model-draft", draft_model, "--spec-draft-n-max", "16", "--spec-draft-n-min", "2"])
+            else:
+                cmd.extend(["--model-draft", draft_model, "--draft-max", "16", "--draft-min", "2"])
 
         lora_adapter = os.environ.get("M_AUTO_PILOT_LORA_ADAPTER", "").strip()
         if not lora_adapter:
