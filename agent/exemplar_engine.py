@@ -175,7 +175,7 @@ class DynamicExemplarEngine:
             return "7_video_production"
 
         # WordPress, Themes, Plugins, Malware Audit & Active Nulled / GPL
-        if any(kw in lowered for kw in ("wordpress", "flatsome", "rankmath", "rank math", "seo pro", "mã độc", "backdoor", "webshell", "quét plugin", "nulled", "null", "active theme", "active plugin", "kích hoạt theme", "bản quyền theme", "bản quyền plugin", "gpl")):
+        if any(kw in lowered for kw in ("wordpress", "flatsome", "newspaper", "theme", "themes", "plugin", "plugins", "tải theme", "cài theme", "elementor", "rankmath", "rank math", "seo pro", "mã độc", "backdoor", "webshell", "quét plugin", "nulled", "null", "active theme", "active plugin", "kích hoạt theme", "bản quyền theme", "bản quyền plugin", "gpl")):
             return "10_wordpress_nulled_gpl"
 
         # Media, Releases & P2P
