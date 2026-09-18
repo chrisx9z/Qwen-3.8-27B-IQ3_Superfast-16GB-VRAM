@@ -883,6 +883,26 @@ class ObliteratusTarget:
         payload["active_model"] = self.active_model_summary()
         return payload
 
+    def _launcher_dir(self) -> Path:
+        """Nơi đặt launcher: ưu tiên thư mục chứa M Auto Pilot.exe (kể cả Desktop OneDrive)."""
+
+        configured = os.environ.get("M_AUTO_PILOT_LAUNCHER_DIR", "").strip()
+        if configured:
+            return Path(configured)
+        candidates = [
+            Path(r"D:\OneDrive\Desktop"),
+            Path.home() / "Desktop",
+            Path(r"D:\Desktop"),
+            APP_ROOT,
+        ]
+        for candidate in candidates:
+            if (candidate / "M Auto Pilot.exe").is_file():
+                return candidate
+        for candidate in candidates:
+            if candidate.is_dir():
+                return candidate
+        return APP_ROOT
+
     def active_model_summary(self) -> dict[str, object]:
         path = self.active_model_path
         if not path.is_file():
@@ -911,10 +931,7 @@ class ObliteratusTarget:
         resolved = candidate.resolve()
         self.active_model_path.parent.mkdir(parents=True, exist_ok=True)
 
-        launcher_dir = Path(
-            os.environ.get("M_AUTO_PILOT_LAUNCHER_DIR", "")
-            or (Path.home() / "Desktop")
-        )
+        launcher_dir = self._launcher_dir()
         try:
             launcher_dir.mkdir(parents=True, exist_ok=True)
         except OSError:
