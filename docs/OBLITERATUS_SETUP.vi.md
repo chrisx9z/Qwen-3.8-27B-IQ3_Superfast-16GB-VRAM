@@ -36,6 +36,20 @@ tại chỗ. Vì vậy có 3 đường đi:
 — cùng chuẩn quant **UD-IQ3_S** với model hiện tại, cùng base Qwen3.8-27B
 (repo: `huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF`).
 
+Kiểm tra file đã tải: 866 tensor, `general.architecture=qwen35`, `size_label=27B`,
+có `tokenizer.chat_template`, quant trộn IQ3_S/IQ3_XXS/Q4_K (chuẩn Unsloth Dynamic) — GGUF hợp lệ.
+
+**Cách chuyển M Auto Pilot sang model này (không ghi đè model gốc):**
+
+1. Đóng M Auto Pilot đang mở (nếu có).
+2. Mở launcher đã tạo sẵn trên Desktop:
+   **`M Auto Pilot (Uncensored).cmd`**
+   Launcher chỉ set `M_AUTO_PILOT_MODEL_PATH` trỏ tới model đã abliterate rồi khởi động app.
+3. Muốn quay lại bản gốc: mở `M Auto Pilot.exe` như bình thường (không qua launcher).
+
+Trạng thái model đang chọn được ghi tại `work\auto_pilot\active_model.json`;
+xem nhanh bằng tool `obliteratus_download_progress` (trả cả `active_model`).
+
 Các lựa chọn khác cùng cỡ:
 - `OBLITERATUS/Qwen3.8-27B-OBLITERATED` — bản chính thức do OBLITERATUS phát hành (IQ4_XS / Q3_K_M / Q4_K_M)
 - `0bserverx/Qwen3.8-27B-Heretic-Abliterated-Uncensored-GGUF` — có `RVN-IQ3_S.gguf` và bản multilingual
