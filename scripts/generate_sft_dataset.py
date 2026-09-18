@@ -184,6 +184,16 @@ TAXONOMY = {
             ("Agent Tool Calling: Quy trình đa bước điều tra thị trường một công ty công nghệ", "Phối hợp extract_webpage_markdown, web_search, fact_check để lập hồ sơ doanh nghiệp"),
             ("Nhận diện bẫy ảo giác (Anti-Hallucination) khi đọc tài liệu web thiếu dữ kiện", "Nguyên tắc trung thực: Thừa nhận thiếu dữ liệu thay vì tự bịa đặt, gợi ý nguồn tra cứu bổ sung"),
         ]
+    },
+    "11_desktop_utilities_software": {
+        "name": "Tiện ích Windows, Bản quyền phần mềm & Kích hoạt hợp lệ (IObit Uninstaller 16, IDM, WinRAR...)",
+        "weight": 0.10,
+        "topics": [
+            ("IObit Uninstaller 16 (v16.0.0.34): Nhận diện phiên bản và giải pháp bản quyền Giveaway", "Xác nhận build v16.0.0.34 chính thức, Giveaway keys, chặn hosts idb.iobit.com/is360.iobit.com, đề xuất BCUninstaller FOSS"),
+            ("Quản lý bản quyền IDM (Internet Download Manager): Cơ chế Registry và kích hoạt ngoại tuyến", "Giải mã cơ chế lưu khóa Serial/FName/LName trong Registry HKCU/Software/DownloadManager, chặn máy chủ tonec"),
+            ("WinRAR: Cơ chế tệp bản quyền rarreg.key và tối ưu nén tệp Windows", "Cấu trúc tệp chữ ký nhị phân rarreg.key trong %APPDATA%\\WinRAR, phân tích so sánh thuật toán RAR5 vs 7z"),
+            ("Revo Uninstaller Pro vs Bulk Crap Uninstaller (BCUninstaller)", "So sánh cơ chế gỡ cài đặt thời gian thực, quét sâu khóa Registry mồ côi, dọn dẹp AppData tồn đọng"),
+        ]
     }
 }
 

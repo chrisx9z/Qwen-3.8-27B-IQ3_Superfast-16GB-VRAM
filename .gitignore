@@ -9,3 +9,7 @@ llm/models/
 __pycache__/
 *.py[cod]
 *.log
+tools/
+*.zip
+.venv*/
+

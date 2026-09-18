@@ -98,7 +98,10 @@ def _configured_path(
 ) -> Path:
     configured = os.environ.get(env_name, "").strip()
     if configured:
-        return Path(configured)
+        candidate_p = Path(configured)
+        marker = candidate_p.with_name(candidate_p.name + ".downloading")
+        if candidate_p.exists() and not marker.exists():
+            return candidate_p
 
     for candidate in candidates:
         marker = candidate.with_name(candidate.name + ".downloading")
@@ -114,17 +117,13 @@ def _model_available(path: Path) -> bool:
 
 
 QWEN38_IQ3S_MODEL_CANDIDATES = _model_candidates(
+    "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf",
     "Qwen3.8-27B-UD-IQ3_S.gguf",
     "Qwen3.8-27B-IQ3_S.gguf",
     "Qwen2.5-32B-Instruct-IQ3_S.gguf",
 )
 
-QWEN38_MODEL_PATH = Path(
-    os.environ.get(
-        "M_AUTO_PILOT_MODEL_PATH",
-        str(_configured_path("M_AUTO_PILOT_MODEL_PATH", QWEN38_IQ3S_MODEL_CANDIDATES)),
-    )
-)
+QWEN38_MODEL_PATH = _configured_path("M_AUTO_PILOT_MODEL_PATH", QWEN38_IQ3S_MODEL_CANDIDATES)
 
 SERVER_HOST = "127.0.0.1"
 AGENT_SERVER_PORT = 8080
@@ -185,10 +184,15 @@ class LocalLLMServerManager:
 
     def start(self) -> None:
         if not self.model_path.is_file():
-            raise FileNotFoundError(
-                f"Model file not found: {self.model_path}. "
-                f"Please download Qwen3.8-27B-UD-IQ3_S.gguf and place it into {MODEL_DIR_CANDIDATES[0]} or ~/.auto_pilot/models/"
-            )
+            fallback = _configured_path("M_AUTO_PILOT_MODEL_PATH", QWEN38_IQ3S_MODEL_CANDIDATES)
+            if fallback.is_file():
+                self.model_path = fallback
+            else:
+                first_model = QWEN38_IQ3S_MODEL_CANDIDATES[0].name if QWEN38_IQ3S_MODEL_CANDIDATES else "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf"
+                raise FileNotFoundError(
+                    f"Model file not found: {self.model_path}. "
+                    f"Please download {first_model} and place it into {MODEL_DIR_CANDIDATES[0]} or ~/.auto_pilot/models/"
+                )
 
         cmd = self._build_command()
         LOG_PATH.parent.mkdir(parents=True, exist_ok=True)

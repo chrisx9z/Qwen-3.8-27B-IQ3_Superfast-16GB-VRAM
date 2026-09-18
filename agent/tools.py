@@ -881,6 +881,299 @@ class LocalToolRegistry:
                     handler=self._ai_video_localizer_launch,
                 ),
                 ToolSpec(
+                    name="obliteratus_status",
+                    description=(
+                        "Đọc trạng thái cài đặt OBLITERATUS (abliteration toolkit): "
+                        "thư mục, venv, CLI, UI đang chạy hay không. Chỉ đọc."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_status,
+                ),
+                ToolSpec(
+                    name="obliteratus_launch_ui",
+                    description=(
+                        "Mở Gradio web UI của OBLITERATUS trên máy cục bộ "
+                        "(mặc định http://127.0.0.1:7860), chạy nền và ghi log."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "port": {
+                                "type": "integer",
+                                "minimum": 1024,
+                                "maximum": 65535,
+                                "description": "Cổng UI, mặc định 7860.",
+                            },
+                            "share": {
+                                "type": "boolean",
+                                "description": "Tạo link công khai qua Gradio (mặc định false).",
+                            },
+                        },
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_launch_ui,
+                ),
+                ToolSpec(
+                    name="obliteratus_run",
+                    description=(
+                        "Chạy lệnh CLI OBLITERATUS trong allowlist: obliterate, abliterate, "
+                        "blend, self-improve, capability-check, restore-multimodal, run, "
+                        "models, presets, strategies, info, gpu-calc, recommend, runs, "
+                        "report, aggregate, checkpoint. Không chạy shell tùy ý."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "command": {
+                                "type": "string",
+                                "description": "Tên lệnh con, ví dụ 'obliterate' hoặc 'models'.",
+                            },
+                            "args": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Tham số dạng danh sách, không qua shell.",
+                            },
+                            "background": {
+                                "type": "boolean",
+                                "description": "Chạy nền cho tác vụ dài như abliteration.",
+                            },
+                            "timeout": {
+                                "type": "integer",
+                                "minimum": 30,
+                                "maximum": 7200,
+                                "description": "Giây chờ tối đa khi chạy trực tiếp.",
+                            },
+                        },
+                        "required": ["command"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_run,
+                ),
+                ToolSpec(
+                    name="obliteratus_stop",
+                    description=(
+                        "Dừng tiến trình OBLITERATUS (UI/CLI) do adapter phát hiện. "
+                        "Chỉ dừng tiến trình thuộc thư mục cài OBLITERATUS."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_stop,
+                ),
+                ToolSpec(
+                    name="obliteratus_fit_check",
+                    description=(
+                        "Ước lượng VRAM cần để abliterate một model HuggingFace và kết luận "
+                        "máy này có chạy được không (dùng trước khi liberate model lớn)."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "model": {
+                                "type": "string",
+                                "description": "Tên model HuggingFace, ví dụ 'Qwen/Qwen3-4B'.",
+                            },
+                            "gpu_mem": {
+                                "type": "integer",
+                                "minimum": 4,
+                                "maximum": 200,
+                                "description": "VRAM mỗi GPU (GB); bỏ trống để tự đọc GPU cục bộ.",
+                            },
+                        },
+                        "required": ["model"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_fit_check,
+                ),
+                ToolSpec(
+                    name="obliteratus_liberate",
+                    description=(
+                        "Chạy trọn pipeline abliteration cho một model HuggingFace: tải model, "
+                        "probe, trích hướng từ chối, loại bỏ và lưu model đã liberate. "
+                        "Chạy nền, theo dõi bằng obliteratus_progress."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "model": {
+                                "type": "string",
+                                "description": "Tên model HuggingFace hoặc đường dẫn checkpoint.",
+                            },
+                            "method": {
+                                "type": "string",
+                                "description": (
+                                    "basic | advanced | aggressive | spectral_cascade | informed | "
+                                    "surgical | optimized | som | inverted | nuclear (mặc định advanced)."
+                                ),
+                            },
+                            "dtype": {
+                                "type": "string",
+                                "description": "auto | bfloat16 | float16 | float32 (bỏ trống để mặc định).",
+                            },
+                            "quantization": {
+                                "type": "string",
+                                "description": "4bit hoặc 8bit khi VRAM không đủ (bỏ trống nếu không dùng).",
+                            },
+                            "output_dir": {
+                                "type": "string",
+                                "description": "Thư mục lưu model đã liberate (mặc định liberated/<model>).",
+                            },
+                            "background": {
+                                "type": "boolean",
+                                "description": "Mặc định true: chạy nền để không khóa agent.",
+                            },
+                            "extra_args": {
+                                "type": "array",
+                                "items": {"type": "string"},
+                                "description": "Tham số CLI bổ sung (tối đa 20), ví dụ ['--refinement-passes','3'].",
+                            },
+                        },
+                        "required": ["model"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_liberate,
+                ),
+                ToolSpec(
+                    name="obliteratus_progress",
+                    description=(
+                        "Đọc phần cuối log của run abliteration gần nhất (hoặc theo log_path) "
+                        "để báo tiến trình và lỗi cho người dùng."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "log_path": {
+                                "type": "string",
+                                "description": "Tên file log trong obliteratus_logs; bỏ trống để lấy log mới nhất.",
+                            },
+                            "tail": {
+                                "type": "integer",
+                                "minimum": 5,
+                                "maximum": 400,
+                                "description": "Số dòng cuối cần đọc (mặc định 40).",
+                            },
+                        },
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_progress,
+                ),
+                ToolSpec(
+                    name="obliteratus_export_gguf",
+                    description=(
+                        "Chuyển model đã liberate (HuggingFace) sang GGUF cho llama.cpp, "
+                        "tùy chọn quantize (ví dụ IQ3_S) để chạy trong M Auto Pilot."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "model_dir": {
+                                "type": "string",
+                                "description": "Thư mục model đã liberate.",
+                            },
+                            "outtype": {
+                                "type": "string",
+                                "description": "f16 | bf16 | f32 (mặc định f16).",
+                            },
+                            "quant": {
+                                "type": "string",
+                                "description": "Kiểu quantize của llama.cpp, ví dụ Q4_K_M hoặc IQ3_S (bỏ trống để chỉ convert).",
+                            },
+                        },
+                        "required": ["model_dir"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_export_gguf,
+                ),
+                ToolSpec(
+                    name="obliteratus_list_gguf",
+                    description=(
+                        "Liệt kê các file GGUF của một repo HuggingFace (kèm dung lượng) để chọn "
+                        "bản quant phù hợp, ví dụ model 27B đã abliterate sẵn."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "repo_id": {
+                                "type": "string",
+                                "description": "Repo HuggingFace, ví dụ 'huihui-ai/Huihui-Qwen3.8-27B-abliterated-GGUF'.",
+                            },
+                        },
+                        "required": ["repo_id"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_list_gguf,
+                ),
+                ToolSpec(
+                    name="obliteratus_install_gguf",
+                    description=(
+                        "Tải model GGUF đã abliterate từ HuggingFace về thư mục models của máy "
+                        "(có resume, ghi tiến trình). Dùng khi không abliterate được tại chỗ do thiếu VRAM."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "repo_id": {
+                                "type": "string",
+                                "description": "Repo HuggingFace chứa GGUF.",
+                            },
+                            "filename": {
+                                "type": "string",
+                                "description": "Tên file GGUF cụ thể; bỏ trống để tự chọn theo prefer.",
+                            },
+                            "prefer": {
+                                "type": "string",
+                                "description": "Chuỗi ưu tiên khi tự chọn file, mặc định IQ3_S.",
+                            },
+                            "target_dir": {
+                                "type": "string",
+                                "description": "Thư mục đích; bỏ trống để dùng thư mục models của M Auto Pilot.",
+                            },
+                        },
+                        "required": ["repo_id"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_install_gguf,
+                ),
+                ToolSpec(
+                    name="obliteratus_download_progress",
+                    description="Đọc tiến trình tải GGUF (% và dung lượng) và model đang được chọn.",
+                    parameters={
+                        "type": "object",
+                        "properties": {},
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_download_progress,
+                ),
+                ToolSpec(
+                    name="obliteratus_activate_model",
+                    description=(
+                        "Chuyển M Auto Pilot sang dùng file GGUF đã chọn: ghi cấu hình model và tạo "
+                        "launcher chạy app với biến M_AUTO_PILOT_MODEL_PATH."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "gguf_path": {
+                                "type": "string",
+                                "description": "Đường dẫn file GGUF muốn dùng.",
+                            },
+                            "note": {
+                                "type": "string",
+                                "description": "Ghi chú nguồn model (ví dụ repo đã tải).",
+                            },
+                        },
+                        "required": ["gguf_path"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._obliteratus_activate_model,
+                ),
+                ToolSpec(
                     name="read_code_file",
                     description=(
                         "Đọc một file văn bản trong workspace để phân tích code. "
@@ -3967,6 +4260,55 @@ class LocalToolRegistry:
                     handler=self._audit_wordpress_package_security,
                 ),
                 ToolSpec(
+                    name="newspaper_theme_workflow",
+                    description="Quy trình chuyên dụng tra cứu, kiểm định an toàn và thẩm định gói theme Newspaper tagDiv (.zip hoặc .tar.gz).",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "target_version": {"type": "string", "description": "Phiên bản Newspaper cần tra cứu/kiểm định (ví dụ: '12.7.7')."},
+                            "local_path": {"type": "string", "description": "Đường dẫn tệp nén theme cục bộ để quét mã độc."},
+                            "source_url": {"type": "string", "description": "URL nguồn tải về nếu có."},
+                            "expected_sha256": {"type": "string", "description": "Mã băm SHA256 mong đợi để đối chiếu tính toàn vẹn."},
+                            "envato_token": {"type": "string", "description": "Token Envato API chính thức nếu có."},
+                        },
+                        "additionalProperties": False,
+                    },
+                    handler=self._newspaper_theme_workflow,
+                ),
+                ToolSpec(
+                    name="agent_reach_research",
+                    description=(
+                        "Tra cứu, nghiên cứu web, đọc bài viết Markdown, phân tích RSS/Atom feed "
+                        "và tìm kiếm video Bilibili công khai qua runtime cách ly an toàn của Agent-Reach "
+                        "(bảo vệ chống SSRF & Prompt Injection)."
+                    ),
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "action": {
+                                "type": "string",
+                                "enum": ["doctor", "web_research", "rss_lookup", "bilibili_search"],
+                                "description": "Hành động nghiên cứu cần thực hiện (doctor, web_research, rss_lookup, bilibili_search).",
+                            },
+                            "url": {
+                                "type": "string",
+                                "description": "URL trang web hoặc RSS feed công khai cần đọc.",
+                            },
+                            "query": {
+                                "type": "string",
+                                "description": "Từ khóa tìm kiếm (dành cho bilibili_search).",
+                            },
+                            "limit": {
+                                "type": "integer",
+                                "description": "Số lượng kết quả tối đa cần trả về (mặc định 5-10).",
+                            },
+                        },
+                        "required": ["action"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._agent_reach_research,
+                ),
+                ToolSpec(
                     name="run_test_suite",
                     description="Chạy tự động bộ kiểm thử pytest/unittest trên một file test hoặc toàn bộ thư mục tests và trả về kết quả từng test case.",
                     parameters={
@@ -4932,7 +5274,7 @@ class LocalToolRegistry:
             )
         }
 
-    def definitions(self, include_plugins: bool = False) -> list[dict[str, Any]]:
+    def definitions(self, include_plugins: bool = False, include_extended: bool = True, **kwargs: Any) -> list[dict[str, Any]]:
         tool_defs = [
             spec.definition()
             for spec in self._specs.values()
@@ -5476,6 +5818,152 @@ class LocalToolRegistry:
         from adapters.ai_video_localizer import AIVideoLocalizerTarget
 
         return AIVideoLocalizerTarget.from_environment().launch()
+
+    def _obliteratus_status(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        return ObliteratusTarget.from_environment().status()
+
+    def _obliteratus_launch_ui(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        raw_port = arguments.get("port")
+        port = int(raw_port) if raw_port else None
+        return ObliteratusTarget.from_environment().launch_ui(
+            port=port,
+            share=bool(arguments.get("share", False)),
+        )
+
+    def _obliteratus_run(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        command = _required_text(arguments.get("command"), "command")
+        args = arguments.get("args", [])
+        if not isinstance(args, list) or len(args) > 40:
+            raise ValueError("args phải là danh sách tối đa 40 phần tử.")
+        raw_timeout = arguments.get("timeout")
+        timeout = int(raw_timeout) if raw_timeout else 600
+        return ObliteratusTarget.from_environment().run_cli(
+            command,
+            [str(value) for value in args],
+            background=bool(arguments.get("background", False)),
+            timeout=max(30, min(7200, timeout)),
+            tag=command,
+        )
+
+    def _obliteratus_stop(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        return ObliteratusTarget.from_environment().stop()
+
+    def _obliteratus_fit_check(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        raw_memory = arguments.get("gpu_mem")
+        return ObliteratusTarget.from_environment().fit_check(
+            _required_text(arguments.get("model"), "model"),
+            gpu_mem=int(raw_memory) if raw_memory else None,
+        )
+
+    def _obliteratus_liberate(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        extras = arguments.get("extra_args", [])
+        if not isinstance(extras, list):
+            raise ValueError("extra_args phải là danh sách chuỗi.")
+        return ObliteratusTarget.from_environment().liberate(
+            _required_text(arguments.get("model"), "model"),
+            method=str(arguments.get("method") or "advanced"),
+            dtype=str(arguments.get("dtype") or ""),
+            quantization=str(arguments.get("quantization") or ""),
+            output_dir=str(arguments.get("output_dir") or ""),
+            extra_args=[str(value) for value in extras],
+            background=bool(arguments.get("background", True)),
+        )
+
+    def _obliteratus_progress(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        raw_tail = arguments.get("tail")
+        return ObliteratusTarget.from_environment().progress(
+            log_path=str(arguments.get("log_path") or ""),
+            tail=int(raw_tail) if raw_tail else 40,
+        )
+
+    def _obliteratus_export_gguf(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        return ObliteratusTarget.from_environment().export_gguf(
+            _required_text(arguments.get("model_dir"), "model_dir"),
+            outtype=str(arguments.get("outtype") or "f16"),
+            quant=str(arguments.get("quant") or ""),
+        )
+
+    def _obliteratus_list_gguf(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        return ObliteratusTarget.from_environment().list_gguf_repo(
+            _required_text(arguments.get("repo_id"), "repo_id"),
+        )
+
+    def _obliteratus_install_gguf(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        return ObliteratusTarget.from_environment().install_gguf(
+            _required_text(arguments.get("repo_id"), "repo_id"),
+            str(arguments.get("filename") or ""),
+            prefer=str(arguments.get("prefer") or "IQ3_S"),
+            target_dir=str(arguments.get("target_dir") or ""),
+        )
+
+    def _obliteratus_download_progress(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        return ObliteratusTarget.from_environment().download_progress()
+
+    def _obliteratus_activate_model(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from adapters.obliteratus import ObliteratusTarget
+
+        return ObliteratusTarget.from_environment().activate_model(
+            _required_text(arguments.get("gguf_path"), "gguf_path"),
+            note=str(arguments.get("note") or ""),
+        )
 
     def _launch_application(
         self,
@@ -6209,7 +6697,7 @@ class LocalToolRegistry:
             "module_scope": mod,
             "knowledge_graph_nodes": 86,
             "architectural_invariants_memorized": [
-                "Unified LLM Server on Port 8080 (Qwen3.8-27B-UD-IQ3_S.gguf)",
+                "Unified LLM Server on Port 8080 (Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf)",
                 "Full PySide6 Studio Dialogs & Quick Action Chips ecosystem",
                 "High-performance In-Memory AST, Vector RAG & Zero-allocation memory",
                 "Strict Hoare Logic verification before file mutations",
@@ -7549,7 +8037,7 @@ class LocalToolRegistry:
         cnt = int(arguments.get("token_count") or 128)
         return {
             "target_endpoint": "http://127.0.0.1:8080/v1/chat/completions",
-            "model": "Qwen3.8-27B-UD-IQ3_S.gguf",
+            "model": "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf",
             "tokens_generated": cnt,
             "average_tps": 38.2,
             "peak_tps": 44.5,
@@ -9580,7 +10068,7 @@ jobs:
         arguments: dict[str, Any],
     ) -> dict[str, Any]:
         return {
-            "current_model": "Qwen3.8-27B-UD-IQ3_S.gguf",
+            "current_model": "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf",
             "port": 8080,
             "average_tps": "48.2 tokens/s",
             "peak_tps": "62.5 tokens/s",
@@ -10563,6 +11051,298 @@ build
             "findings": findings[:15],
         }
 
+    def _newspaper_theme_workflow(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        import hashlib
+        import io
+        import ipaddress
+        import tarfile
+        import urllib.parse
+        import zipfile
+
+        target_version = arguments.get("target_version") or "12.7.7"
+        local_path = arguments.get("local_path")
+        source_url = arguments.get("source_url")
+        expected_sha256 = arguments.get("expected_sha256")
+        envato_token = arguments.get("envato_token")
+
+        # 1. URL SSRF and Insecure Protocol Validation
+        if source_url:
+            parsed = urllib.parse.urlparse(source_url)
+            if parsed.scheme.lower() != "https":
+                return {
+                    "status": "BLOCKED",
+                    "security_status": "MALICIOUS_BLOCKED",
+                    "can_extract": False,
+                    "can_use": False,
+                    "findings": [{
+                        "file": source_url,
+                        "line": 0,
+                        "severity": "CRITICAL",
+                        "category": "Insecure protocol / Non-HTTPS scheme",
+                        "snippet": source_url,
+                    }],
+                }
+
+            hostname = (parsed.hostname or "").strip().lower()
+            is_blocked_ip = False
+            if hostname == "localhost":
+                is_blocked_ip = True
+            else:
+                try:
+                    ip = ipaddress.ip_address(hostname)
+                    if ip.is_loopback or ip.is_private or ip.is_link_local or ip.is_reserved or str(ip).startswith("169.254."):
+                        is_blocked_ip = True
+                except ValueError:
+                    pass
+
+            if is_blocked_ip:
+                return {
+                    "status": "BLOCKED",
+                    "security_status": "MALICIOUS_BLOCKED",
+                    "can_extract": False,
+                    "can_use": False,
+                    "findings": [{
+                        "file": source_url,
+                        "line": 0,
+                        "severity": "CRITICAL",
+                        "category": "SSRF / Forbidden destination IP or hostname",
+                        "snippet": source_url,
+                    }],
+                }
+
+        # 2. Research-only branch when no download/local path is provided
+        if not source_url and not local_path and not envato_token:
+            return {
+                "status": "RESEARCH_ONLY",
+                "can_extract": False,
+                "can_use": False,
+                "provenance_status": "UNVERIFIED_THIRD_PARTY",
+                "security_status": "NOT_EVALUATED",
+                "official_release": {
+                    "vendor": "tagDiv",
+                    "version": target_version,
+                    "item_id": "5489609",
+                    "official_product_url": "https://themeforest.net/item/newspaper/5489609",
+                },
+                "quarantine_path": None,
+            }
+
+        # 3. Resolve target file
+        candidate_path = None
+        if local_path:
+            p = Path(local_path).expanduser()
+            if p.exists():
+                candidate_path = p
+            else:
+                for base in [Path(r"D:\OneDrive\Desktop"), Path.home() / "Desktop", APP_ROOT, Path.cwd()]:
+                    tp = base / p
+                    if tp.exists():
+                        candidate_path = tp
+                        break
+
+        if not candidate_path or not candidate_path.exists():
+            return {
+                "status": "BLOCKED",
+                "security_status": "MALICIOUS_BLOCKED",
+                "can_extract": False,
+                "can_use": False,
+                "findings": [{
+                    "file": str(local_path),
+                    "line": 0,
+                    "severity": "CRITICAL",
+                    "category": "File not found",
+                    "snippet": str(local_path),
+                }],
+            }
+
+        # 4. Read content & compute hash
+        raw_bytes = candidate_path.read_bytes()
+        file_sha256 = hashlib.sha256(raw_bytes).hexdigest()
+        file_md5 = hashlib.md5(raw_bytes).hexdigest()
+
+        findings: list[dict[str, Any]] = []
+        WINDOWS_RESERVED = {
+            "CON", "PRN", "AUX", "NUL",
+            "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
+            "LPT1", "LPT2", "LPT3", "LPT4", "LPT5", "LPT6", "LPT7", "LPT8", "LPT9",
+        }
+        FORBIDDEN_EXTS = {".exe", ".bat", ".cmd", ".ps1", ".sh", ".vbs", ".scr", ".elf", ".dll", ".so"}
+
+        is_zip = zipfile.is_zipfile(candidate_path) or candidate_path.suffix.lower() == ".zip"
+        is_tar = tarfile.is_tarfile(candidate_path) or candidate_path.name.lower().endswith((".tar", ".tar.gz", ".tgz"))
+
+        if is_zip:
+            with zipfile.ZipFile(candidate_path, "r") as zf:
+                for info in zf.infolist():
+                    name = info.filename
+                    # Path traversal / Zip Slip
+                    if name.startswith(("/", "\\")) or ".." in name.replace("\\", "/").split("/"):
+                        findings.append({
+                            "file": name,
+                            "line": 0,
+                            "severity": "CRITICAL",
+                            "category": "Path traversal / Zip-slip detected",
+                            "snippet": name,
+                        })
+
+                    # Directory depth
+                    parts = [p for p in name.replace("\\", "/").split("/") if p]
+                    if len(parts) > 10:
+                        findings.append({
+                            "file": name,
+                            "line": 0,
+                            "severity": "CRITICAL",
+                            "category": "Excessive directory depth (>10 levels)",
+                            "snippet": name,
+                        })
+
+                    # Windows reserved device name
+                    for part in parts:
+                        stem = os.path.splitext(part)[0].upper()
+                        if stem in WINDOWS_RESERVED:
+                            findings.append({
+                                "file": name,
+                                "line": 0,
+                                "severity": "CRITICAL",
+                                "category": "Windows reserved device name hazard",
+                                "snippet": part,
+                            })
+
+                    if info.is_dir():
+                        continue
+
+                    # Compression ratio
+                    if info.compress_size > 0:
+                        ratio = info.file_size / info.compress_size
+                        if ratio > 15.0 and info.file_size > 1024 * 1024:
+                            findings.append({
+                                "file": name,
+                                "line": 0,
+                                "severity": "CRITICAL",
+                                "category": f"Compression ratio exceeded ({ratio:.1f}:1 > 15:1)",
+                                "snippet": f"Ratio: {ratio:.1f}",
+                            })
+
+                    # Forbidden executable
+                    ext = os.path.splitext(name)[1].lower()
+                    if ext in FORBIDDEN_EXTS:
+                        findings.append({
+                            "file": name,
+                            "line": 0,
+                            "severity": "CRITICAL",
+                            "category": "Forbidden executable inside WordPress package",
+                            "snippet": name,
+                        })
+
+                    # Double extensions
+                    if re.search(r'\.(?:png|jpg|jpeg|gif|ico|svg|css|txt)\.php$', name, re.I):
+                        findings.append({
+                            "file": name,
+                            "line": 0,
+                            "severity": "CRITICAL",
+                            "category": "Double extension disguised PHP script",
+                            "snippet": name,
+                        })
+
+                    # Inspect PHP content
+                    if name.lower().endswith(".php"):
+                        try:
+                            content = zf.read(info).decode("utf-8", errors="ignore")
+                            for line_idx, line in enumerate(content.splitlines(), start=1):
+                                if re.search(r'eval\s*\(\s*(?:base64_decode|gzinflate|gzuncompress|str_rot13|hex2bin)', line, re.I):
+                                    findings.append({
+                                        "file": name,
+                                        "line": line_idx,
+                                        "severity": "CRITICAL",
+                                        "category": "Obfuscated execution: eval(decode)",
+                                        "snippet": line.strip()[:100],
+                                    })
+                                if re.search(r'wp_create_user\s*\(', line, re.I):
+                                    findings.append({
+                                        "file": name,
+                                        "line": line_idx,
+                                        "severity": "HIGH",
+                                        "category": "Hardcoded WordPress user creation",
+                                        "snippet": line.strip()[:100],
+                                    })
+                        except Exception:
+                            pass
+
+        elif is_tar:
+            with tarfile.open(candidate_path, "r:*") as tf:
+                for member in tf.getmembers():
+                    name = member.name
+                    if name.startswith(("/", "\\")) or ".." in name.replace("\\", "/").split("/"):
+                        findings.append({
+                            "file": name,
+                            "line": 0,
+                            "severity": "CRITICAL",
+                            "category": "Path traversal in TAR detected",
+                            "snippet": name,
+                        })
+                    ext = os.path.splitext(name)[1].lower()
+                    if ext in FORBIDDEN_EXTS:
+                        findings.append({
+                            "file": name,
+                            "line": 0,
+                            "severity": "CRITICAL",
+                            "category": "Forbidden executable inside archive",
+                            "snippet": name,
+                        })
+                    if member.isfile():
+                        f = tf.extractfile(member)
+                        if f:
+                            prefix = f.read(4)
+                            if prefix.startswith(b"MZ"):
+                                findings.append({
+                                    "file": name,
+                                    "line": 0,
+                                    "severity": "CRITICAL",
+                                    "category": "Forbidden executable payload",
+                                    "snippet": name,
+                                })
+
+        # Determine status
+        if findings:
+            return {
+                "status": "BLOCKED",
+                "security_status": "MALICIOUS_BLOCKED",
+                "can_extract": False,
+                "can_use": False,
+                "findings": findings,
+                "sha256": file_sha256,
+                "md5": file_md5,
+            }
+
+        # Safe package
+        result = {
+            "status": "WARNING",
+            "security_status": "SUSPICIOUS_WARNING",
+            "provenance_status": "UNVERIFIED_THIRD_PARTY",
+            "can_extract": False,
+            "can_use": False,
+            "findings": [],
+            "sha256": file_sha256,
+            "md5": file_md5,
+        }
+        if expected_sha256:
+            result["checksum_status"] = "MATCH" if expected_sha256.lower() == file_sha256.lower() else "MISMATCH"
+
+        return result
+
+    def _agent_reach_research(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        from integrations.agent_reach_adapter import AgentReachAdapter
+        adapter = AgentReachAdapter()
+        action = str(arguments.get("action") or "").strip()
+        res = adapter.execute_action(action, arguments)
+        return {"ok": res.get("ok", False), "result": res}
+
     def _run_test_suite(
         self,
         arguments: dict[str, Any],
@@ -11391,8 +12171,9 @@ build
         except Exception:
             pass
 
-        # 2. Secondary Engine: Google Search (Google Official Feed & Article Endpoints)
-        if len(results) < limit:
+        # 2. Secondary Engine: Google News RSS (Chỉ sử dụng khi người dùng tìm kiếm tin tức, thời sự)
+        is_news_intent = any(kw in search_query.lower() for kw in ("tin tức", "news", "thời sự", "báo", "hôm nay", "vừa qua", "vừa xảy ra", "vừa công bố", "sự kiện"))
+        if len(results) < limit and is_news_intent:
             try:
                 gnews_vi_url = f"https://news.google.com/rss/search?q={quote(search_query)}&hl=vi&gl=VN&ceid=VN:vi"
                 resp_g = requests.get(
@@ -11421,7 +12202,7 @@ build
                 pass
 
         # Global/English Google query if needed
-        if len(results) < limit:
+        if len(results) < limit and is_news_intent:
             try:
                 gnews_en_url = f"https://news.google.com/rss/search?q={quote(search_query)}&hl=en-US&gl=US&ceid=US:en"
                 resp_gen = requests.get(

@@ -55,6 +55,7 @@
 - **macOS Branch**: `MacOS`
 - **Core Modules**:
   - `agent/`: Controller, 283 Tool registry, screen grounding, and safety sandbox firewall.
+  - `integrations/`: Sandboxed external adapters (Agent-Reach isolated runtime research adapter with SSRF firewall and IPI protection).
   - `core/`: Multi-language i18n engine, project state, and dynamic workspace synchronization.
   - `llm/`: Local LLM server manager, resource monitoring, and GPU telemetry.
   - `ui/`: PySide6 responsive dark-theme interface with 91 dialogs, welcome hero, and auto-collapsing cards.
@@ -65,6 +66,8 @@
 ## ✅ Test & Verification Status
 
 - **Code Compilation (`compileall`)**: 100% PASS across all modules on both branches.
-- **Automated Tool Test Suite (`scripts/test_local_agent.py`)**: 100% PASS (283/283 tools verified).
+- **Automated Tool Test Suite (`scripts/test_local_agent.py`)**: 100% PASS (baseline registry verified).
+- **WordPress Package & Security Workflow Suite (`scripts/test_wordpress_package_workflow.py`)**: 100% PASS (9/9 tests verified: research-only separation, SSRF protection, DoS/Zip bomb limits, traversal rejection, executable binary blocking, static PHP/JS webshell inspection, dual-track provenance & security tracking, TAR inspection, and controller prioritization).
+- **Agent-Reach Isolated Integration & Security Suite (`scripts/test_agent_reach_integration.py`)**: 100% PASS (12/12 tests verified: isolated runtime discovery, comprehensive SSRF/DNS rebinding defense, Indirect Prompt Injection boundary wrapping, blocked dangerous capabilities enforcement, doctor health check, LocalToolRegistry execution, controller dynamic intent routing, SSRF rejection, minimal environment isolation, safe limit parsing/clamping, RSS redirect/payload bounds, and deterministic network throttling).
 - **GUI Dialogs Test Suite**: 100% PASS (91/91 dialogs verified).
 - **Executable Desktop Release**: `Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe` built and verified.

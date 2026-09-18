@@ -906,7 +906,7 @@ class ObliteratusTarget:
     def active_model_summary(self) -> dict[str, object]:
         path = self.active_model_path
         if not path.is_file():
-            return {"configured": False, "model_path": str(self.models_dir / "Qwen3.8-27B-UD-IQ3_S.gguf")}
+            return {"configured": False, "model_path": str(self.models_dir / "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf")}
         try:
             data = json.loads(path.read_text(encoding="utf-8"))
         except (OSError, ValueError):

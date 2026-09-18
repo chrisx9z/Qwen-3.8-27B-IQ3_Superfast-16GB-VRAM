@@ -220,6 +220,37 @@ QMainWindow {
     font-weight: 600;
 }
 
+#ChatModelCombo {
+    background-color: #202430;
+    color: #79a1ff;
+    border: 1px solid #2e3549;
+    border-radius: 7px;
+    padding: 3px 8px;
+    font-size: 11.5px;
+    font-weight: 600;
+    min-height: 22px;
+}
+
+#ChatModelCombo:hover {
+    border-color: #58a6ff;
+    background-color: #262c3d;
+}
+
+#ChatModelCombo::drop-down {
+    border: none;
+    width: 14px;
+}
+
+#ChatModelCombo QAbstractItemView {
+    background-color: #161922;
+    color: #e6edf3;
+    border: 1px solid #30363d;
+    border-radius: 6px;
+    selection-background-color: #1f6feb;
+    selection-color: #ffffff;
+    padding: 4px;
+}
+
 #TokenEstimator {
     color: #7a8296;
     font-size: 11px;

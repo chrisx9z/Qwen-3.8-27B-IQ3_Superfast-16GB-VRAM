@@ -134,27 +134,65 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
         ),
     },
     "10_wordpress_nulled_gpl": {
-        "domain_name": "WordPress, Themes, Plugins, Kiểm Định Mã Độc & Kích Hoạt Sạch (Rank Math Pro, Flatsome, GPL)",
+        "domain_name": "WordPress, Themes, Plugins, Kiểm Định Mã Độc & Kích Hoạt GPL Sạch (Newspaper, Rank Math, Flatsome)",
         "guidelines": (
-            "- Khi người dùng yêu cầu tìm kiếm, tải về hoặc kiểm tra theme/plugin WordPress (như Rank Math Pro 3.0.121, Flatsome 3.20.9...):\n"
-            "  + 1. Báo cáo vị trí tệp tin đã tải về: Nêu rõ đường dẫn file sạch đã lưu trên Desktop (ví dụ: `Desktop/rank-math-pro-3.0.121.zip`, dung lượng 2.86 MB hoặc `Desktop/flatsome-3.20.9.zip`).\n"
-            "  + 2. Báo cáo kiểm định an toàn mã độc (Security Audit) bắt buộc:\n"
-            "    * Nêu rõ mã băm MD5 và SHA256 của gói cài đặt để xác thực tính toàn vẹn.\n"
+            "- TUYỆT ĐỐI KHÔNG BỊA ĐẶT (HALLUCINATE) tệp tin đã tải về hoặc mã băm giả (như chuỗi rỗng e3b0c44... hay a1b2c3d4...). Luôn gọi tool audit_wordpress_package_security hoặc newspaper_theme_workflow để lấy kết quả thật.\n"
+            "- Khi người dùng yêu cầu tìm kiếm, tải về hoặc kiểm tra theme/plugin WordPress (như Newspaper 12.7.7, Rank Math Pro 3.0.121, Flatsome 3.20.9...):\n"
+            "  + 1. Báo cáo vị trí tệp tin thực tế: Nêu rõ đường dẫn file sạch đã lưu trên Desktop (ví dụ: `Desktop/newspaper-12.7.7.zip` 1.89 MB, `Desktop/rank-math-pro-3.0.121.zip` 2.86 MB hoặc `Desktop/flatsome-3.20.9.zip`).\n"
+            "  + 2. Báo cáo kiểm định an toàn mã độc (Security Audit) bắt buộc từ tool:\n"
+            "    * Nêu đúng mã băm MD5 và SHA256 thực tế của tệp tin.\n"
             "    * Thống kê số lượng file mã nguồn đã quét (PHP, JS, JSON, HTML).\n"
             "    * Đánh giá chi tiết các nguy cơ: eval(base64_decode), webshell (c99/r57/wso/b374k), lệnh thực thi hệ thống, tài khoản admin ẩn, liên kết chuyển hướng độc hại.\n"
             "    * Kết luận rõ ràng: Gói cài đặt 100% SẠCH HOÀN TOÀN (Clean GPL Release), an toàn đưa vào website thực tế (Production).\n"
-            "  + 3. Giải pháp Kích hoạt Bản quyền Sạch (Clean Active):\n"
-            "    * Đối với Rank Math Pro: Giải thích cơ chế kiểm tra `rank_math_registration_data`. Cung cấp đoạn code PHP hook kích hoạt gói Agency cao cấp nhất (mở khóa Schema Generator, Site Analytics, Video/News Sitemap, WooCommerce SEO) mà không cần can thiệp file mã nguồn gốc.\n"
+            "  + 3. Giải pháp Kích hoạt Bản quyền Sạch (Clean Active Hook):\n"
+            "    * Đối với Newspaper 12.7.7: Giải thích cơ chế lưu trữ license trong `td_011` / `td_011_status`. Cung cấp đoạn PHP hook chèn vào `functions.php` để kích hoạt tagDiv Composer & mở khóa TagDiv Cloud Library vĩnh viễn mà không chỉnh sửa file lõi theme.\n"
+            "    * Đối với Rank Math Pro: Giải thích cơ chế `rank_math_registration_data` và cung cấp code hook active gói Agency cao cấp nhất.\n"
             "    * Đối với Flatsome: Giải thích cơ chế `flatsome_wup_purchase_code` và cung cấp code hook active mở full Flatsome Studio & Demo Import.\n"
-            "- Trả lời chuyên nghiệp, cấu trúc rõ ràng: [Tệp tin & Tải về] -> [Báo cáo Kiểm tra Mã độc] -> [Hướng dẫn Kích hoạt Agency/Pro]."
+            "- Trả lời chuyên nghiệp, cấu trúc rõ ràng: [Tệp tin & Vị trí Lưu] -> [Báo cáo Kiểm định Mã độc Thực tế] -> [Hướng dẫn Cài đặt & Code Kích hoạt Sạch]."
         ),
         "mini_example": (
-            "Ví dụ Cung cấp & Kiểm định Rank Math Pro 3.0.121: Báo cáo file đã tải sẵn tại `Desktop/rank-math-pro-3.0.121.zip` (2.86 MB). "
-            "Báo cáo kiểm định an toàn: SHA256: 6f99ecedd03175dbb539be269562fee2e7f5eae2fc0dce6e2200283b4eec29ee, "
-            "đã quét toàn bộ 301 file PHP/JS không phát hiện bất kỳ backdoor hay eval obfuscation nào (100% Sạch). "
-            "Cung cấp đoạn hook chèn functions.php: "
-            "add_action('init', function() { if (!get_option('rank_math_registration_data')) { update_option('rank_math_registration_data', ['username' => 'admin', 'api_key' => 'GPL_ACTIVE', 'plan' => 'agency', 'status' => 'active']); } }); "
-            "add_filter('rank_math/registration/plan', function() { return 'agency'; }); giúp kích hoạt gói Agency vĩnh viễn, an toàn tuyệt đối."
+            "Ví dụ Cung cấp & Kiểm định Newspaper 12.7.7:\n"
+            "1. Tệp tin đã có sẵn tại: `Desktop/newspaper-12.7.7.zip` (Dung lượng: 1.89 MB / 1,976,914 bytes).\n"
+            "2. Báo cáo kiểm định an toàn (Security Audit):\n"
+            "   - MD5: `e8edcca95e3db53ee9e82ed233c7d5b4`\n"
+            "   - SHA256: `f38e061d72333df1261cdd624c0709460dd0995654f7681eb85ffd55f0a9f899`\n"
+            "   - Đã quét toàn bộ 158 tệp trong archive (44 file PHP/JS mã nguồn). 0 phát hiện backdoor/webshell (100% Sạch).\n"
+            "3. Hướng dẫn Kích hoạt Sạch TagDiv Cloud Library & Composer qua hook functions.php:\n"
+            "   add_action('init', function() {\n"
+            "       if (get_option('td_011') !== 'GPL_ACTIVE') {\n"
+            "           update_option('td_011', 'GPL_ACTIVE');\n"
+            "           update_option('td_011_status', 'registered');\n"
+            "           update_option('envato_key', 'GPL_COMMUNITY_LICENSE');\n"
+            "       }\n"
+            "   });"
+        ),
+    },
+    "11_desktop_utilities_software": {
+        "domain_name": "Tiện Ích Windows, Bản Quyền Phần Mềm & Trích Xuất Key Giveaway (IObit, IDM, WinRAR...)",
+        "guidelines": (
+            "- Mục tiêu trọng tâm: Tìm kiếm và trích xuất trực tiếp các mã License Key / Giveaway Code được chia sẻ công khai trên Internet theo đúng yêu cầu của người dùng.\n"
+            "- Tập trung 100% vào việc tìm kiếm, thu thập và cung cấp các mã bản quyền (license key / giveaway code) thực tế từ các nguồn chia sẻ trực tuyến; không đưa các hướng dẫn can thiệp hệ thống không cần thiết.\n"
+            "- Quy trình tra cứu và trích xuất key:\n"
+            "  + 1. Gọi `web_search` để quét các nguồn chia sẻ giveaway uy tín (Tickcoupon, WinningPC, NoteCoupon, Softopaz, TechTiPS, GitHub giveaway repos).\n"
+            "  + 2. Nếu cần bóc tách trực tiếp chuỗi key từ trang web, gọi `extract_webpage_markdown` vào URL bài đăng giveaway.\n"
+            "  + 3. Trích xuất toàn bộ các chuỗi mã bản quyền (License Key) tìm thấy vào bảng Markdown rõ ràng: [STT | Mã License Key | Loại bản quyền / Thời hạn | Nguồn chia sẻ].\n"
+            "  + 4. Hướng dẫn cách nhập key trực tiếp trong giao diện phần mềm (mở phần mềm -> nhấp 'Enter Code' / 'Kích hoạt' -> dán key -> bấm Register Now).\n"
+            "  + 5. Cung cấp nhiều key dự phòng để người dùng thử nếu một key đã hết lượt (Activation Limit)."
+        ),
+        "mini_example": (
+            "Ví dụ Tra cứu License Key IObit Uninstaller trên Internet:\n"
+            "1. Kết quả tìm kiếm và trích xuất mã bản quyền từ các đợt Giveaway trực tuyến:\n"
+            "| STT | Mã License Key | Loại bản quyền / Thời hạn | Nguồn chia sẻ |\n"
+            "|---|---|---|---|\n"
+            "| 1 | `381E1-0A930-B5713-AEBTE` | IObit Uninstaller Pro (Giveaway 6 Tháng) | Tickcoupon Giveaway |\n"
+            "| 2 | `2F93C-7EB9A-0BFB7-0B6TE` | IObit Uninstaller Pro (Giveaway 1 Năm) | NoteCoupon Promo |\n"
+            "| 3 | `CA071-ADE68-B9195-CD6TE` | IObit Uninstaller Pro (Campaign Code) | Softopaz Community |\n"
+            "| 4 | `146D0-5E924-04007-088TE` | IObit Uninstaller Pro (Special Promo) | TechTiPS Share |\n\n"
+            "2. Hướng dẫn nhập key trong phần mềm:\n"
+            "- Bước 1: Mở ứng dụng IObit Uninstaller trên máy tính.\n"
+            "- Bước 2: Nhấp vào nút 'Enter Code' (hoặc 'Manage License') ở góc dưới bên phải giao diện.\n"
+            "- Bước 3: Sao chép một trong các mã key ở bảng trên, dán vào ô nhập liệu và bấm 'Register Now'.\n"
+            "- Lưu ý: Các mã Giveaway được chia sẻ công khai có giới hạn lượt kích hoạt. Nếu một mã báo 'Maximum activation reached', hãy thử ngay mã kế tiếp trong danh sách."
         ),
     },
 }
@@ -174,8 +212,19 @@ class DynamicExemplarEngine:
         if any(kw in lowered for kw in ("vietsub", "phụ đề", "phu de", "subtitles", "subtitle", ".srt", ".vtt", "file sub", "tải sub", "tìm sub", "kiếm sub")):
             return "7_video_production"
 
-        # WordPress, Themes, Plugins, Malware Audit & Active Nulled / GPL
-        if any(kw in lowered for kw in ("wordpress", "flatsome", "newspaper", "theme", "themes", "plugin", "plugins", "tải theme", "cài theme", "elementor", "rankmath", "rank math", "seo pro", "mã độc", "backdoor", "webshell", "quét plugin", "nulled", "null", "active theme", "active plugin", "kích hoạt theme", "bản quyền theme", "bản quyền plugin", "gpl")):
+        # Tiện ích hệ thống Windows, IObit, IDM, WinRAR, Licenses, Giveaways & Phần mềm
+        if any(kw in lowered for kw in ("iobit", "uninstaller", "idm", "winrar", "revo", "geek uninstaller", "ccleaner")) or (
+            any(kw in lowered for kw in ("key", "license", "serial", "giveaway", "bản quyền", "active", "kích hoạt"))
+            and any(kw in lowered for kw in ("phần mềm", "app", "software", "win", "windows", "tool", "công cụ"))
+        ):
+            return "11_desktop_utilities_software"
+
+        # WordPress, Themes, Plugins, Kiểm Định Mã Độc & Kích Hoạt GPL
+        if any(kw in lowered for kw in (
+            "wordpress", "flatsome", "newspaper", "theme", "themes", "plugin", "plugins", "tải theme", "cài theme",
+            "elementor", "rankmath", "rank math", "seo pro", "mã độc", "backdoor", "webshell", "quét plugin", "nulled",
+            "null", "active theme", "active plugin", "kích hoạt theme", "bản quyền theme", "bản quyền plugin", "gpl"
+        )):
             return "10_wordpress_nulled_gpl"
 
         # Media, Releases & P2P

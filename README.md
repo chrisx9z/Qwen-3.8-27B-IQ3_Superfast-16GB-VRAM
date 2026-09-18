@@ -66,7 +66,30 @@ Double click **`Auto Pilot Qwen 3.8 27B IQ3_Superfast.exe`** on Desktop.
 ### 4. Run Automated Verification Tests:
 ```powershell
 python scripts/test_local_agent.py
+python scripts/test_wordpress_package_workflow.py
 ```
+
+---
+
+## 🛡️ WordPress Package & Theme Security Workflow
+
+M-Auto-Pilot provides a dedicated enterprise-grade quarantine and security verification pipeline (`newspaper_theme_workflow`):
+- **Research vs. Acquisition Separation**: Queries for themes (e.g. Newspaper 12.7.7) perform research on official vendors (tagDiv / ThemeForest) and reject searching/downloading unauthorized nulled/crack distributions.
+- **SSRF & Quarantine Protection**: Downloads only over HTTPS into isolated directories (`work/quarantine/<scan_id>`), blocking loopback, private RFC 1918, link-local, and cloud metadata IPs with redirect hop validation.
+- **Archive Safety & DoS Prevention**: Inspects ZIP and TAR/GZ archives enforcing 200 MB download, 10,000 entries, 500 MB uncompressed, 15:1 compression ratio limit, and 10 directory levels. Rejects zip-slip traversal, absolute paths, null bytes, Windows device names, symlinks, and executables.
+- **Static PHP/JS Analysis**: Scans for webshell signatures, dynamic execution (`eval(base64_decode...)`), hidden admin user creation, and double extensions.
+- **Dual-Track Provenance & Antivirus**: Evaluates provenance (`OFFICIAL_AUTHENTIC`, `UNVERIFIED_THIRD_PARTY`, `KNOWN_PIRATE_SOURCE`) separately from security status (`VERIFIED_CLEAN`, `SUSPICIOUS_WARNING`, `MALICIOUS_BLOCKED`), and invokes Microsoft Defender / ClamAV via subprocess argument arrays without `shell=True`.
+
+---
+
+## 🌐 Isolated Agent-Reach Research Integration
+
+M-Auto-Pilot integrates an audited, sandboxed public research adapter (`agent_reach_research`) powered by a dedicated isolated runtime (`work/auto_pilot/external/agent_reach_runtime`):
+- **Zero Root Dependency Pollution**: Agent-Reach dependencies live strictly in an isolated virtual environment, keeping root `requirements.txt` and `M Auto Pilot.spec` clean.
+- **SSRF & DNS-Rebinding Firewall**: Rejects private, loopback, multicast, and cloud metadata targets (`127.0.0.1`, `10.0.0.0/8`, `192.168.0.0/16`, `169.254.169.254`, `localhost`).
+- **Indirect Prompt Injection (IPI) Defense**: All fetched external content is wrapped in tagged, bounded untrusted data delimiters so crawled text cannot become execution instructions.
+- **Strictly Blocked Risky Subsystems**: Browser cookie extraction, automatic system package installers (`agent-reach install --system`), and global skill registration are blocked at the adapter perimeter.
+- **Verified Capabilities**: Jina Reader public web extraction, RSS/Atom feed parsing, and Bilibili public metadata search.
 
 ---
 

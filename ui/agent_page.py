@@ -6337,7 +6337,7 @@ class TokenSpeedBenchmarkDialog(QDialog):
         res_d = res.get("result", {})
         md = f"""### ⚙️ Cấu Hình Tối Ưu Hóa Đã Kích Hoạt:
 - **Cổng LLM Server**: `127.0.0.1:8080` (Dùng chung với AI Video Localizer)
-- **Mô hình**: `Qwen3.8-27B-UD-IQ3_S.gguf`
+- **Mô hình**: `Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf` (Uncensored)
 - **FlashAttention-2**: `Bật (on)` — *Tăng 2-3x tốc độ đọc prompt và giảm 50% KV cache VRAM*
 - **Continuous Batching**: `Bật` — *Xử lý song song mượt mà*
 - **Batch Size / Micro-batch**: `2048 / 512`
@@ -6495,7 +6495,7 @@ class SystemHealthDialog(QDialog):
         lines = [
             f"### 🩺 Báo Cáo Sức Khỏe M Auto Pilot (System Health):",
             f"- **LLM Server (Shared Port 8080)**: {'🟢 Hoạt động tốt (Online)' if port_8080_open else '🔴 Chưa kết nối'}",
-            f"- **Mô hình AI**: `Qwen3.8-27B-UD-IQ3_S.gguf` (GPU / GGUF)",
+            f"- **Mô hình AI**: `Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf` (GPU / Uncensored)",
             f"- **Công cụ Agent (Tool Registry)**: **{reg_count} Tools** đã đăng ký đầy đủ.",
             f"- **CPU Usage**: `{cpu_pct}%` | **RAM**: `{ram_used_gb} GB / {ram_total_gb} GB`",
             f"- **Dung lượng ổ đĩa trống**: `{disk_free_gb} GB`",
@@ -7496,6 +7496,582 @@ class DatabaseViewerDialog(QDialog):
             self.status_lbl.setText(f"Trả về {len(rows)} dòng dữ liệu.")
 
 
+class AddCustomProviderDialog(QDialog):
+    """Hộp thoại thêm Nhà Cung Cấp LLM Tùy Biến (Custom AI Provider / Endpoint)."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("➕ Thêm Provider / Server AI Mới")
+        self.resize(540, 440)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #161922;
+                color: #e6edf3;
+            }
+            QLabel {
+                color: #e6edf3;
+                font-size: 13px;
+            }
+            QLineEdit {
+                background-color: #0d1117;
+                color: #f0f6fc;
+                border: 1px solid #30363d;
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+            QLineEdit:focus {
+                border: 1px solid #58a6ff;
+            }
+            QPushButton#PrimaryButton {
+                background-color: #238636;
+                color: #ffffff;
+                font-weight: bold;
+                border-radius: 6px;
+                padding: 8px 16px;
+                border: none;
+            }
+            QPushButton#PrimaryButton:hover {
+                background-color: #2ea043;
+            }
+            QPushButton#GhostButton {
+                background-color: #21262d;
+                color: #c9d1d9;
+                border: 1px solid #30363d;
+                border-radius: 6px;
+                padding: 8px 16px;
+            }
+            QPushButton#GhostButton:hover {
+                background-color: #30363d;
+                color: #f0f6fc;
+            }
+        """)
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(22, 20, 22, 20)
+        layout.setSpacing(10)
+
+        header = QLabel("➕ Thêm Nhà Cung Cấp / Server AI Mới")
+        header.setStyleSheet("color: #58a6ff; font-weight: bold; font-size: 15px;")
+        layout.addWidget(header)
+
+        desc = QLabel(
+            "Kết nối tới bất kỳ máy chủ tương thích chuẩn OpenAI API nào (Ollama, vLLM, LM Studio, "
+            "LocalAI, Text-Gen-WebUI, hoặc cổng Cloud riêng)."
+        )
+        desc.setWordWrap(True)
+        desc.setStyleSheet("color: #8b949e; font-size: 12px; margin-bottom: 4px;")
+        layout.addWidget(desc)
+
+        layout.addWidget(QLabel("Mã định danh (Provider ID):"))
+        self.id_input = QLineEdit()
+        self.id_input.setPlaceholderText("ví dụ: my_ollama, vllm_server, lmstudio, my_gateway...")
+        layout.addWidget(self.id_input)
+
+        layout.addWidget(QLabel("Tên hiển thị (Display Name):"))
+        self.name_input = QLineEdit()
+        self.name_input.setPlaceholderText("ví dụ: 🦙 My Ollama 32B, ⚡ Local vLLM, LM Studio...")
+        layout.addWidget(self.name_input)
+
+        layout.addWidget(QLabel("Endpoint URL (/v1/chat/completions):"))
+        self.endpoint_input = QLineEdit()
+        self.endpoint_input.setPlaceholderText("http://127.0.0.1:11434/v1/chat/completions")
+        layout.addWidget(self.endpoint_input)
+
+        layout.addWidget(QLabel("Tên Model:"))
+        self.model_input = QLineEdit()
+        self.model_input.setPlaceholderText("ví dụ: qwen2.5:32b, llama3.3, deepseek-ai/DeepSeek-V3...")
+        layout.addWidget(self.model_input)
+
+        layout.addWidget(QLabel("API Key (Tùy chọn - để trống nếu server nội bộ):"))
+        self.key_input = QLineEdit()
+        self.key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.key_input.setPlaceholderText("sk-... (để trống nếu không yêu cầu)")
+        layout.addWidget(self.key_input)
+
+        self.error_lbl = QLabel("")
+        self.error_lbl.setStyleSheet("color: #f85149; font-size: 12px;")
+        layout.addWidget(self.error_lbl)
+
+        layout.addStretch(1)
+
+        btn_row = QHBoxLayout()
+        btn_row.addStretch(1)
+
+        cancel_btn = QPushButton("Hủy")
+        cancel_btn.setObjectName("GhostButton")
+        cancel_btn.clicked.connect(self.reject)
+        btn_row.addWidget(cancel_btn)
+
+        save_btn = QPushButton("Thêm Provider")
+        save_btn.setObjectName("PrimaryButton")
+        save_btn.clicked.connect(self._on_save)
+        btn_row.addWidget(save_btn)
+
+        layout.addLayout(btn_row)
+
+        self.created_provider: dict[str, Any] | None = None
+
+    def _on_save(self) -> None:
+        from core.llm_settings import add_custom_provider
+        pid = self.id_input.text().strip()
+        name = self.name_input.text().strip()
+        endpoint = self.endpoint_input.text().strip()
+        model = self.model_input.text().strip()
+        api_key = self.key_input.text().strip()
+
+        if not endpoint:
+            self.error_lbl.setText("Vui lòng nhập Endpoint URL.")
+            return
+        if not model:
+            self.error_lbl.setText("Vui lòng nhập tên Model.")
+            return
+
+        if not pid:
+            import re
+            pid = re.sub(r"[^a-zA-Z0-9_]", "_", name.lower()) if name else "custom_provider"
+
+        pentry = add_custom_provider(
+            provider_id=pid,
+            name=name or f"⚙️ {pid.title()}",
+            endpoint=endpoint,
+            model=model,
+            api_key=api_key,
+        )
+        self.created_provider = pentry
+        self.accept()
+
+
+class ModelProviderDialog(QDialog):
+    """Hộp thoại cấu hình Nhà Cung Cấp LLM & Quản Lý API Key (Multi-Provider AI Dialog)."""
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self.setWindowTitle("🤖 Cấu Hình Nhà Cung Cấp & Model AI")
+        self.resize(680, 580)
+        self.setStyleSheet("""
+            QDialog {
+                background-color: #161922;
+                color: #e6edf3;
+            }
+            QLabel {
+                color: #e6edf3;
+                font-size: 13px;
+            }
+            QComboBox, QLineEdit {
+                background-color: #0d1117;
+                color: #f0f6fc;
+                border: 1px solid #30363d;
+                border-radius: 6px;
+                padding: 6px 10px;
+                font-size: 13px;
+            }
+            QComboBox:focus, QLineEdit:focus {
+                border: 1px solid #58a6ff;
+            }
+            QPushButton#PrimaryButton {
+                background-color: #238636;
+                color: #ffffff;
+                font-weight: bold;
+                border-radius: 6px;
+                padding: 8px 16px;
+                border: none;
+            }
+            QPushButton#PrimaryButton:hover {
+                background-color: #2ea043;
+            }
+            QPushButton#GhostButton {
+                background-color: #21262d;
+                color: #c9d1d9;
+                border: 1px solid #30363d;
+                border-radius: 6px;
+                padding: 8px 16px;
+            }
+            QPushButton#GhostButton:hover {
+                background-color: #30363d;
+                color: #f0f6fc;
+            }
+            QPushButton#SmallButton {
+                background-color: #21262d;
+                color: #c9d1d9;
+                border: 1px solid #30363d;
+                border-radius: 6px;
+                padding: 6px 12px;
+                font-size: 12px;
+            }
+            QPushButton#SmallButton:hover {
+                background-color: #30363d;
+                color: #f0f6fc;
+            }
+            QPushButton#TestButton {
+                background-color: #1f6feb;
+                color: #ffffff;
+                font-weight: 500;
+                border-radius: 6px;
+                padding: 6px 14px;
+                border: none;
+            }
+            QPushButton#TestButton:hover {
+                background-color: #388bfd;
+            }
+        """)
+
+        from core.llm_settings import get_llm_settings, DEFAULT_PROVIDERS
+        self.DEFAULT_PROVIDERS = DEFAULT_PROVIDERS
+        self.settings = get_llm_settings()
+        self.providers = dict(self.settings.get("providers") or {})
+        self.current_provider = self.settings.get("llm_provider", "local")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(24, 20, 24, 20)
+        layout.setSpacing(14)
+
+        # Header Title
+        header_lbl = QLabel("⚙️ Cấu Hình Nhà Cung Cấp LLM & API Keys")
+        header_lbl.setStyleSheet("color: #58a6ff; font-weight: bold; font-size: 16px;")
+        layout.addWidget(header_lbl)
+
+        sub_lbl = QLabel(
+            "M Auto Pilot hỗ trợ kết nối bất kỳ mô hình AI nào (Cloud hoặc Local). "
+            "Toàn bộ tính năng Agent, 300+ công cụ tự động hóa, tìm kiếm thông tin và suy luận reasoning đều hoạt động đồng nhất."
+        )
+        sub_lbl.setWordWrap(True)
+        sub_lbl.setStyleSheet("color: #8b949e; font-size: 12px; margin-bottom: 4px;")
+        layout.addWidget(sub_lbl)
+
+        # Provider Selection Row
+        prov_layout = QVBoxLayout()
+        prov_layout.setSpacing(4)
+        prov_lbl = QLabel("Nhà cung cấp (Provider):")
+        prov_lbl.setStyleSheet("font-weight: bold;")
+        prov_layout.addWidget(prov_lbl)
+
+        prov_sel_row = QHBoxLayout()
+        prov_sel_row.setSpacing(8)
+
+        self.provider_combo = QComboBox()
+        self.add_provider_btn = QPushButton("➕ Thêm")
+        self.add_provider_btn.setObjectName("SmallButton")
+        self.add_provider_btn.setToolTip("Thêm Nhà Cung Cấp / Server AI Tùy Biến Mới")
+        self.add_provider_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.add_provider_btn.clicked.connect(self._open_add_provider_dialog)
+
+        self.del_provider_btn = QPushButton("🗑️ Xóa")
+        self.del_provider_btn.setObjectName("SmallButton")
+        self.del_provider_btn.setToolTip("Xóa Nhà Cung Cấp Tùy Biến đang chọn")
+        self.del_provider_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.del_provider_btn.clicked.connect(self._delete_current_provider)
+
+        self._populate_provider_combo()
+        self.provider_combo.currentIndexChanged.connect(self._on_provider_changed)
+        prov_sel_row.addWidget(self.provider_combo, 1)
+        prov_sel_row.addWidget(self.add_provider_btn)
+        prov_sel_row.addWidget(self.del_provider_btn)
+
+        prov_layout.addLayout(prov_sel_row)
+        layout.addLayout(prov_layout)
+
+        # Documentation / API Key URL hint
+        self.doc_lbl = QLabel("")
+        self.doc_lbl.setWordWrap(True)
+        self.doc_lbl.setStyleSheet("color: #7ee787; font-size: 12px;")
+        self.doc_lbl.setOpenExternalLinks(True)
+        layout.addWidget(self.doc_lbl)
+
+        # API Key Row
+        key_layout = QVBoxLayout()
+        key_layout.setSpacing(4)
+        key_title_row = QHBoxLayout()
+        key_lbl = QLabel("API Key:")
+        key_lbl.setStyleSheet("font-weight: bold;")
+        key_title_row.addWidget(key_lbl)
+        key_title_row.addStretch(1)
+        key_layout.addLayout(key_title_row)
+
+        key_input_row = QHBoxLayout()
+        key_input_row.setSpacing(6)
+        self.key_input = QLineEdit()
+        self.key_input.setEchoMode(QLineEdit.EchoMode.Password)
+        self.key_input.setPlaceholderText("Nhập API Key (để trống nếu dùng Local GPU / Ollama / vLLM)...")
+        key_input_row.addWidget(self.key_input, 1)
+
+        self.eye_btn = QPushButton("👁️")
+        self.eye_btn.setObjectName("GhostButton")
+        self.eye_btn.setToolTip("Hiện / Ẩn API Key")
+        self.eye_btn.setFixedWidth(40)
+        self.eye_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.eye_btn.clicked.connect(self._toggle_key_visibility)
+        key_input_row.addWidget(self.eye_btn)
+        key_layout.addLayout(key_input_row)
+        layout.addLayout(key_layout)
+
+        # Model Name Row (Editable ComboBox)
+        model_layout = QVBoxLayout()
+        model_layout.setSpacing(4)
+        model_lbl = QLabel("Tên Mô Hình AI (Model Name):")
+        model_lbl.setStyleSheet("font-weight: bold;")
+        model_layout.addWidget(model_lbl)
+
+        self.model_combo = QComboBox()
+        self.model_combo.setEditable(True)
+        self.model_combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        self.model_combo.setToolTip("Chọn từ danh sách gợi ý hoặc gõ tự do bất kỳ tên model nào")
+        model_layout.addWidget(self.model_combo)
+
+        model_hint = QLabel("💡 Bạn có thể tự do gõ bất kỳ tên model mới nào vào ô trên (ví dụ: gpt-4o, claude-3-5-sonnet, gemini-2.0-flash, deepseek-chat, qwen2.5:latest,...).")
+        model_hint.setStyleSheet("color: #8b949e; font-size: 11px;")
+        model_layout.addWidget(model_hint)
+        layout.addLayout(model_layout)
+
+        # Endpoint Row
+        endpoint_layout = QVBoxLayout()
+        endpoint_layout.setSpacing(4)
+        endpoint_lbl = QLabel("Endpoint URL (Chat Completions):")
+        endpoint_lbl.setStyleSheet("font-weight: bold;")
+        endpoint_layout.addWidget(endpoint_lbl)
+
+        self.endpoint_input = QLineEdit()
+        self.endpoint_input.setPlaceholderText("https://.../v1/chat/completions")
+        endpoint_layout.addWidget(self.endpoint_input)
+        layout.addLayout(endpoint_layout)
+
+        # Test Connection & Status Row
+        test_row = QHBoxLayout()
+        test_row.setSpacing(10)
+        self.test_btn = QPushButton("🔌 Kiểm Tra Kết Nối (Test)")
+        self.test_btn.setObjectName("TestButton")
+        self.test_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.test_btn.clicked.connect(self._test_connection)
+        test_row.addWidget(self.test_btn)
+
+        self.test_status_lbl = QLabel("")
+        self.test_status_lbl.setWordWrap(True)
+        self.test_status_lbl.setStyleSheet("font-size: 12px;")
+        test_row.addWidget(self.test_status_lbl, 1)
+        layout.addLayout(test_row)
+
+        layout.addStretch(1)
+
+        # Bottom Action Buttons
+        btn_row = QHBoxLayout()
+        btn_row.setSpacing(10)
+        btn_row.addStretch(1)
+
+        cancel_btn = QPushButton("Đóng")
+        cancel_btn.setObjectName("GhostButton")
+        cancel_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        cancel_btn.clicked.connect(self.reject)
+        btn_row.addWidget(cancel_btn)
+
+        save_btn = QPushButton("💾 Lưu & Áp Dụng")
+        save_btn.setObjectName("PrimaryButton")
+        save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        save_btn.clicked.connect(self._save_and_apply)
+        btn_row.addWidget(save_btn)
+
+        layout.addLayout(btn_row)
+
+        self._load_provider_fields(self.current_provider)
+
+    def _populate_provider_combo(self, select_pid: str | None = None) -> None:
+        from core.llm_settings import get_llm_settings
+        self.settings = get_llm_settings()
+        self.providers = dict(self.settings.get("providers") or {})
+
+        self.provider_combo.blockSignals(True)
+        self.provider_combo.clear()
+        target = select_pid or self.current_provider
+
+        # 1. Các provider mặc định
+        for pid, pdata in self.DEFAULT_PROVIDERS.items():
+            self.provider_combo.addItem(pdata.get("name", pid), pid)
+
+        # 2. Các provider tùy biến do người dùng tạo
+        for pid, pdata in self.providers.items():
+            if pid not in self.DEFAULT_PROVIDERS:
+                self.provider_combo.addItem(pdata.get("name", f"⚙️ {pid.title()}"), pid)
+
+        idx = self.provider_combo.findData(target)
+        if idx >= 0:
+            self.provider_combo.setCurrentIndex(idx)
+        else:
+            self.provider_combo.setCurrentIndex(0)
+            self.current_provider = str(self.provider_combo.itemData(0) or "local")
+
+        self.provider_combo.blockSignals(False)
+        self._update_delete_btn_state()
+
+    def _update_delete_btn_state(self) -> None:
+        is_custom = (
+            self.current_provider not in self.DEFAULT_PROVIDERS
+            or bool(self.providers.get(self.current_provider, {}).get("is_custom", False))
+        )
+        self.del_provider_btn.setEnabled(is_custom)
+        if is_custom:
+            self.del_provider_btn.setStyleSheet("color: #f85149; border: 1px solid #f85149; border-radius: 6px; padding: 6px 12px; font-size: 12px;")
+        else:
+            self.del_provider_btn.setStyleSheet("color: #484f58; border: 1px solid #30363d; border-radius: 6px; padding: 6px 12px; font-size: 12px;")
+
+    def _open_add_provider_dialog(self) -> None:
+        dlg = AddCustomProviderDialog(self)
+        if dlg.exec() and dlg.created_provider:
+            from core.llm_settings import get_llm_settings
+            self.settings = get_llm_settings()
+            self.providers = dict(self.settings.get("providers") or {})
+            new_pid = dlg.created_provider["id"]
+            self.current_provider = new_pid
+            self._populate_provider_combo(select_pid=new_pid)
+            self._load_provider_fields(new_pid)
+
+    def _delete_current_provider(self) -> None:
+        pid = self.current_provider
+        if pid in self.DEFAULT_PROVIDERS:
+            return
+        res = QMessageBox.question(
+            self,
+            "Xác nhận xóa Provider",
+            f"Bạn có chắc muốn xóa nhà cung cấp '{pid}' không?",
+            QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
+        )
+        if res == QMessageBox.StandardButton.Yes:
+            from core.llm_settings import delete_custom_provider, get_llm_settings
+            delete_custom_provider(pid)
+            self.settings = get_llm_settings()
+            self.providers = dict(self.settings.get("providers") or {})
+            self.current_provider = "local"
+            self._populate_provider_combo(select_pid="local")
+            self._load_provider_fields("local")
+
+    def _toggle_key_visibility(self) -> None:
+        if self.key_input.echoMode() == QLineEdit.EchoMode.Password:
+            self.key_input.setEchoMode(QLineEdit.EchoMode.Normal)
+            self.eye_btn.setText("🔒")
+        else:
+            self.key_input.setEchoMode(QLineEdit.EchoMode.Password)
+            self.eye_btn.setText("👁️")
+
+    def _sync_current_form_to_cache(self, pid: str) -> None:
+        if pid in self.providers:
+            old_m = str(self.providers[pid].get("model", "")).strip()
+            old_e = str(self.providers[pid].get("endpoint", "")).strip()
+            old_k = str(self.providers[pid].get("api_key", "")).strip()
+            new_m = self.model_combo.currentText().strip()
+            new_e = self.endpoint_input.text().strip()
+            new_k = self.key_input.text().strip()
+            if pid != "local" and (new_m != old_m or new_e != old_e or new_k != old_k):
+                self.providers[pid]["verified"] = False
+            self.providers[pid]["model"] = new_m
+            self.providers[pid]["endpoint"] = new_e
+            self.providers[pid]["api_key"] = new_k
+
+    def _on_provider_changed(self, index: int) -> None:
+        new_pid = str(self.provider_combo.itemData(index) or "local")
+        self._sync_current_form_to_cache(self.current_provider)
+        self.current_provider = new_pid
+        self._update_delete_btn_state()
+        self._load_provider_fields(new_pid)
+
+    def _load_provider_fields(self, pid: str) -> None:
+        pdata = self.providers.get(pid) or self.DEFAULT_PROVIDERS.get(pid, {})
+        def_pdata = self.DEFAULT_PROVIDERS.get(pid, {})
+
+        docs_url = pdata.get("docs_url") or def_pdata.get("docs_url", "")
+        self.doc_lbl.setText(f"ℹ️ {docs_url}" if docs_url else "")
+
+        self.key_input.setText(str(pdata.get("api_key", "")))
+        self.endpoint_input.setText(str(pdata.get("endpoint") or def_pdata.get("endpoint", "")))
+
+        saved_model = str(pdata.get("model") or def_pdata.get("model", ""))
+        self.model_combo.blockSignals(True)
+        self.model_combo.clear()
+        suggested = list(pdata.get("suggested_models") or def_pdata.get("suggested_models") or [])
+        if saved_model and saved_model not in suggested:
+            suggested.insert(0, saved_model)
+        for m in suggested:
+            self.model_combo.addItem(m)
+        self.model_combo.setCurrentText(saved_model)
+        self.model_combo.blockSignals(False)
+
+        is_verified = bool(pdata.get("verified", False))
+        is_local = bool(pdata.get("is_local", False))
+        if pid == "local":
+            self.test_status_lbl.setText("<span style='color: #7ee787;'>🟢 Sẵn sàng (Local GPU Offline - Mặc định)</span>")
+        elif is_verified:
+            self.test_status_lbl.setText("<span style='color: #7ee787;'>✅ Đã kiểm tra kết nối thành công & sẵn sàng</span>")
+        elif is_local or pid in ("ollama", "vllm"):
+            self.test_status_lbl.setText("<span style='color: #8b949e;'>Chưa kiểm tra (Bấm 'Kiểm Tra Kết Nối' để xác thực server offline)</span>")
+        else:
+            self.test_status_lbl.setText("<span style='color: #8b949e;'>Chưa kiểm tra (Bấm 'Kiểm Tra Kết Nối' để xác thực API Key)</span>")
+
+    def _test_connection(self) -> None:
+        endpoint = self.endpoint_input.text().strip()
+        model = self.model_combo.currentText().strip()
+        api_key = self.key_input.text().strip()
+        provider = str(self.provider_combo.currentData() or "custom")
+
+        if not endpoint:
+            self.test_status_lbl.setText("<span style='color: #f85149;'>⚠️ Endpoint URL không được để trống!</span>")
+            return
+        if not model:
+            self.test_status_lbl.setText("<span style='color: #f85149;'>⚠️ Tên Model không được để trống!</span>")
+            return
+
+        self.test_btn.setEnabled(False)
+        self.test_status_lbl.setText("<span style='color: #58a6ff;'>⏳ Đang kiểm tra kết nối tới server...</span>")
+
+        def _do_test():
+            from core.llm_settings import test_llm_connection, normalize_endpoint
+            norm_ep = normalize_endpoint(endpoint)
+            ok, msg = test_llm_connection(norm_ep, model, api_key, provider=provider)
+            QTimer.singleShot(0, lambda: self._on_test_done(ok, msg, norm_ep))
+
+        import threading
+        threading.Thread(target=_do_test, daemon=True).start()
+
+    def _on_test_done(self, ok: bool, msg: str, norm_ep: str = "") -> None:
+        self.test_btn.setEnabled(True)
+        pid = self.current_provider
+        if norm_ep and self.endpoint_input.text().strip() != norm_ep:
+            self.endpoint_input.setText(norm_ep)
+        if ok:
+            self.test_status_lbl.setText(f"<span style='color: #7ee787; font-weight: bold;'>{msg}</span>")
+            if pid in self.providers:
+                self.providers[pid]["verified"] = True
+                self.providers[pid]["endpoint"] = norm_ep or self.endpoint_input.text().strip()
+                self.providers[pid]["model"] = self.model_combo.currentText().strip()
+                self.providers[pid]["api_key"] = self.key_input.text().strip()
+        else:
+            self.test_status_lbl.setText(f"<span style='color: #f85149;'>{msg}</span>")
+            if pid in self.providers:
+                self.providers[pid]["verified"] = False
+
+    def _save_and_apply(self) -> None:
+        active_pid = str(self.provider_combo.currentData() or "local")
+        active_model = self.model_combo.currentText().strip()
+        active_endpoint = self.endpoint_input.text().strip()
+        active_key = self.key_input.text().strip()
+
+        if not active_endpoint:
+            self.test_status_lbl.setText("<span style='color: #f85149;'>⚠️ Endpoint URL không được để trống!</span>")
+            return
+        if not active_model:
+            self.test_status_lbl.setText("<span style='color: #f85149;'>⚠️ Tên Model không được để trống!</span>")
+            return
+
+        self._sync_current_form_to_cache(active_pid)
+
+        from core.llm_settings import save_llm_settings, normalize_endpoint
+        norm_endpoint = normalize_endpoint(active_endpoint)
+        save_llm_settings(
+            provider=active_pid,
+            model=active_model,
+            endpoint=norm_endpoint,
+            api_key=active_key,
+            providers_map=self.providers,
+        )
+        self.accept()
+
+
 class SettingsDialog(QDialog):
     """Hộp thoại cài đặt cấu hình & Chủ đề giao diện (Theme)."""
 
@@ -7509,7 +8085,7 @@ class SettingsDialog(QDialog):
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setWindowTitle("Cài Đặt Hệ Thống & Giao Diện")
-        self.resize(560, 400)
+        self.resize(580, 420)
         layout = QVBoxLayout(self)
         layout.setContentsMargins(20, 20, 20, 20)
         layout.setSpacing(14)
@@ -7543,11 +8119,19 @@ class SettingsDialog(QDialog):
         layout.addLayout(hotkey_box)
 
         model_box = QHBoxLayout()
-        model_box.addWidget(QLabel("Mô hình AI:"))
-        self.model_lbl = QLabel("Qwen3.8-27B-UD-IQ3_S (Local GPU/GGUF)")
+        model_box.addWidget(QLabel("Mô hình AI Hiện Tại:"))
+        self.model_lbl = QLabel("Đang tải...")
         self.model_lbl.setStyleSheet("color: #7ee787; font-weight: bold;")
         model_box.addWidget(self.model_lbl, 1)
+
+        self.config_model_btn = QPushButton("⚙️ Đổi Model & API Key...")
+        self.config_model_btn.setObjectName("GhostButton")
+        self.config_model_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.config_model_btn.clicked.connect(self._open_model_dialog)
+        model_box.addWidget(self.config_model_btn)
         layout.addLayout(model_box)
+
+        self._refresh_model_lbl()
 
         layout.addStretch(1)
 
@@ -7562,6 +8146,23 @@ class SettingsDialog(QDialog):
         close_btn.clicked.connect(self.close)
         btn_row.addWidget(close_btn)
         layout.addLayout(btn_row)
+
+    def _refresh_model_lbl(self) -> None:
+        try:
+            from core.llm_settings import get_llm_settings
+            s = get_llm_settings()
+            self.model_lbl.setText(f"{s.get('llm_model')} ({s.get('llm_provider').upper()})")
+        except Exception:
+            self.model_lbl.setText("Qwen3.8-27B (LOCAL)")
+
+    def _open_model_dialog(self) -> None:
+        dlg = ModelProviderDialog(self)
+        if dlg.exec():
+            self._refresh_model_lbl()
+            if self.parent() and hasattr(self.parent(), "update_model_button_label"):
+                self.parent().update_model_button_label()
+            if self.parent() and hasattr(self.parent(), "refresh_chat_model_selector"):
+                self.parent().refresh_chat_model_selector()
 
 class PromptBuilderDialog(QDialog):
     """Hộp thoại xây dựng Prompt chuyên sâu theo mẫu kiến trúc & lập trình."""
@@ -8606,6 +9207,8 @@ class AgentPage(QWidget):
         self._current_zoom_level: int = 13
         self.load_chats()
         self.build_ui()
+        self.update_model_button_label()
+        self.refresh_chat_model_selector()
         self.refresh_chat_list()
         self.res_timer = QTimer(self)
         self.res_timer.timeout.connect(self.update_live_resources)
@@ -9525,6 +10128,91 @@ class AgentPage(QWidget):
     def open_settings_dialog(self) -> None:
         dialog = SettingsDialog(self)
         dialog.exec()
+
+    def open_model_provider_dialog(self) -> None:
+        dialog = ModelProviderDialog(self)
+        if dialog.exec():
+            self.update_model_button_label()
+            self.refresh_chat_model_selector()
+            try:
+                from core.llm_settings import get_llm_settings
+                s = get_llm_settings()
+                self.status_label.setText(f"Đã kích hoạt model: {s.get('llm_model')} ({s.get('llm_provider').upper()}) ✨")
+            except Exception:
+                pass
+        else:
+            self.refresh_chat_model_selector()
+
+    def update_model_button_label(self) -> None:
+        if not hasattr(self, "model_selector_btn"):
+            return
+        try:
+            from core.llm_settings import get_llm_settings, DEFAULT_PROVIDERS
+            s = get_llm_settings()
+            provider = s.get("llm_provider", "local")
+            model = s.get("llm_model", "local-qwen")
+            pdata = s.get("providers", {}).get(provider) or DEFAULT_PROVIDERS.get(provider, {})
+            short_p = pdata.get("short_name", provider.title())
+            display_model = model
+            if "/" in display_model:
+                display_model = display_model.split("/")[-1]
+            if len(display_model) > 22:
+                display_model = display_model[:20] + ".."
+            self.model_selector_btn.setText(f"🤖 [{short_p}: {display_model}]")
+            self.model_selector_btn.setToolTip(
+                f"Nhà cung cấp: {pdata.get('name', provider)}\n"
+                f"Model: {model}\n"
+                f"Endpoint: {s.get('llm_endpoint', '')}\n\n"
+                "Bấm để thay đổi Provider, thêm API Key hoặc chọn Model khác."
+            )
+        except Exception:
+            self.model_selector_btn.setText("🤖 [AI Model]")
+
+    def refresh_chat_model_selector(self) -> None:
+        if not hasattr(self, "chat_model_combo"):
+            return
+        try:
+            from core.llm_settings import get_verified_models, get_llm_settings
+            models = get_verified_models()
+            active_settings = get_llm_settings()
+            active_provider = str(active_settings.get("llm_provider") or "local").strip().lower()
+            active_model = str(active_settings.get("llm_model") or "qwen38_iq3s").strip()
+
+            self.chat_model_combo.blockSignals(True)
+            self.chat_model_combo.clear()
+
+            select_idx = 0
+            for i, m in enumerate(models):
+                self.chat_model_combo.addItem(m["display_name"], m)
+                if m["provider"] == active_provider and (m["model"] == active_model or active_provider == "local"):
+                    select_idx = i
+
+            self.chat_model_combo.addItem("⚙️ Thêm / Cấu hình Model & API...", {"action": "configure"})
+            self.chat_model_combo.setCurrentIndex(select_idx)
+            self.chat_model_combo.blockSignals(False)
+        except Exception as err:
+            print(f"[AgentPage] Error refreshing chat models: {err}")
+
+    def _on_chat_model_changed(self, index: int) -> None:
+        if index < 0 or not hasattr(self, "chat_model_combo"):
+            return
+        item_data = self.chat_model_combo.itemData(index)
+        if not isinstance(item_data, dict):
+            return
+
+        if item_data.get("action") == "configure":
+            self.open_model_provider_dialog()
+            return
+
+        provider = str(item_data.get("provider") or "local")
+        model = str(item_data.get("model") or "qwen38_iq3s")
+        try:
+            from core.llm_settings import set_active_provider_and_model
+            set_active_provider_and_model(provider, model)
+            self.update_model_button_label()
+            self.status_label.setText(f"Đã chọn mô hình: {model} ({provider.upper()})")
+        except Exception as err:
+            print(f"[AgentPage] Error setting active model: {err}")
 
     def generate_arch_diagram(self) -> None:
         from agent.tools import LocalToolRegistry
@@ -10992,8 +11680,15 @@ class AgentPage(QWidget):
         self.status_label = QLabel(t("status_ready"))
         self.status_label.setObjectName("StatusLabel")
         header_layout.addWidget(self.status_label)
-
         header_layout.addStretch(1)
+
+        # AI Model & Provider Selector
+        self.model_selector_btn = QPushButton("🤖 [Local: Qwen 27B]")
+        self.model_selector_btn.setObjectName("GhostButton")
+        self.model_selector_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.model_selector_btn.setToolTip("Cấu hình Nhà cung cấp & Model AI (OpenAI, Gemini, OpenRouter, DeepSeek, Groq, Ollama...)\nBấm để chuyển đổi hoặc nhập API Key")
+        self.model_selector_btn.clicked.connect(self.open_model_provider_dialog)
+        header_layout.addWidget(self.model_selector_btn)
 
         # Plugins & DeepSeek Harness Capsule
         self.plugin_btn = QPushButton("🧩 Plugins & Harness")
@@ -11142,13 +11837,14 @@ class AgentPage(QWidget):
 
         bottom_row.addStretch(1)
 
-        # Right controls: Model chip, token counter, send button
-        self.model_label = QLabel("⚡ Qwen 3.8 27B")
-        self.model_label.setObjectName("ModelChip")
-        self.model_label.setToolTip("Qwen3.8-27B-UD-IQ3_S (16GB VRAM Superfast)\nBấm để xem tham số mô hình & GPU")
-        self.model_label.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.model_label.mousePressEvent = lambda _: self.open_turbo_dialog()
-        bottom_row.addWidget(self.model_label)
+        # Right controls: Verified Model Selector combo (chỉ hiện model đã add API và test kết nối thành công, Qwen mặc định), token counter, send button
+        self.chat_model_combo = QComboBox()
+        self.chat_model_combo.setObjectName("ChatModelCombo")
+        self.chat_model_combo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.chat_model_combo.setToolTip("Chọn mô hình AI cho Khung Chat\n(Chỉ hiển thị các Model đã add API và test kết nối thành công, Qwen làm mặc định)")
+        self.chat_model_combo.currentIndexChanged.connect(self._on_chat_model_changed)
+        bottom_row.addWidget(self.chat_model_combo)
+        self.model_label = self.chat_model_combo
 
         self.token_estimator_lbl = QLabel("~0 / 16.3k")
         self.token_estimator_lbl.setObjectName("TokenEstimator")
@@ -13212,10 +13908,17 @@ class AgentPage(QWidget):
         self._streaming_row = None
         self._streaming_text = ""
 
+        active_model_name = "qwen38_iq3s"
+        try:
+            from core.llm_settings import get_llm_settings
+            active_model_name = get_llm_settings().get("llm_model", "qwen38_iq3s")
+        except Exception:
+            pass
+
         self.worker = AgentWorker(
             prompt,
             list(self.agent_messages(chat)),
-            "qwen38_iq3s",
+            active_model_name,
             str(self.mode_combo.currentData() or "auto") if hasattr(self, "mode_combo") else "auto",
         )
         self.worker.signals.status_changed.connect(

@@ -8,6 +8,7 @@ block_cipher = None
 
 hiddenimports = [
     "uuid",
+    "core.llm_settings",
     # requests stack
     "requests",
     "urllib3",
