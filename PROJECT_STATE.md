@@ -25,7 +25,7 @@
    - Continuous Batching (`--cont-batching`, `-b 2048`, `-ub 512`).
    - Prompt KV Cache reuse (`"cache_prompt": True`) across agent tool turns.
    - Context shifting (`--ctx-shift`) within the 16,384 token window.
-3. **283 Comprehensive Automation Tools & 91 Interactive Dialogs**:
+3. **318 Comprehensive Automation Tools & 91 Interactive Dialogs**:
    - Autonomous Coding, File Tree, Git Manager, Checkpoints, AST Analysis, Terminal Runner.
    - Computer-Use (Bézier mouse, SendInput Unicode, HWND inspection, Virtual Desktops).
    - Chrome CDP browser automation & RapidOCR screen grounding.
@@ -54,7 +54,7 @@
 - **Default Branch**: `Windows-PC`
 - **macOS Branch**: `MacOS`
 - **Core Modules**:
-  - `agent/`: Controller, 283 Tool registry, screen grounding, and safety sandbox firewall.
+  - `agent/`: Controller, 318 Tool registry, screen grounding, and safety sandbox firewall.
   - `integrations/`: Sandboxed external adapters (Agent-Reach isolated runtime research adapter with SSRF firewall and IPI protection).
   - `core/`: Multi-language i18n engine, project state, and dynamic workspace synchronization.
   - `llm/`: Local LLM server manager, resource monitoring, and GPU telemetry.
