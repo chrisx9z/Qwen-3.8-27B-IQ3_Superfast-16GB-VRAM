@@ -23,28 +23,27 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
     "1_knowledge_ai": {
         "domain_name": "Kiến thức Khoa học & Công nghệ Chuyên sâu",
         "guidelines": (
-            "- Giải thích từ Nguyên lý đầu tiên (First Principles: Bản chất -> Cơ chế vận hành -> Ứng dụng thực tế).\n"
-            "- Trình bày công thức toán học KaTeX ($$...$$) chính xác nếu có.\n"
-            "- Cung cấp bảng so sánh Markdown đa chiều (ít nhất 5-8 tiêu chí so sánh).\n"
-            "- Kết thúc với mục '💡 Pro-Tip & Production Gotchas' (cạm bẫy thực tiễn & tối ưu cấp chuyên gia)."
+            "- Đi thẳng vào bản chất và cơ chế cốt lõi bằng các gạch đầu dòng súc tích, dễ hiểu.\n"
+            "- Trình bày công thức toán học KaTeX ($$...$$) chính xác khi cần thiết.\n"
+            "- Nếu cần so sánh, lập bảng Markdown ngắn gọn tập trung vào điểm khác biệt chính (không lan man).\n"
+            "- Không viết bài luận dài dòng lê thê; giữ câu trả lời cô đọng, giàu thông tin giá trị."
         ),
         "mini_example": (
-            "Ví dụ phân tích Transformer vs Mamba: Tách bạch rõ cơ chế Attention $O(N^2)$ (data-dependent) "
-            "với State Space Model $O(N)$ (selective scan), lập bảng so sánh bộ nhớ/tính toán/retrieval, "
-            "và nêu rõ các trường hợp ứng dụng thực tế."
+            "Ví dụ phân tích Transformer vs Mamba: Nêu bật Attention $O(N^2)$ (data-dependent) vs "
+            "SSM $O(N)$ (selective scan), so sánh nhanh ưu/nhược điểm bộ nhớ và bối cảnh ứng dụng thực tế."
         ),
     },
     "2_social_media": {
         "domain_name": "Đăng bài Social & Kịch bản Viral (TikTok / Reels / Threads)",
         "guidelines": (
-            "- Hook 3 giây đầu: Bắt buộc kích thích tò mò hoặc cú sốc thị giác.\n"
-            "- Bảng Storyboard 4 cột: [Thời lượng | Visual & Góc máy | Voiceover | Text Overlay & FX].\n"
-            "- Bộ Hashtag 3 tầng: #CoreTopic, #NicheAudience, #TrendingTags.\n"
-            "- Hướng dẫn chi tiết về ánh sáng, quay màn hình, pacing dựng video và Call-To-Action (CTA)."
+            "- Hook 3 giây đầu: Kích thích tò mò hoặc cú sốc thị giác.\n"
+            "- Kịch bản ngắn gọn, trực quan: [Thời lượng | Visual & Góc quay | Lời thoại | Text & FX].\n"
+            "- Bộ Hashtag tinh gọn: #CoreTopic, #NicheAudience, #TrendingTags.\n"
+            "- Tránh giải thích dông dài; tập trung vào hành động và Call-To-Action (CTA) hiệu quả."
         ),
         "mini_example": (
             "Ví dụ Storyboard 60s: [00:00-00:03] Hook gõ phím nhanh -> [00:03-00:15] Nỗi đau debug 2 tiếng vs 2 phút "
-            "-> [00:15-00:45] 3 giải pháp thực chiến -> [00:45-00:60] CTA 2 chiều lưu video & comment."
+            "-> [00:15-00:45] 3 giải pháp thực chiến -> [00:45-00:60] CTA ngắn gọn kêu gọi tương tác."
         ),
     },
     "3_info_factcheck": {
@@ -52,7 +51,7 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
         "guidelines": (
             "- Trích xuất dữ kiện thực tế từ nguồn URL / Internet, dẫn chứng link [Tên nguồn](URL).\n"
             "- Phân biệt rành mạch: [SỰ THẬT ĐÃ XÁC THỰC] vs [QUAN ĐIỂM / DỰ BÁO CÁ NHÂN].\n"
-            "- Đưa ra mốc thời gian, số liệu định lượng, nhân vật và tổ chức liên quan chính xác."
+            "- Đưa ra mốc thời gian, số liệu định lượng, nhân vật và tổ chức liên quan chính xác, súc tích."
         ),
         "mini_example": (
             "Ví dụ phân tích podcast từ link video: Trích xuất tiêu đề video, tác giả, tên podcast gốc, "
@@ -62,14 +61,14 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
     "4_software_engineering": {
         "domain_name": "Kỹ thuật Lập trình & Clean Production Code",
         "guidelines": (
-            "- Code 100% hoàn chỉnh, chạy được ngay (Tuyệt đối KHÔNG viết tắt, KHÔNG '// TODO: implement here').\n"
-            "- Chuẩn Enterprise: Type hints, Pydantic/FastAPI/Async, bắt ngoại lệ try/except/finally, logging.\n"
-            "- Kèm theo cấu trúc thư mục dự án, requirements.txt và bộ test suite Pytest/AsyncClient.\n"
-            "- Kết thúc với mục '💡 Pro-Tip & Production Gotchas'."
+            "- Code 100% hoàn chỉnh, chuẩn xác, chạy được ngay (tuyệt đối KHÔNG '// TODO' hoặc cắt xén logic).\n"
+            "- Chuẩn Enterprise: Type hints đầy đủ, bắt ngoại lệ an toàn, logging hợp lý.\n"
+            "- Kèm hướng dẫn chạy hoặc giải thích ngắn gọn 1-2 câu; không giảng giải lý thuyết dông dài.\n"
+            "- Chỉ bổ sung cấu trúc thư mục hoặc test suite khi người dùng yêu cầu toàn bộ dự án."
         ),
         "mini_example": (
-            "Ví dụ module FastAPI: Cung cấp đủ config.py, db.py (SQLAlchemy 2.0 Async), models.py, schemas.py, "
-            "auth.py (JWT access+refresh, Argon2), exception middleware và test_auth.py."
+            "Ví dụ module FastAPI: Cung cấp trọn vẹn endpoint xử lý với Pydantic schema, bắt ngoại lệ, "
+            "và 1 lệnh curl / pytest mẫu để kiểm thử ngay lập tức."
         ),
     },
     "5_game_development": {
@@ -77,7 +76,7 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
         "guidelines": (
             "- Cung cấp script hoàn chỉnh với cấu trúc Node/Component, State Machine và Input handling.\n"
             "- Tối ưu hóa FPS: Tách biệt physics delta time, dùng object pooling, quản lý bộ nhớ an toàn.\n"
-            "- Hướng dẫn thiết lập Inspector và Scene Tree trong engine."
+            "- Hướng dẫn thiết lập Inspector và Scene Tree trong engine ngắn gọn, thực dụng."
         ),
         "mini_example": (
             "Ví dụ State Machine trong Godot 4: Script GDScript hoàn chỉnh cho CharacterBody2D, "
@@ -87,10 +86,9 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
     "6_system_architecture": {
         "domain_name": "Kiến trúc Hệ thống & Thiết kế Dự án (System Design)",
         "guidelines": (
-            "- Sơ đồ kiến trúc Mermaid rõ ràng (graph TD, sequenceDiagram, erDiagram).\n"
-            "- Thiết kế Database Schema chi tiết (DDL / bảng trường kiểu dữ liệu, index, khóa ngoại).\n"
-            "- Bảng phân tích đánh đổi (Trade-off Matrix: Latency vs Consistency, Cost vs Scalability).\n"
-            "- Thiết kế API contract (RESTful/gRPC JSON payload) và Caching/Queue layer."
+            "- Sơ đồ kiến trúc Mermaid súc tích (graph TD, sequenceDiagram) khi cần làm rõ luồng dữ liệu.\n"
+            "- Thiết kế Database Schema / API Contract tập trung vào các thực thể và trường trọng yếu.\n"
+            "- Phân tích đánh đổi (Trade-offs: Latency, Cost, Scale) bằng gạch đầu dòng sắc nét, không vẽ bảng lan man."
         ),
         "mini_example": (
             "Ví dụ Real-time Chat Architecture: Sơ đồ Mermaid WebSocket Gateway, Redis Pub/Sub, "
@@ -268,10 +266,9 @@ class DynamicExemplarEngine:
         ex = self._cached_exemplars.get(domain_key, self._cached_exemplars["1_knowledge_ai"])
 
         return (
-            f"\n\n[TIÊU CHUẨN ĐẦU RA GEMINI 3.8 FLASH — LĨNH VỰC: {ex['domain_name'].upper()}]\n"
+            f"\n\n[TIÊU CHUẨN ĐẦU RA CHUẨN MỰC — LĨNH VỰC: {ex['domain_name'].upper()}]\n"
             f"{ex['guidelines']}\n"
             f"Mẫu thực hiện tham chiếu:\n{ex['mini_example']}\n"
             f"👉 QUY TẮC SUY NGHĨ: Suy luận nội tâm trong thẻ <think>...</think> phải 100% bằng TIẾNG VIỆT.\n"
-            f"👉 ÁP DỤNG NGAY: Trả lời câu hỏi của người dùng với phong cách, cấu trúc phân cấp, "
-            f"đầy đủ 100% không viết tắt, và độ sâu sắc tương đương mẫu trên.\n"
+            f"👉 NGUYÊN TẮC BẮT BUỘC: Trả lời đúng trọng tâm, giữ trọn vẹn ý nghĩa cốt lõi, ngắn gọn, súc tích, TUYỆT ĐỐI KHÔNG dài dòng lê thê hay chêm lời chào hỏi sáo rỗng.\n"
         )
