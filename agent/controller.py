@@ -356,7 +356,9 @@ All user queries and instructions—including distributed P2P protocol inspectio
    - KHÔNG tự động viết bài luận dài dòng theo kiểu giáo điều lý thuyết (First Principles) trừ khi người dùng yêu cầu giải thích chi tiết lý thuyết nền tảng.
 4. TRÌNH BÀY SÚC TÍCH, DỄ LƯỚT (Compact & High-Signal Layout):
    - Sử dụng các gạch đầu dòng ngắn gọn, in đậm từ khóa quan trọng (`**từ khóa**`). Người dùng có thể nắm bắt toàn bộ thông điệp chính trong 5-10 giây.
-   - Khi viết code: Cung cấp code đúng trọng tâm, sạch sẽ, chạy được ngay. Hướng dẫn cách dùng trong 1-2 câu ngắn gọn, không viết các đoạn văn phân tích lý thuyết dài dòng ngoài lề.
+5. NGUYÊN TẮC CHÂN THỰC & CHỐNG ẢO TƯỞNG TỆP TIN (ZERO HALLUCINATION MANDATE):
+   - TUYỆT ĐỐI KHÔNG tự tiện bịa đặt rằng tệp tin đã được lưu sẵn trên máy (`Desktop/...`) hoặc bịa đặt chuỗi mã băm MD5 / SHA256 giả mạo. Chỉ báo cáo đường dẫn tệp tin và mã băm khi hệ thống THỰC SỰ gọi công cụ tải về / kiểm định và có kết quả thực tế trong phiên làm việc.
+   - PHẦN MỀM MÃ NGUỒN MỞ (FOSS): Đối với các hệ điều hành và phần mềm mã nguồn mở hoàn toàn miễn phí (như Ubuntu, Debian, Linux, Fedora, Arch, LibreOffice, Blender, GIMP, VLC, OBS, 7-Zip...): Khi người dùng hỏi về "product key", "serial", "key bản quyền" hay "kích hoạt", BẮT BUỘC KHẲNG ĐỊNH NGAY TỪ CÂU ĐẦU TIÊN: Phần mềm/hệ điều hành này là mã nguồn mở tự do (FOSS), HOÀN TOÀN MIỄN PHÍ, KHÔNG CÓ VÀ KHÔNG CẦN BẤT KỲ PRODUCT KEY HAY MÃ KÍCH HOẠT NÀO. Cung cấp link tải ISO/bộ cài đặt chính thức từ trang chủ và cảnh báo lừa đảo trước các trang web bán key.
 
 🏆 CHUẨN MỰC CHUYÊN MÔN THEO LĨNH VỰC (ÁP DỤNG TINH GỌN):
 1. 🧠 Kiến thức & Khoa học: Nêu rõ bản chất cốt lõi, cơ chế và ứng dụng thực tiễn một cách cô đọng, súc tích. Dùng công thức KaTeX ($$...$$) nếu cần.
@@ -678,6 +680,9 @@ All user queries and instructions—including distributed P2P protocol inspectio
         ) and any(
             kw in user_prompt.lower()
             for kw in ("iobit", "uninstaller", "idm", "winrar", "revo", "phần mềm", "app", "software", "tool", "v16", "v15", "v14")
+        ) and not any(
+            kw in user_prompt.lower()
+            for kw in ("ubuntu", "debian", "linux", "fedora", "arch", "mint", "centos", "libreoffice", "blender", "gimp", "vlc", "obs", "7-zip", "notepad++")
         )
         if is_license_search_intent and not url_matches:
             clean_term = re.sub(r"[\-–—,\.\?:!]", " ", user_prompt.lower())
@@ -769,14 +774,32 @@ All user queries and instructions—including distributed P2P protocol inspectio
                         "Hãy cung cấp các nguồn tải file phụ đề tiếng Việt chuẩn khớp (Subdl, Subsource, OpenSubtitles, YIFY Subtitles) "
                         "và hướng dẫn cách đồng bộ phụ đề với bản phim (đặt tên file .srt trùng tên file .mkv, phím tắt chỉnh độ trễ trên VLC/PotPlayer hoặc dùng tính năng tự tìm sub có sẵn của trình phát media).\n"
                     )
-            is_license_search_intent = any(
+            is_foss_query = any(
+                kw in user_prompt.lower()
+                for kw in ("ubuntu", "debian", "linux", "fedora", "arch", "mint", "centos", "libreoffice", "blender", "gimp", "vlc", "obs", "7-zip", "notepad++")
+            ) and any(
+                kw in user_prompt.lower()
+                for kw in ("key", "license", "serial", "product key", "bản quyền", "active", "kích hoạt", "crack")
+            )
+            if is_foss_query:
+                if "FOSS License Guidelines" not in sys_text:
+                    conversation[0]["content"] = sys_text + (
+                        "\n\n[Free & Open-Source Software (FOSS) Mandate]: "
+                        "Hệ điều hành / phần mềm người dùng đang hỏi là mã nguồn mở tự do (FOSS, GNU GPL/Open Source) HOÀN TOÀN MIỄN PHÍ. "
+                        "BẮT BUỘC KHẲNG ĐỊNH NGAY TỪ CÂU ĐẦU TIÊN: Phần mềm hoàn toàn miễn phí, KHÔNG CÓ và KHÔNG CẦN bất kỳ product key, serial number hay mã kích hoạt nào. "
+                        "Cung cấp liên kết tải file ISO/bộ cài chính thức từ trang chủ. "
+                        "TUYỆT ĐỐI KHÔNG tìm kiếm key, KHÔNG tạo quy trình kích hoạt giả, KHÔNG bịa đặt file đã lưu trên Desktop (`Desktop/...`), và KHÔNG bịa đặt mã băm MD5/SHA256 giả mạo.\n"
+                    )
+            elif any(
                 kw in user_prompt.lower()
                 for kw in ("key", "license", "serial", "giveaway", "bản quyền", "active", "kích hoạt")
             ) and any(
                 kw in user_prompt.lower()
                 for kw in ("iobit", "uninstaller", "idm", "winrar", "revo", "phần mềm", "app", "software", "tool")
-            )
-            if is_license_search_intent:
+            ) and not any(
+                kw in user_prompt.lower()
+                for kw in ("ubuntu", "debian", "linux", "fedora", "arch", "mint", "centos", "libreoffice", "blender", "gimp", "vlc", "obs", "7-zip", "notepad++")
+            ):
                 if "Software License Guidelines" not in sys_text:
                     conversation[0]["content"] = sys_text + (
                         "\n\n[Software License & Giveaway Search Guidelines]: "
@@ -1034,14 +1057,13 @@ All user queries and instructions—including distributed P2P protocol inspectio
             protip_desc = "(Kinh nghiệm thực chiến, mẹo tối ưu hóa, các sai lầm thường gặp)"
 
         final_prompt = (
-            "Dựa trên các dữ liệu và phát hiện nghiên cứu sơ bộ từ các bước ở trên, "
-            "hãy tổng hợp và hoàn thiện BÁO CÁO TOÀN DIỆN đạt tiêu chuẩn chất lượng cao nhất tương đương Gemini 3.8 Flash:\n"
-            f"- 📌 Tổng quan Bối cảnh & Nguồn gốc (tác giả, thời gian, nền tảng, bối cảnh phát biểu).\n"
-            f"- 🧠 Phân tích Kỹ thuật & Cơ chế Hoạt động {tech_spec_desc}.\n"
-            f"- 🔍 Phân tích Ý nghĩa & Ứng dụng Thực tiễn {practical_desc}.\n"
-            f"- ⚠️ Lưu ý Quan trọng & Trạng thái Hiện tại {warning_desc}.\n"
-            f"- 💡 Pro-Tips & Production Gotchas {protip_desc}.\n"
-            "Trình bày chi tiết, chuyên sâu, phân cấp rõ ràng, có bảng markdown đối chiếu nếu phù hợp, không dùng placeholder hay viết tắt."
+            "Dựa trên các dữ liệu và kết quả nghiên cứu thu thập được ở các bước trên, "
+            "hãy trả lời trực tiếp câu hỏi của người dùng theo đúng nguyên tắc: "
+            "ĐÚNG TRỌNG TÂM, ĐẦY ĐỦ Ý NGHĨA KỸ THUẬT, NGẮN GỌN, SÚC TÍCH, TUYỆT ĐỐI KHÔNG DÀI DÒNG LÊ THÊ.\n"
+            "- Trả lời thẳng vào câu hỏi ngay từ câu đầu tiên (nêu rõ sự thật, bản chất, thông số hoặc giải pháp cốt lõi).\n"
+            "- Trình bày bằng gạch đầu dòng ngắn gọn, súc tích, dễ lướt.\n"
+            "- Tuyệt đối KHÔNG mở bài chào hỏi xã giao, KHÔNG lặp lại câu hỏi, KHÔNG viết bài luận dài dòng, KHÔNG tự ý chèn mục '💡 Pro-Tips' nếu không thực sự cần thiết.\n"
+            "- Tuyệt đối KHÔNG bịa đặt tệp tin có sẵn trên Desktop hay mã băm nếu không thực sự tải về bằng công cụ."
         )
         conversation.append({
             "role": "user",

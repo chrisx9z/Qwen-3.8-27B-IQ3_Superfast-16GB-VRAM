@@ -134,7 +134,9 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
     "10_wordpress_nulled_gpl": {
         "domain_name": "WordPress, Themes, Plugins, Kiểm Định Mã Độc & Kích Hoạt GPL Sạch (Newspaper, Rank Math, Flatsome)",
         "guidelines": (
-            "- TUYỆT ĐỐI KHÔNG BỊA ĐẶT (HALLUCINATE) tệp tin đã tải về hoặc mã băm giả (như chuỗi rỗng e3b0c44... hay a1b2c3d4...). Luôn gọi tool audit_wordpress_package_security hoặc newspaper_theme_workflow để lấy kết quả thật.\n"
+            "- CHỈ ÁP DỤNG cho các theme/plugin WordPress thương mại phân phối lại theo GPL.\n"
+            "- TUYỆT ĐỐI KHÔNG BỊA ĐẶT (HALLUCINATE) tệp tin đã tải về hoặc mã băm giả (như chuỗi rỗng hay mã tự bịa). CHỈ báo cáo đường dẫn tệp tin và mã MD5/SHA256 KHI VÀ CHỈ KHI tool audit_wordpress_package_security hoặc newspaper_theme_workflow đã thực sự được gọi và trả về kết quả quét thực tế trong phiên.\n"
+            "- TUYỆT ĐỐI KHÔNG áp dụng cấu trúc này cho hệ điều hành (như Ubuntu, Linux) hay các phần mềm mã nguồn mở tự do.\n"
             "- Khi người dùng yêu cầu tìm kiếm, tải về hoặc kiểm tra theme/plugin WordPress (như Newspaper 12.7.7, Rank Math Pro 3.0.121, Flatsome 3.20.9...):\n"
             "  + 1. Báo cáo vị trí tệp tin thực tế: Nêu rõ đường dẫn file sạch đã lưu trên Desktop (ví dụ: `Desktop/newspaper-12.7.7.zip` 1.89 MB, `Desktop/rank-math-pro-3.0.121.zip` 2.86 MB hoặc `Desktop/flatsome-3.20.9.zip`).\n"
             "  + 2. Báo cáo kiểm định an toàn mã độc (Security Audit) bắt buộc từ tool:\n"
@@ -168,7 +170,8 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
     "11_desktop_utilities_software": {
         "domain_name": "Tiện Ích Windows, Bản Quyền Phần Mềm & Trích Xuất Key Giveaway (IObit, IDM, WinRAR...)",
         "guidelines": (
-            "- Mục tiêu trọng tâm: Tìm kiếm và trích xuất trực tiếp các mã License Key / Giveaway Code được chia sẻ công khai trên Internet theo đúng yêu cầu của người dùng.\n"
+            "- Mục tiêu trọng tâm: Tìm kiếm và trích xuất trực tiếp các mã License Key / Giveaway Code được chia sẻ công khai trên Internet cho các phần mềm tiện ích Windows thương mại (IObit, IDM, WinRAR, Revo...).\n"
+            "- PHẦN MỀM MÃ NGUỒN MỞ (FOSS): Nếu người dùng hỏi key cho phần mềm/hệ điều hành mã nguồn mở (như Ubuntu, Debian, Linux, LibreOffice, Blender, 7-Zip, Notepad++, VLC, OBS...): BẮT BUỘC trả lời ngay từ câu đầu tiên là phần mềm hoàn toàn miễn phí, KHÔNG CÓ và KHÔNG CẦN product key. Hướng dẫn tải trực tiếp từ trang chủ chính thức. TUYỆT ĐỐI KHÔNG tìm key hay làm giả quy trình kích hoạt.\n"
             "- Tập trung 100% vào việc tìm kiếm, thu thập và cung cấp các mã bản quyền (license key / giveaway code) thực tế từ các nguồn chia sẻ trực tuyến; không đưa các hướng dẫn can thiệp hệ thống không cần thiết.\n"
             "- Quy trình tra cứu và trích xuất key:\n"
             "  + 1. Gọi `web_search` để quét các nguồn chia sẻ giveaway uy tín (Tickcoupon, WinningPC, NoteCoupon, Softopaz, TechTiPS, GitHub giveaway repos).\n"
@@ -214,6 +217,7 @@ class DynamicExemplarEngine:
         if any(kw in lowered for kw in ("iobit", "uninstaller", "idm", "winrar", "revo", "geek uninstaller", "ccleaner")) or (
             any(kw in lowered for kw in ("key", "license", "serial", "giveaway", "bản quyền", "active", "kích hoạt"))
             and any(kw in lowered for kw in ("phần mềm", "app", "software", "win", "windows", "tool", "công cụ"))
+            and not any(kw in lowered for kw in ("ubuntu", "debian", "linux", "fedora", "arch", "mint", "centos", "libreoffice", "blender", "gimp", "vlc", "obs", "7-zip", "notepad++"))
         ):
             return "11_desktop_utilities_software"
 
@@ -265,10 +269,21 @@ class DynamicExemplarEngine:
         domain_key = self.classify_domain(prompt)
         ex = self._cached_exemplars.get(domain_key, self._cached_exemplars["1_knowledge_ai"])
 
+        foss_directive = ""
+        lowered = prompt.lower()
+        if any(kw in lowered for kw in ("ubuntu", "debian", "linux", "fedora", "arch", "mint", "centos", "libreoffice", "blender", "gimp", "vlc", "obs", "7-zip", "notepad++")) and any(kw in lowered for kw in ("key", "license", "serial", "product key", "bản quyền", "active", "kích hoạt", "crack")):
+            foss_directive = (
+                "👉 QUY TẮC MÃ NGUỒN MỞ (FOSS): Đây là hệ điều hành/phần mềm mã nguồn mở hoàn toàn miễn phí. "
+                "BẮT BUỘC khẳng định ngay từ câu đầu tiên: Phần mềm hoàn toàn miễn phí, KHÔNG CÓ và KHÔNG CẦN product key / serial / mã kích hoạt. "
+                "Cung cấp link tải chính thức từ trang chủ. TUYỆT ĐỐI KHÔNG tìm key, KHÔNG tạo quy trình kích hoạt giả, "
+                "KHÔNG bịa đặt file đã lưu trên Desktop (`Desktop/...`), và KHÔNG bịa đặt mã băm giả mạo.\n"
+            )
+
         return (
             f"\n\n[TIÊU CHUẨN ĐẦU RA CHUẨN MỰC — LĨNH VỰC: {ex['domain_name'].upper()}]\n"
             f"{ex['guidelines']}\n"
             f"Mẫu thực hiện tham chiếu:\n{ex['mini_example']}\n"
             f"👉 QUY TẮC SUY NGHĨ: Suy luận nội tâm trong thẻ <think>...</think> phải 100% bằng TIẾNG VIỆT.\n"
             f"👉 NGUYÊN TẮC BẮT BUỘC: Trả lời đúng trọng tâm, giữ trọn vẹn ý nghĩa cốt lõi, ngắn gọn, súc tích, TUYỆT ĐỐI KHÔNG dài dòng lê thê hay chêm lời chào hỏi sáo rỗng.\n"
+            f"{foss_directive}"
         )
