@@ -141,7 +141,7 @@ class LocalLLMServerManager:
         *,
         server_path: Path = LLAMA_SERVER_PATH,
         model_path: Path | None = None,
-        context_size: int = 16384,
+        context_size: int = 32768,
         startup_timeout: int = 300,
         profile: str | None = None,
         reasoning: str = "off",
@@ -157,7 +157,7 @@ class LocalLLMServerManager:
         self.props_url = f"{self.base_url}/props"
         self._process: subprocess.Popen | None = None
         self.startup_timeout = startup_timeout
-        self.context_size = context_size
+        self.context_size = int(os.environ.get("M_AUTO_PILOT_CONTEXT_SIZE", str(context_size or 32768)))
         self.reasoning = reasoning
         self.replace_existing = replace_existing
         self.profile = "qwen38_iq3s"
@@ -237,18 +237,32 @@ class LocalLLMServerManager:
     def _build_command(self) -> list[str]:
         help_txt = self._probe_help_text()
 
+        cache_type = os.environ.get("M_AUTO_PILOT_CACHE_TYPE", "q8_0").strip()
         cmd = [
             str(self.server_path),
             "--model", str(self.model_path),
             "--host", self.host,
             "--port", str(self.port),
             "-c", str(self.context_size),
+            "-np", "1",
             "-ngl", "99",
+            "--cache-type-k", cache_type,
+            "--cache-type-v", cache_type,
             "--flash-attn", "on",
             "-b", "2048",
-            "-ub", "512",
+            "-ub", "1024",
+            "-t", "8",
+            "-tb", "16",
             "--cont-batching",
         ]
+
+        if self.reasoning == "off":
+            if "--reasoning" in help_txt:
+                cmd.extend(["--reasoning", "off"])
+            if "--no-reasoning-preserve" in help_txt:
+                cmd.append("--no-reasoning-preserve")
+        elif self.reasoning == "on" and "--reasoning" in help_txt:
+            cmd.extend(["--reasoning", "on"])
 
         # Context shifting: --context-shift (new llama.cpp) vs --ctx-shift (legacy)
         if "--context-shift" in help_txt:
@@ -258,12 +272,12 @@ class LocalLLMServerManager:
         elif not help_txt:
             cmd.append("--context-shift")
 
-        lookup_ngram = os.environ.get("M_AUTO_PILOT_LOOKUP_NGRAM", "3").strip()
+        lookup_ngram = os.environ.get("M_AUTO_PILOT_LOOKUP_NGRAM", "1").strip()
         if lookup_ngram and lookup_ngram != "0":
-            if "--lookup-ngram-min" in help_txt:
-                cmd.extend(["--lookup-ngram-min", lookup_ngram])
-            elif "--spec-type" in help_txt:
+            if "--spec-type" in help_txt:
                 cmd.extend(["--spec-type", "ngram-mod"])
+            elif "--lookup-ngram-min" in help_txt:
+                cmd.extend(["--lookup-ngram-min", "3"])
 
         draft_model = os.environ.get("M_AUTO_PILOT_DRAFT_MODEL", "").strip()
         if draft_model and Path(draft_model).is_file():
