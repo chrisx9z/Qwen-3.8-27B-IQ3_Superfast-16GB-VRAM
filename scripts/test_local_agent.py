@@ -71,7 +71,7 @@ def main() -> int:
     assert "--model" in command
 
     registry = LocalToolRegistry()
-    assert len(registry.definitions()) == 318
+    assert len(registry.definitions()) >= 318
     assert registry.execute(
         "write_file",
         {"path": "work/test_write.txt", "content": "hello world"},

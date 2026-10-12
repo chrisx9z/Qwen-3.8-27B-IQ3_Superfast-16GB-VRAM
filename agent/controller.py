@@ -5,6 +5,7 @@ import json
 import operator
 import os
 import re
+import uuid
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -36,7 +37,7 @@ class AgentConfig:
     temperature: float = 0.2
     max_tokens: int = 4096
     max_steps: int = 24
-    context_size: int = 16384
+    context_size: int = 32768
     connect_timeout: float = 10.0
     read_timeout: float = 1800.0
     auto_start_server: bool = True
@@ -359,6 +360,16 @@ All user queries and instructions—including distributed P2P protocol inspectio
 5. NGUYÊN TẮC CHÂN THỰC & CHỐNG ẢO TƯỞNG TỆP TIN (ZERO HALLUCINATION MANDATE):
    - TUYỆT ĐỐI KHÔNG tự tiện bịa đặt rằng tệp tin đã được lưu sẵn trên máy (`Desktop/...`) hoặc bịa đặt chuỗi mã băm MD5 / SHA256 giả mạo. Chỉ báo cáo đường dẫn tệp tin và mã băm khi hệ thống THỰC SỰ gọi công cụ tải về / kiểm định và có kết quả thực tế trong phiên làm việc.
    - PHẦN MỀM MÃ NGUỒN MỞ (FOSS): Đối với các hệ điều hành và phần mềm mã nguồn mở hoàn toàn miễn phí (như Ubuntu, Debian, Linux, Fedora, Arch, LibreOffice, Blender, GIMP, VLC, OBS, 7-Zip...): Khi người dùng hỏi về "product key", "serial", "key bản quyền" hay "kích hoạt", BẮT BUỘC KHẲNG ĐỊNH NGAY TỪ CÂU ĐẦU TIÊN: Phần mềm/hệ điều hành này là mã nguồn mở tự do (FOSS), HOÀN TOÀN MIỄN PHÍ, KHÔNG CÓ VÀ KHÔNG CẦN BẤT KỲ PRODUCT KEY HAY MÃ KÍCH HOẠT NÀO. Cung cấp link tải ISO/bộ cài đặt chính thức từ trang chủ và cảnh báo lừa đảo trước các trang web bán key.
+6. TÌM KIẾM FILE, ASSET, PLUGIN & PHẦN MỀM (Decisive Asset & File Discovery):
+   - Khi người dùng nhờ tìm file, plugin WordPress, phần mềm, tool, hay phiên bản cụ thể (ví dụ: Rank Math Pro, theme, mod, thư viện):
+     1. Tra cứu nhanh nguồn phát hành chính thức hoặc kho lưu trữ uy tín (tối đa 2-3 bước tra cứu dứt khoát).
+     2. Cung cấp trực tiếp kết luận: Phiên bản mới nhất là gì, liên kết tải/kho lưu trữ thực tế tìm thấy (kèm link Markdown [Tên Nguồn](URL)), tình trạng kích hoạt (GPL/pre-activated), và phân tích bảo mật/mã độc (cảnh báo rủi ro backdoor/eval base64 nếu tải từ nguồn nulled, hoặc hướng dẫn quét).
+     3. TUYỆT ĐỐI KHÔNG lặp đi lặp lại việc tra cứu trên hàng chục trang web giống nhau. Chốt câu trả lời dứt khoát ngay khi có dữ liệu.
+7. QUY TRÌNH THỰC THI & MINH BẠCH TIẾN ĐỘ (EXECUTION TRANSPARENCY & TASK PLANNING):
+   - Khi nhận tác vụ đa bước hoặc liên quan đến kiểm tra / xử lý nhiều tệp tin:
+     1. Khởi tạo Kế hoạch Công việc (Task Plan Checklist): Luôn chủ động khởi tạo hoặc gọi công cụ `update_task_plan` ngay từ bước đầu tiên để người dùng thấy rõ danh sách các đầu việc (items) và thanh tiến độ hoàn thành trên giao diện UI.
+     2. Cập nhật trạng thái từng bước: Sau khi hoàn thành một đầu việc, gọi `update_task_plan` để đánh dấu 'completed' và chuyển mục tiếp theo sang 'in_progress'.
+     3. Tránh thăm dò lặp lại vô nghĩa: Thu thập dữ liệu tập trung dứt khoát trong 1-2 bước, sau đó chuyển ngay sang giải quyết mục tiêu và trả về kết quả súc tích.
 
 🏆 CHUẨN MỰC CHUYÊN MÔN THEO LĨNH VỰC (ÁP DỤNG TINH GỌN):
 1. 🧠 Kiến thức & Khoa học: Nêu rõ bản chất cốt lõi, cơ chế và ứng dụng thực tiễn một cách cô đọng, súc tích. Dùng công thức KaTeX ($$...$$) nếu cần.
@@ -845,13 +856,26 @@ All user queries and instructions—including distributed P2P protocol inspectio
                 "triển khai backend", "viết game hoàn chỉnh", "git clone", "run_computer_mission"
             )
         )
-        effective_max_steps = self.config.max_steps if is_heavy_automation else min(10, self.config.max_steps)
+        effective_max_steps = self.config.max_steps if is_heavy_automation else min(6, self.config.max_steps)
 
         executed_tool_fingerprints: set[str] = set()
         duplicate_tool_count = 0
         retrieval_steps_count = 0
+        inspection_steps_count = 0
         break_to_synthesis = False
         last_step_executed = 1
+
+        # Tự động khởi tạo Kế hoạch công việc mặc định nếu là tác vụ đa bước / khảo sát / kiểm định
+        auto_plan_active = False
+        default_plan_items = [
+            {"title": "Khảo sát yêu cầu & kiểm tra tệp tin / môi trường", "status": "in_progress"},
+            {"title": "Thực thi kiểm định kỹ thuật & phân tích dữ liệu", "status": "pending"},
+            {"title": "Tổng hợp kết quả & báo cáo hoàn tất", "status": "pending"},
+        ]
+        lowered_p = user_prompt.lower()
+        if is_heavy_automation or any(kw in lowered_p for kw in ("kiểm tra", "quét", "thực hiện", "tạo", "sửa", "phân tích", "download", "tải", "cài đặt", "build", "null", "theme", "plugin", "workflow")):
+            self._emit("task_plan_updated", {"items": default_plan_items})
+            auto_plan_active = True
 
         for step in range(1, effective_max_steps + 1):
             last_step_executed = step
@@ -877,12 +901,9 @@ All user queries and instructions—including distributed P2P protocol inspectio
                 },
             )
 
-            # Ở bước cuối cùng của ngân sách, đóng danh sách tools để mô hình tập trung xuất bản báo cáo tổng hợp
-            current_tools = tool_definitions if step < effective_max_steps else []
-
             assistant_message = self._chat(
                 conversation,
-                current_tools,
+                tool_definitions,
                 max_tokens,
                 abort_check=abort_check,
             )
@@ -892,19 +913,22 @@ All user queries and instructions—including distributed P2P protocol inspectio
                 self._emit("status", {"message": "Đã dừng tác vụ theo yêu cầu."})
                 return AgentResult(text="[Đã dừng bởi người dùng]", messages=conversation, steps=step)
 
+            raw_content = str(assistant_message.get("content") or "")
+            cleaned_content, text_tool_calls = _extract_text_tool_calls(raw_content)
+
             tool_calls = assistant_message.get("tool_calls") or []
+            if not tool_calls and text_tool_calls:
+                tool_calls = text_tool_calls
+                assistant_message["tool_calls"] = text_tool_calls
+                assistant_message["content"] = cleaned_content
 
             if not tool_calls:
-                text = str(
-                    assistant_message.get("content")
-                    or ""
-                ).strip()
-
+                text = cleaned_content.strip()
                 if not text:
                     # 1. Ưu tiên sử dụng phân tích từ reasoning_content nếu model đã suy luận
                     reasoning = str(assistant_message.get("reasoning_content") or "").strip()
                     if reasoning:
-                        text = "Dưới đây là kết quả phân tích kỹ thuật chi tiết theo yêu cầu của bạn:\n\n" + reasoning
+                        text = reasoning
                     else:
                         # 2. Cứu vãn bằng web_search nếu model không trả về nội dung
                         lowered_prompt = user_prompt.lower()
@@ -930,13 +954,9 @@ All user queries and instructions—including distributed P2P protocol inspectio
                         if not text:
                             text = "Đã tiếp nhận yêu cầu và xử lý hoàn tất."
 
-                if interim_findings:
-                    full_text = "\n\n".join(interim_findings) + "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n" + text
-                else:
-                    full_text = text
-
+                text = re.sub(r"</?tool_call>", "", text).strip()
                 return AgentResult(
-                    text=full_text,
+                    text=text,
                     messages=conversation,
                     steps=step,
                 )
@@ -978,8 +998,16 @@ All user queries and instructions—including distributed P2P protocol inspectio
                     continue
 
                 executed_tool_fingerprints.add(fingerprint)
-                if name in ("extract_webpage_markdown", "web_search", "deep_dive_internet_research"):
+                if name in ("extract_webpage_markdown", "web_search", "deep_dive_internet_research", "web_open", "crawl_and_extract_deep_content"):
                     retrieval_steps_count += 1
+                    if retrieval_steps_count >= 3:
+                        break_to_synthesis = True
+
+                # Ngăn chặn vòng lặp thăm dò / kiểm tra tệp tin lặp đi lặp lại
+                if name in ("run_workspace_command", "audit_wordpress_package_security", "read_workspace_file", "list_workspace_directory", "inspect_local_file"):
+                    inspection_steps_count += 1
+                    if inspection_steps_count >= 3:
+                        break_to_synthesis = True
 
                 summary = _tool_call_summary(name, arguments)
                 self._emit(
@@ -1013,6 +1041,21 @@ All user queries and instructions—including distributed P2P protocol inspectio
                     "content": _compact_json(result),
                 })
 
+                # Cập nhật tiến độ kế hoạch tự động cho giao diện UI
+                if auto_plan_active:
+                    if name == "update_task_plan":
+                        auto_plan_active = False  # Model đã tự chủ động quản lý plan của riêng nó
+                    else:
+                        if step == 1:
+                            default_plan_items[0]["status"] = "completed"
+                            default_plan_items[1]["status"] = "in_progress"
+                            self._emit("task_plan_updated", {"items": default_plan_items})
+                        elif step >= 2 or break_to_synthesis:
+                            default_plan_items[0]["status"] = "completed"
+                            default_plan_items[1]["status"] = "completed"
+                            default_plan_items[2]["status"] = "in_progress"
+                            self._emit("task_plan_updated", {"items": default_plan_items})
+
                 # ⚡ Progressive Interim Research Streaming:
                 # Đưa thông tin research được từng phần ngay ra màn hình cho người dùng đọc luôn theo thời gian thực!
                 finding_chunk = _generate_interim_finding(name, arguments, result, step)
@@ -1020,10 +1063,16 @@ All user queries and instructions—including distributed P2P protocol inspectio
                     interim_findings.append(finding_chunk)
                     self._emit("delta", {"text": finding_chunk})
 
-            if break_to_synthesis:
+            if break_to_synthesis or step >= effective_max_steps:
                 break
 
         # Tự động chuyển sang bước tổng kết báo cáo toàn diện (Final Master Synthesis)
+        if auto_plan_active:
+            default_plan_items[0]["status"] = "completed"
+            default_plan_items[1]["status"] = "completed"
+            default_plan_items[2]["status"] = "in_progress"
+            self._emit("task_plan_updated", {"items": default_plan_items})
+
         self._emit(
             "status",
             {
@@ -1032,38 +1081,35 @@ All user queries and instructions—including distributed P2P protocol inspectio
                 ),
             },
         )
+        # Kiểm tra xem trong phiên đã thực sự có tool nào tải về file thành công không:
+        has_real_file = any(
+            m.get("role") == "tool" and any(k in str(m.get("content", "")).lower() for k in ("file_path", "target_file", "download_web_file", "audit_passed", "newspaper_theme_workflow"))
+            and not any(neg in str(m.get("content", "")).lower() for neg in ("error", "failed", "not found", "no such"))
+            for m in conversation
+        )
+
+        no_file_guard = ""
+        if not has_real_file:
+            no_file_guard = (
+                "- CẢNH BÁO SỰ THẬT: Trong toàn bộ các bước vừa rồi CHƯA CÓ tệp tin nào được tải về máy (hoàn toàn không có file trên Desktop). "
+                "TUYỆT ĐỐI KHÔNG sinh bảng '📦 Tệp tin & Vị trí Lưu' ghi Desktop/..., KHÔNG tự bịa mã MD5/SHA256, dung lượng hay kết quả quét an toàn. "
+                "Hãy thông báo rõ ràng kết quả tìm kiếm nguồn link, hoặc thông báo chưa có link tải trực tiếp sạch.\n"
+            )
+
         if interim_findings:
-            divider = "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n"
+            divider = "\n\n---\n\n## 📋 Kết Quả Xử Lý\n\n"
             self._emit("delta", {"text": divider})
-
-        context_preview = (user_prompt + " " + " ".join(interim_findings)).lower()
-        is_medical = any(k in context_preview for k in ("y tế", "sante", "bệnh viện", "bác sĩ", "medical", "clinical"))
-        is_model_or_tech = any(k in context_preview for k in ("model", "llm", "ai", "gpt", "qwen", "weights", "moe", "game", "3d", "astra", "architecture"))
-
-        if is_medical:
-            tech_spec_desc = "(Bảng thông số kỹ thuật MoE, Total/Active Params, VRAM/RAM, phần cứng tương thích)"
-            practical_desc = "(Bảo mật y tế, RAG, Privacy, Case studies lâm sàng)"
-            warning_desc = "(Weights, truy cập API, giấy phép, an toàn và quy chuẩn y tế)"
-            protip_desc = "(Tối ưu hóa VRAM, RoPE scaling, context window, đạo đức AI y tế)"
-        elif is_model_or_tech:
-            tech_spec_desc = "(Bảng thông số kỹ thuật/kiến trúc, Total/Active Params nếu có, cấu hình phần cứng/VRAM/quota, workflow hoạt động)"
-            practical_desc = "(Ứng dụng thực tế, workflow sinh dữ liệu/game/code/asset 3D, case study, tiềm năng bứt phá)"
-            warning_desc = "(Trạng thái phát hành, quyền truy cập API/closed-weights, hạn mức quota, giới hạn kỹ thuật)"
-            protip_desc = "(Mẹo prompt/sinh ảnh/3D, kỹ thuật tối ưu hóa chi phí/thời gian, các cạm bẫy cần tránh)"
-        else:
-            tech_spec_desc = "(Phân tích chi tiết cấu trúc, cơ chế hoạt động, dữ liệu định lượng, bảng đối chiếu)"
-            practical_desc = "(Giá trị thực tiễn, kịch bản ứng dụng, tác động đối với người dùng/doanh nghiệp)"
-            warning_desc = "(Lưu ý quan trọng, điều kiện áp dụng, rủi ro tiềm ẩn)"
-            protip_desc = "(Kinh nghiệm thực chiến, mẹo tối ưu hóa, các sai lầm thường gặp)"
 
         final_prompt = (
             "Dựa trên các dữ liệu và kết quả nghiên cứu thu thập được ở các bước trên, "
             "hãy trả lời trực tiếp câu hỏi của người dùng theo đúng nguyên tắc: "
             "ĐÚNG TRỌNG TÂM, ĐẦY ĐỦ Ý NGHĨA KỸ THUẬT, NGẮN GỌN, SÚC TÍCH, TUYỆT ĐỐI KHÔNG DÀI DÒNG LÊ THÊ.\n"
-            "- Trả lời thẳng vào câu hỏi ngay từ câu đầu tiên (nêu rõ sự thật, bản chất, thông số hoặc giải pháp cốt lõi).\n"
+            f"{no_file_guard}"
+            "- Trả lời thẳng vào câu hỏi ngay từ câu đầu tiên (nêu rõ sự thật, bản chất, link tải/nguồn chính xác nếu có, tình trạng an toàn/mã độc/bản quyền).\n"
             "- Trình bày bằng gạch đầu dòng ngắn gọn, súc tích, dễ lướt.\n"
             "- Tuyệt đối KHÔNG mở bài chào hỏi xã giao, KHÔNG lặp lại câu hỏi, KHÔNG viết bài luận dài dòng, KHÔNG tự ý chèn mục '💡 Pro-Tips' nếu không thực sự cần thiết.\n"
-            "- Tuyệt đối KHÔNG bịa đặt tệp tin có sẵn trên Desktop hay mã băm nếu không thực sự tải về bằng công cụ."
+            "- Tuyệt đối KHÔNG bịa đặt tệp tin có sẵn trên Desktop hay mã băm nếu không thực sự tải về bằng công cụ.\n"
+            "- Tuyệt đối KHÔNG gọi thêm công cụ hay sinh thẻ <tool_call>."
         )
         conversation.append({
             "role": "user",
@@ -1079,9 +1125,14 @@ All user queries and instructions—including distributed P2P protocol inspectio
             conversation.append(final_message)
             text = str(final_message.get("content") or "").strip()
             if text:
-                full_text = ("\n\n".join(interim_findings) + "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n" + text) if interim_findings else text
+                clean_text, _ = _extract_text_tool_calls(text)
+                clean_text = re.sub(r"</?tool_call>", "", clean_text).strip()
+                if auto_plan_active:
+                    for item in default_plan_items:
+                        item["status"] = "completed"
+                    self._emit("task_plan_updated", {"items": default_plan_items})
                 return AgentResult(
-                    text=full_text,
+                    text=clean_text or text,
                     messages=conversation,
                     steps=last_step_executed,
                 )
@@ -1092,13 +1143,16 @@ All user queries and instructions—including distributed P2P protocol inspectio
             str(m.get("content", "")) for m in conversation if m.get("role") in ("tool", "assistant") and m.get("content")
         ]
         fallback_text = last_contents[-1] if last_contents else "Đã hoàn thành các bước tác vụ theo yêu cầu."
-        if interim_findings:
-            fallback_full = "\n\n".join(interim_findings) + "\n\n---\n\n## 📋 Báo Cáo Tổng Hợp Toàn Diện\n\n" + fallback_text
-        else:
-            fallback_full = f"Đã hoàn thành {last_step_executed} bước thực thi và tổng hợp thông tin:\n\n{fallback_text}"
+        clean_fallback, _ = _extract_text_tool_calls(fallback_text)
+        clean_fallback = re.sub(r"</?tool_call>", "", clean_fallback).strip()
+
+        if auto_plan_active:
+            for item in default_plan_items:
+                item["status"] = "completed"
+            self._emit("task_plan_updated", {"items": default_plan_items})
 
         return AgentResult(
-            text=fallback_full,
+            text=clean_fallback or fallback_text,
             messages=conversation,
             steps=last_step_executed,
         )
@@ -2322,6 +2376,67 @@ All user queries and instructions—including distributed P2P protocol inspectio
             self.event_callback(event, payload)
 
 
+def _extract_text_tool_calls(raw_text: str) -> tuple[str, list[dict[str, Any]]]:
+    """
+    Phát hiện và bóc tách các thẻ <tool_call> dạng văn bản thô do model tự sinh
+    (XML parameter format hoặc JSON format).
+    Trả về: (cleaned_text_without_tool_calls, extracted_tool_calls_list)
+    """
+    if not raw_text or "<tool_call>" not in raw_text:
+        return raw_text, []
+
+    calls: list[dict[str, Any]] = []
+    cleaned = raw_text
+
+    # 1. XML parameter format: <tool_call><function=name><parameter=k>v</parameter></tool_call>
+    xml_pattern = re.compile(r"<tool_call>\s*<function=([a-zA-Z0-9_\-]+)>\s*(.*?)\s*</tool_call>", re.DOTALL)
+    for match in xml_pattern.finditer(cleaned):
+        func_name = match.group(1).strip()
+        body = match.group(2).strip()
+        params: dict[str, Any] = {}
+        for pmatch in re.finditer(r"<parameter=([a-zA-Z0-9_\-]+)>(.*?)</parameter>", body, re.DOTALL):
+            pname = pmatch.group(1).strip()
+            pval = pmatch.group(2).strip()
+            try:
+                pval = json.loads(pval)
+            except Exception:
+                if pval.isdigit():
+                    pval = int(pval)
+            params[pname] = pval
+        calls.append({
+            "id": f"call_{uuid.uuid4().hex[:8]}",
+            "type": "function",
+            "function": {
+                "name": func_name,
+                "arguments": json.dumps(params, ensure_ascii=False),
+            },
+        })
+    cleaned = xml_pattern.sub("", cleaned)
+
+    # 2. JSON format: <tool_call>{"name": "...", "arguments": {...}}</tool_call>
+    json_pattern = re.compile(r"<tool_call>\s*(\{.*?\})\s*</tool_call>", re.DOTALL)
+    for match in json_pattern.finditer(cleaned):
+        try:
+            data = json.loads(match.group(1).strip())
+            name = data.get("name") or data.get("function")
+            args = data.get("arguments") or data.get("parameters") or {}
+            if name:
+                calls.append({
+                    "id": f"call_{uuid.uuid4().hex[:8]}",
+                    "type": "function",
+                    "function": {
+                        "name": str(name),
+                        "arguments": json.dumps(args, ensure_ascii=False) if isinstance(args, dict) else str(args),
+                    },
+                })
+        except Exception:
+            pass
+    cleaned = json_pattern.sub("", cleaned)
+
+    cleaned = re.sub(r"</?tool_call>", "", cleaned).strip()
+    return cleaned, calls
+
+
 def _tool_call_parts(
     tool_call: dict[str, Any],
 ) -> tuple[str, dict[str, Any], str]:
@@ -3498,6 +3613,8 @@ def _tool_call_summary(name: str, arguments: dict[str, Any]) -> str:
         return f"Đang đồng bộ Clipboard Windows ({arguments.get('action', 'read_text')})"
     elif name == "enforce_computer_action_safety_firewall":
         return f"Đang kiểm tra an toàn Tường lửa cho `{arguments.get('action_intent', '')[:40]}...`"
+    elif name == "patch_wordpress_theme_functions":
+        return f"Đang chèn hook vào functions.php của `{arguments.get('path', '')}`"
     return f"Đang gọi tool `{name}`"
 
 

@@ -4276,6 +4276,21 @@ class LocalToolRegistry:
                     handler=self._newspaper_theme_workflow,
                 ),
                 ToolSpec(
+                    name="patch_wordpress_theme_functions",
+                    description="Chèn an toàn đoạn mã hook (PHP) vào tệp functions.php của Theme hoặc Child Theme WordPress (.zip hoặc thư mục). Tự động sao lưu file .bak trước khi sửa.",
+                    parameters={
+                        "type": "object",
+                        "properties": {
+                            "path": {"type": "string", "description": "Đường dẫn file .zip hoặc thư mục theme/child theme WordPress."},
+                            "hook_code": {"type": "string", "description": "Đoạn mã PHP cần chèn vào functions.php (ví dụ: add_action('init', ...))."},
+                            "backup": {"type": "boolean", "description": "Tạo bản sao lưu .bak trước khi ghi đè (mặc định True)."},
+                        },
+                        "required": ["path", "hook_code"],
+                        "additionalProperties": False,
+                    },
+                    handler=self._patch_wordpress_theme_functions,
+                ),
+                ToolSpec(
                     name="agent_reach_research",
                     description=(
                         "Tra cứu, nghiên cứu web, đọc bài viết Markdown, phân tích RSS/Atom feed "
@@ -10854,6 +10869,62 @@ build
         resp = requests.get(url, headers=headers, stream=True, timeout=timeout, allow_redirects=True)
         resp.raise_for_status()
 
+        # Nếu link tải là trang web trung gian (Landing page / File hoster trả về text/html)
+        content_type = resp.headers.get("Content-Type", "").lower()
+        if "text/html" in content_type and (not filename_raw or filename_raw.endswith((".zip", ".tar.gz", ".rar", ".7z", ".exe", ".iso"))):
+            try:
+                from playwright.sync_api import sync_playwright
+                with sync_playwright() as p:
+                    browser = p.chromium.launch(channel="msedge", headless=True)
+                    ctx = browser.new_context(accept_downloads=True)
+                    page = ctx.new_page()
+                    page.goto(url, wait_until="domcontentloaded", timeout=30000)
+                    page.wait_for_timeout(2000)
+
+                    # Tự động click các nút kích hoạt / bắt đầu tải
+                    for sel in [".free-element", "text='Generate Secure Link'", "text='Download'", "text='Tải xuống'", ".download-now a"]:
+                        el = page.query_selector(sel)
+                        if el:
+                            try: el.click(); break
+                            except Exception: pass
+
+                    # Chờ timer nếu có
+                    dl_btn = None
+                    for _ in range(35):
+                        page.wait_for_timeout(1000)
+                        dl_btn = page.query_selector(".download-now a, a.download-now, a:has-text('Download Now'), a:has-text('Tải xuống ngay')")
+                        if dl_btn:
+                            break
+
+                    target_file = None
+                    if dl_btn:
+                        with page.expect_download(timeout=60000) as download_info:
+                            dl_btn.click()
+                        download = download_info.value
+                        final_filename = filename_raw or download.suggested_filename
+                        target_file = dest_dir / final_filename
+                        download.save_as(str(target_file))
+                    browser.close()
+
+                    if target_file and target_file.exists() and target_file.stat().st_size > 100000:
+                        content_bytes = target_file.read_bytes()
+                        total_bytes = len(content_bytes)
+                        md5 = hashlib.md5(content_bytes).hexdigest()
+                        sha256 = hashlib.sha256(content_bytes).hexdigest()
+                        size_fmt = f"{round(total_bytes / (1024 * 1024), 2)} MB"
+                        return {
+                            "success": True,
+                            "saved_path": str(target_file),
+                            "filename": target_file.name,
+                            "size_bytes": total_bytes,
+                            "size_formatted": size_fmt,
+                            "md5": md5,
+                            "sha256": sha256,
+                            "status": f"Đã tự động tải thành công tệp tin về: {target_file}",
+                        }
+            except Exception:
+                pass
+
         # Deduce filename
         final_filename = filename_raw
         if not final_filename:
@@ -11332,6 +11403,73 @@ build
             result["checksum_status"] = "MATCH" if expected_sha256.lower() == file_sha256.lower() else "MISMATCH"
 
         return result
+
+    def _patch_wordpress_theme_functions(
+        self,
+        arguments: dict[str, Any],
+    ) -> dict[str, Any]:
+        import zipfile
+        import shutil
+
+        raw_path = _required_text(arguments.get("path"), "path").strip()
+        hook_code = _required_text(arguments.get("hook_code"), "hook_code").strip()
+        backup = arguments.get("backup", True)
+
+        target = Path(raw_path).expanduser().resolve()
+        if not target.exists():
+            raise FileNotFoundError(f"Không tìm thấy tệp tin hoặc thư mục: {target}")
+
+        backup_file = None
+        if target.is_file() and target.suffix.lower() == ".zip":
+            if backup:
+                backup_file = str(target) + ".bak"
+                shutil.copy2(target, backup_file)
+
+            temp_zip = target.with_suffix(".tmp.zip")
+            found_entry = None
+            with zipfile.ZipFile(target, "r") as zin:
+                with zipfile.ZipFile(temp_zip, "w", zipfile.ZIP_DEFLATED) as zout:
+                    for item in zin.infolist():
+                        data = zin.read(item.filename)
+                        if item.filename.endswith("functions.php") and not item.is_dir():
+                            found_entry = item.filename
+                            text = data.decode("utf-8", errors="ignore")
+                            text = text.rstrip() + "\n\n" + hook_code.strip() + "\n"
+                            data = text.encode("utf-8")
+                        zout.writestr(item, data)
+
+            if not found_entry:
+                if temp_zip.exists():
+                    temp_zip.unlink()
+                raise ValueError(f"Không tìm thấy tệp functions.php nào bên trong archive: {target.name}")
+
+            temp_zip.replace(target)
+            return {
+                "ok": True,
+                "target_file": str(target),
+                "modified_entry": found_entry,
+                "backup_path": backup_file,
+                "message": f"Đã chèn hook vào '{found_entry}' thành công!",
+            }
+        elif target.is_dir():
+            func_candidates = list(target.rglob("functions.php"))
+            if not func_candidates:
+                raise ValueError(f"Không tìm thấy functions.php trong thư mục: {target}")
+            func_file = func_candidates[0]
+            if backup:
+                backup_file = str(func_file) + ".bak"
+                shutil.copy2(func_file, backup_file)
+            current_text = func_file.read_text(encoding="utf-8", errors="ignore")
+            new_text = current_text.rstrip() + "\n\n" + hook_code.strip() + "\n"
+            func_file.write_text(new_text, encoding="utf-8")
+            return {
+                "ok": True,
+                "target_file": str(func_file),
+                "backup_path": backup_file,
+                "message": f"Đã chèn hook vào '{func_file.name}' thành công!",
+            }
+        else:
+            raise ValueError(f"Đường dẫn không hợp lệ (phải là .zip hoặc thư mục): {target}")
 
     def _agent_reach_research(
         self,
@@ -12261,29 +12399,43 @@ build
             except Exception:
                 pass
 
-        # 3. Tertiary Engine: Bing Search Fallback
+        # 3. Tertiary Engine: Headless Playwright Browser Search (Bing Web)
         if len(results) < limit:
             try:
-                resp_bing = requests.get(
-                    "https://www.bing.com/search",
-                    params={"format": "rss", "q": search_query},
-                    headers={"User-Agent": "M-Auto-Pilot/1.0", "Accept-Language": "vi-VN,vi;q=0.9,en;q=0.8"},
-                    timeout=10,
-                )
-                if resp_bing.status_code == 200:
-                    root = ET.fromstring(resp_bing.text)
-                    for item in root.findall(".//item"):
-                        u = str(item.findtext("link") or "").strip()
-                        if u.startswith(("http://", "https://")) and u not in seen_urls:
-                            seen_urls.add(u)
-                            results.append({
-                                "title": " ".join(str(item.findtext("title") or "").split()),
-                                "url": u,
-                                "snippet": " ".join(str(item.findtext("description") or "").split()),
-                                "engine": "Bing/Fallback",
-                            })
-                            if len(results) >= limit:
-                                break
+                from playwright.sync_api import sync_playwright
+                import base64
+                with sync_playwright() as p:
+                    b = p.chromium.launch(channel="msedge", headless=True)
+                    page = b.new_page()
+                    clean_q = re.sub(r'[\"\']', '', search_query).strip()
+                    page.goto(f"https://www.bing.com/search?q={quote(clean_q)}", wait_until="domcontentloaded", timeout=15000)
+                    page.wait_for_timeout(1500)
+                    for r_el in page.query_selector_all("li.b_algo"):
+                        h2 = r_el.query_selector("h2 a")
+                        sn = r_el.query_selector(".b_caption p, .b_snippet")
+                        if h2:
+                            raw_u = h2.get_attribute("href") or ""
+                            real_u = raw_u
+                            m_u = re.search(r"&u=a1([^&]+)", raw_u)
+                            if m_u:
+                                try:
+                                    b64_str = m_u.group(1) + "=" * (-len(m_u.group(1)) % 4)
+                                    real_u = base64.b64decode(b64_str).decode("utf-8")
+                                except Exception:
+                                    pass
+                            title_txt = h2.inner_text().strip()
+                            snip_txt = sn.inner_text().strip() if sn else title_txt
+                            if real_u.startswith("http") and real_u not in seen_urls:
+                                seen_urls.add(real_u)
+                                results.append({
+                                    "title": title_txt,
+                                    "url": real_u,
+                                    "snippet": snip_txt,
+                                    "engine": "Bing/Playwright",
+                                })
+                                if len(results) >= limit:
+                                    break
+                    b.close()
             except Exception:
                 pass
 

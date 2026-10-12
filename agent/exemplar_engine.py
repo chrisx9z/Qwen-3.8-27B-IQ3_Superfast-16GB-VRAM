@@ -134,37 +134,19 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
     "10_wordpress_nulled_gpl": {
         "domain_name": "WordPress, Themes, Plugins, Kiểm Định Mã Độc & Kích Hoạt GPL Sạch (Newspaper, Rank Math, Flatsome)",
         "guidelines": (
-            "- CHỈ ÁP DỤNG cho các theme/plugin WordPress thương mại phân phối lại theo GPL.\n"
-            "- TUYỆT ĐỐI KHÔNG BỊA ĐẶT (HALLUCINATE) tệp tin đã tải về hoặc mã băm giả (như chuỗi rỗng hay mã tự bịa). CHỈ báo cáo đường dẫn tệp tin và mã MD5/SHA256 KHI VÀ CHỈ KHI tool audit_wordpress_package_security hoặc newspaper_theme_workflow đã thực sự được gọi và trả về kết quả quét thực tế trong phiên.\n"
-            "- TUYỆT ĐỐI KHÔNG áp dụng cấu trúc này cho hệ điều hành (như Ubuntu, Linux) hay các phần mềm mã nguồn mở tự do.\n"
-            "- Khi người dùng yêu cầu tìm kiếm, tải về hoặc kiểm tra theme/plugin WordPress (như Newspaper 12.7.7, Rank Math Pro 3.0.121, Flatsome 3.20.9...):\n"
-            "  + 1. Báo cáo vị trí tệp tin thực tế: Nêu rõ đường dẫn file sạch đã lưu trên Desktop (ví dụ: `Desktop/newspaper-12.7.7.zip` 1.89 MB, `Desktop/rank-math-pro-3.0.121.zip` 2.86 MB hoặc `Desktop/flatsome-3.20.9.zip`).\n"
-            "  + 2. Báo cáo kiểm định an toàn mã độc (Security Audit) bắt buộc từ tool:\n"
-            "    * Nêu đúng mã băm MD5 và SHA256 thực tế của tệp tin.\n"
-            "    * Thống kê số lượng file mã nguồn đã quét (PHP, JS, JSON, HTML).\n"
-            "    * Đánh giá chi tiết các nguy cơ: eval(base64_decode), webshell (c99/r57/wso/b374k), lệnh thực thi hệ thống, tài khoản admin ẩn, liên kết chuyển hướng độc hại.\n"
-            "    * Kết luận rõ ràng: Gói cài đặt 100% SẠCH HOÀN TOÀN (Clean GPL Release), an toàn đưa vào website thực tế (Production).\n"
-            "  + 3. Giải pháp Kích hoạt Bản quyền Sạch (Clean Active Hook):\n"
-            "    * Đối với Newspaper 12.7.7: Giải thích cơ chế lưu trữ license trong `td_011` / `td_011_status`. Cung cấp đoạn PHP hook chèn vào `functions.php` để kích hoạt tagDiv Composer & mở khóa TagDiv Cloud Library vĩnh viễn mà không chỉnh sửa file lõi theme.\n"
-            "    * Đối với Rank Math Pro: Giải thích cơ chế `rank_math_registration_data` và cung cấp code hook active gói Agency cao cấp nhất.\n"
-            "    * Đối với Flatsome: Giải thích cơ chế `flatsome_wup_purchase_code` và cung cấp code hook active mở full Flatsome Studio & Demo Import.\n"
-            "- Trả lời chuyên nghiệp, cấu trúc rõ ràng: [Tệp tin & Vị trí Lưu] -> [Báo cáo Kiểm định Mã độc Thực tế] -> [Hướng dẫn Cài đặt & Code Kích hoạt Sạch]."
+            "- NGUYÊN TẮC BẤT DI BẤT DỊCH: TUYỆT ĐỐI KHÔNG BỊA ĐẶT (KHÔNG HALLUCINATE) tệp tin đã tải về máy, KHÔNG tự bịa mã MD5/SHA256, KHÔNG tự bịa dung lượng, KHÔNG tự bịa số file đã quét.\n"
+            "- CHỈ BÁO CÁO đường dẫn tệp trên Desktop và mã băm KHI VÀ CHỈ KHI trong phiên chạy, bạn đã gọi tool tải file hoặc tool kiểm định và tool đó trả về đường dẫn file thực tế tồn tại trên máy.\n"
+            "- NẾU CHƯA TẢI ĐƯỢC FILE hoặc tìm kiếm chưa có link tải trực tiếp sạch: Phải BÁO CÁO TRUNG THỰC: Nêu rõ kết quả tìm kiếm, cung cấp các nguồn link/trang phát hành tìm được, hoặc thông báo rõ chưa có link tải trực tiếp. Tuyệt đối KHÔNG sinh bảng 'Tệp tin & Vị trí Lưu' giả mạo.\n"
+            "- Hướng dẫn kích hoạt bản quyền sạch (Clean Active Hook):\n"
+            "  + Đối với Newspaper: Giải thích cơ chế lưu trữ license trong `td_011` / `td_011_status` và cung cấp code hook PHP chèn vào `functions.php`.\n"
+            "  + Đối với Rank Math Pro: Giải thích cơ chế `rank_math_registration_data` và cung cấp code hook active qua `functions.php`.\n"
+            "  + Đối với Flatsome: Giải thích cơ chế `flatsome_wup_purchase_code` và cung cấp code hook active qua `functions.php`."
         ),
         "mini_example": (
-            "Ví dụ Cung cấp & Kiểm định Newspaper 12.7.7:\n"
-            "1. Tệp tin đã có sẵn tại: `Desktop/newspaper-12.7.7.zip` (Dung lượng: 1.89 MB / 1,976,914 bytes).\n"
-            "2. Báo cáo kiểm định an toàn (Security Audit):\n"
-            "   - MD5: `e8edcca95e3db53ee9e82ed233c7d5b4`\n"
-            "   - SHA256: `f38e061d72333df1261cdd624c0709460dd0995654f7681eb85ffd55f0a9f899`\n"
-            "   - Đã quét toàn bộ 158 tệp trong archive (44 file PHP/JS mã nguồn). 0 phát hiện backdoor/webshell (100% Sạch).\n"
-            "3. Hướng dẫn Kích hoạt Sạch TagDiv Cloud Library & Composer qua hook functions.php:\n"
-            "   add_action('init', function() {\n"
-            "       if (get_option('td_011') !== 'GPL_ACTIVE') {\n"
-            "           update_option('td_011', 'GPL_ACTIVE');\n"
-            "           update_option('td_011_status', 'registered');\n"
-            "           update_option('envato_key', 'GPL_COMMUNITY_LICENSE');\n"
-            "       }\n"
-            "   });"
+            "Ví dụ tra cứu khi chưa tải file về máy:\n"
+            "- Báo cáo kết quả tìm kiếm: Đã tìm thấy các nguồn phân phối GPL cho Rank Math Pro / Newspaper tại [Nguồn 1], [Nguồn 2]. Tuy nhiên hiện chưa có link tải trực tiếp sạch đã xác thực về máy.\n"
+            "- Hướng dẫn kích hoạt sạch (khi người dùng có sẵn file):\n"
+            "  Cung cấp code hook PHP chèn vào functions.php của theme con để kích hoạt bản quyền mà không cần can thiệp file lõi."
         ),
     },
     "11_desktop_utilities_software": {
