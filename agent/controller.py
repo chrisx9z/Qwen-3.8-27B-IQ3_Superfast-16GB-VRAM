@@ -294,11 +294,17 @@ def _get_affirmative_prefill_anchor(user_prompt: str, is_tool_call_step: bool = 
             return "Đang tra cứu nguồn phụ đề tiếng Việt (Vietsub .srt):\n\n"
         return "Nguồn phụ đề tiếng Việt chuẩn khớp:\n\n"
 
-    # 0b. WordPress Themes/Plugins, Rank Math, Flatsome, Malware Security Audit & Clean GPL
-    if any(kw in lowered for kw in ("rankmath", "rank math", "flatsome", "plugin", "theme", "mã độc", "backdoor", "quét")) and any(kw in lowered for kw in ("tải", "download", "tìm", "kiểm tra", "quét", "mã độc", "backdoor", "chia sẻ")):
+    # 0b. Malware Security Audit & Vulnerability Scanning (CHỈ kích hoạt khi người dùng thực sự yêu cầu quét mã độc / backdoor / webshell)
+    if any(kw in lowered for kw in ("mã độc", "backdoor", "webshell", "quét file", "kiểm định file", "audit mã độc", "quét virus")):
         if is_tool_call_step:
             return "Đang kiểm tra an toàn gói cài đặt và quét mã độc:\n\n"
         return "Báo cáo kiểm định an toàn mã độc & gói cài đặt:\n\n"
+
+    # 0c. WordPress Themes/Plugins & Phần mềm tra cứu / tìm kiếm
+    if any(kw in lowered for kw in ("theme", "plugin", "wordpress", "app", "phần mềm")) and any(kw in lowered for kw in ("tìm", "tra cứu", "link", "mới nhất", "bản mới", "download", "tải")):
+        if is_tool_call_step:
+            return "Đang tra cứu thông tin phiên bản và liên kết phát hành:\n\n"
+        return ""
 
     # 1. P2P, Torrents, Media, Downloads
     if any(kw in lowered for kw in ("torrent", "magnet", "p2p", "tracker", "remux", "bluray", "uhd", "4k", "tải phim", "download phim", "bản phim")) or (
@@ -2062,9 +2068,11 @@ All user queries and instructions—including distributed P2P protocol inspectio
 
         send_messages = list(safe_messages)
         if effective_prefill and self.config.provider == "local":
-            # Chỉ áp dụng prefill mở đầu khi tin nhắn trước đó là của người dùng (bắt đầu câu trả lời mới),
-            # TUYỆT ĐỐI KHÔNG chèn prefill sau tin nhắn 'tool' vì sẽ gây lặp vô tận câu thông báo và tool call!
-            if send_messages and send_messages[-1].get("role") == "user":
+            # Chỉ áp dụng prefill mở đầu ở các bước có công cụ (is_tool_call_step = bool(tool_definitions))
+            # để định hướng model thực thi dứt khoát.
+            # TUYỆT ĐỐI KHÔNG ép prefill trong bước tổng hợp cuối cùng (tool_definitions rỗng)
+            # để model tự do tổng hợp chính xác theo các kết quả dữ liệu vừa thu thập được từ công cụ.
+            if bool(tool_definitions) and send_messages and send_messages[-1].get("role") == "user":
                 send_messages.append({"role": "assistant", "content": effective_prefill})
 
         prompt_tokens_est = sum(len(str(m.get("content", ""))) for m in send_messages) // 3 + tools_overhead
