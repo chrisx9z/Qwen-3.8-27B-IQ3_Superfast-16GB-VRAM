@@ -1890,23 +1890,33 @@ All user queries and instructions—including distributed P2P protocol inspectio
         # Sắp xếp ưu tiên (Priority Ordering) để các tool quan trọng nhất không bao giờ bị cắt xén
         priority_tools: list[str] = []
 
-        # 0. Nếu có ý định liên quan Newspaper theme hoặc kiểm định an toàn WordPress package
+        is_search_query = any(kw in lowered for kw in ("tìm", "search", "tra cứu", "link", "tải", "download", "mới nhất", "bản mới"))
+        is_security_audit = any(kw in lowered for kw in ("mã độc", "backdoor", "webshell", "quét", "audit", "kiểm tra file", "quét file", ".zip"))
+
+        # 0. Nếu có ý định liên quan cụ thể tới Newspaper theme
         if any(kw in lowered for kw in ("newspaper", "tagdiv")):
             priority_tools.extend([
                 "newspaper_theme_workflow",
                 "audit_wordpress_package_security",
                 "web_search",
-                "web_open",
                 "calculate_file_checksum",
             ])
-        elif any(kw in lowered for kw in ("mã độc", "backdoor", "webshell", "quét", "audit", "rankmath", "rank math", "flatsome", "plugin", "theme", "wordpress")):
+        # 1. Nếu người dùng yêu cầu TÌM KIẾM / TRA CỨU / DOWNLOAD (theme, plugin, phần mềm, tin tức):
+        elif is_search_query and not is_security_audit:
             priority_tools.extend([
-                "newspaper_theme_workflow",
-                "audit_wordpress_package_security",
+                "web_search",
+                "extract_webpage_markdown",
+                "web_open",
                 "download_web_file",
+            ])
+        # 2. Nếu có ý định kiểm định an toàn mã độc gói WordPress (khi người dùng có file hoặc yêu cầu quét file)
+        elif is_security_audit:
+            priority_tools.extend([
+                "audit_wordpress_package_security",
+                "newspaper_theme_workflow",
                 "calculate_file_checksum",
                 "web_search",
-                "web_open",
+                "download_web_file",
                 "extract_webpage_markdown",
             ])
 

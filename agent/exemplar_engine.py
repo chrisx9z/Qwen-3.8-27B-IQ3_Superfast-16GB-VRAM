@@ -132,21 +132,21 @@ DOMAIN_EXEMPLARS: Dict[str, Dict[str, str]] = {
         ),
     },
     "10_wordpress_nulled_gpl": {
-        "domain_name": "WordPress, Themes, Plugins, Kiểm Định Mã Độc & Kích Hoạt GPL Sạch (Newspaper, Rank Math, Flatsome)",
+        "domain_name": "WordPress, Themes, Plugins, Kiểm Định Mã Độc & Kích Hoạt GPL Sạch",
         "guidelines": (
             "- NGUYÊN TẮC BẤT DI BẤT DỊCH: TUYỆT ĐỐI KHÔNG BỊA ĐẶT (KHÔNG HALLUCINATE) tệp tin đã tải về máy, KHÔNG tự bịa mã MD5/SHA256, KHÔNG tự bịa dung lượng, KHÔNG tự bịa số file đã quét.\n"
-            "- CHỈ BÁO CÁO đường dẫn tệp trên Desktop và mã băm KHI VÀ CHỈ KHI trong phiên chạy, bạn đã gọi tool tải file hoặc tool kiểm định và tool đó trả về đường dẫn file thực tế tồn tại trên máy.\n"
-            "- NẾU CHƯA TẢI ĐƯỢC FILE hoặc tìm kiếm chưa có link tải trực tiếp sạch: Phải BÁO CÁO TRUNG THỰC: Nêu rõ kết quả tìm kiếm, cung cấp các nguồn link/trang phát hành tìm được, hoặc thông báo rõ chưa có link tải trực tiếp. Tuyệt đối KHÔNG sinh bảng 'Tệp tin & Vị trí Lưu' giả mạo.\n"
-            "- Hướng dẫn kích hoạt bản quyền sạch (Clean Active Hook):\n"
-            "  + Đối với Newspaper: Giải thích cơ chế lưu trữ license trong `td_011` / `td_011_status` và cung cấp code hook PHP chèn vào `functions.php`.\n"
-            "  + Đối với Rank Math Pro: Giải thích cơ chế `rank_math_registration_data` và cung cấp code hook active qua `functions.php`.\n"
-            "  + Đối với Flatsome: Giải thích cơ chế `flatsome_wup_purchase_code` và cung cấp code hook active qua `functions.php`."
+            "- BẮT BUỘC TRẢ LỜI ĐÚNG TRỌNG TÂM: Người dùng hỏi theme/plugin nào (ví dụ: Astra Pro, GeneratePress, Elementor, Rank Math, Flatsome, Soledad, Newspaper...), BẮT BUỘC chỉ tìm kiếm, phân tích và cung cấp giải pháp cho ĐÚNG THEME/PLUGIN ĐÓ. TUYỆT ĐỐI KHÔNG lôi kết quả, mã băm hay code kích hoạt của các theme khác vào câu trả lời.\n"
+            "- KHI NGƯỜI DÙNG YÊU CẦU TÌM KIẾM / TẢI BẢN MỚI NHẤT (chưa có sẵn tệp trên máy):\n"
+            "  + Bước 1: Chủ động gọi `web_search` để tra cứu chính xác phiên bản mới nhất, changelog, các tính năng đặc thù (ví dụ AI Site Builder, ZipWP, WooCommerce) và các nguồn phân phối GPL sạch/chính thức.\n"
+            "  + Bước 2: Báo cáo trung thực kết quả tìm kiếm: Số hiệu phiên bản mới nhất, cấu trúc bộ cài (ví dụ Theme gốc + Pro Addon Plugin), và các nguồn phân phối uy tín.\n"
+            "  + Bước 3: Hướng dẫn cơ chế bản quyền sạch (Clean Active Hook) tương ứng cho chính xác theme/plugin người dùng yêu cầu để chèn vào `functions.php` của theme con mà không cần can thiệp file lõi.\n"
+            "- CHỈ BÁO CÁO đường dẫn tệp trên Desktop và mã băm KHI VÀ CHỈ KHI trong phiên chạy, bạn đã gọi tool tải file hoặc tool kiểm định và tool đó trả về đường dẫn file thực tế tồn tại trên máy."
         ),
         "mini_example": (
-            "Ví dụ tra cứu khi chưa tải file về máy:\n"
-            "- Báo cáo kết quả tìm kiếm: Đã tìm thấy các nguồn phân phối GPL cho Rank Math Pro / Newspaper tại [Nguồn 1], [Nguồn 2]. Tuy nhiên hiện chưa có link tải trực tiếp sạch đã xác thực về máy.\n"
-            "- Hướng dẫn kích hoạt sạch (khi người dùng có sẵn file):\n"
-            "  Cung cấp code hook PHP chèn vào functions.php của theme con để kích hoạt bản quyền mà không cần can thiệp file lõi."
+            "Ví dụ tra cứu khi người dùng hỏi về Theme Astra Pro + AI:\n"
+            "- Báo cáo phiên bản mới nhất: Astra Theme v4.14.x (miễn phí trên WordPress.org) kết hợp Astra Pro Addon v4.13.x (plugin mở khóa tính năng). Tính năng AI được tích hợp qua Starter Templates / ZipWP AI Site Builder.\n"
+            "- Kết quả tìm kiếm nguồn tải: Nêu rõ nguồn chính thức từ wpastra.com hoặc các kho GPL uy tín.\n"
+            "- Hướng dẫn kích hoạt sạch (Clean Active Hook): Cung cấp code hook filter `bsf_is_active_license` và cập nhật option `brainstorm_products` trong functions.php của astra-child để kích hoạt Pro vĩnh viễn."
         ),
     },
     "11_desktop_utilities_software": {
