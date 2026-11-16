@@ -867,29 +867,31 @@ def cleanup_orphaned_owned_servers() -> list[int]:
     return get_lifecycle_registry().cleanup_orphaned_servers()
 
 
+def _handle_console_ctrl_event(ctrl_type: int) -> bool:
+    """Xử lý sự kiện đóng console Windows (CTRL_C/BREAK/CLOSE/LOGOFF/SHUTDOWN)."""
+    # CTRL_C_EVENT=0, CTRL_BREAK_EVENT=1, CTRL_CLOSE_EVENT=2,
+    # CTRL_LOGOFF_EVENT=5, CTRL_SHUTDOWN_EVENT=6
+    if int(ctrl_type) in (0, 1, 2, 5, 6):
+        try:
+            shutdown_owned_servers(reason=f"console_ctrl_{int(ctrl_type)}")
+        except Exception:
+            pass
+    return False
+
+
 def _install_windows_console_handler() -> None:
     global _CONSOLE_CTRL_HANDLER_REF
     if not IS_WINDOWS or _CONSOLE_CTRL_HANDLER_REF is not None:
         return
     try:
         handler_type = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.DWORD)
-
-        @handler_type
-        def _console_ctrl_handler(ctrl_type: int) -> bool:
-            # CTRL_C_EVENT=0, CTRL_BREAK_EVENT=1, CTRL_CLOSE_EVENT=2,
-            # CTRL_LOGOFF_EVENT=5, CTRL_SHUTDOWN_EVENT=6
-            if ctrl_type in (0, 1, 2, 5, 6):
-                try:
-                    shutdown_owned_servers(reason=f"console_ctrl_{ctrl_type}")
-                except Exception:
-                    pass
-            return False
+        callback = handler_type(_handle_console_ctrl_event)
 
         kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
         kernel32.SetConsoleCtrlHandler.argtypes = [handler_type, wintypes.BOOL]
         kernel32.SetConsoleCtrlHandler.restype = wintypes.BOOL
-        if kernel32.SetConsoleCtrlHandler(_console_ctrl_handler, True):
-            _CONSOLE_CTRL_HANDLER_REF = _console_ctrl_handler
+        if kernel32.SetConsoleCtrlHandler(callback, True):
+            _CONSOLE_CTRL_HANDLER_REF = callback
     except Exception:
         pass
 
