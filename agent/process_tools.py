@@ -91,6 +91,13 @@ def stop_managed_process(pid: int) -> dict[str, Any]:
         except psutil.TimeoutExpired:
             process.kill()
             process.wait(timeout=3)
+        if "llama-server" in name:
+            try:
+                from llm.server_lifecycle import get_lifecycle_registry
+
+                get_lifecycle_registry().unregister_pid(int(pid))
+            except Exception:
+                pass
         return {"stopped": True, "pid": pid, "name": name}
     except psutil.NoSuchProcess as error:
         raise FileNotFoundError(f"Process not found: {pid}") from error

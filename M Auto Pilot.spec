@@ -9,6 +9,7 @@ block_cipher = None
 hiddenimports = [
     "uuid",
     "core.llm_settings",
+    "llm.server_lifecycle",
     # requests stack
     "requests",
     "urllib3",
@@ -38,7 +39,6 @@ hiddenimports = [
     "mcp.server.stdio",
     "mcp.server.session",
     "mcp.shared",
-    "mcp.shared.session",
     "mcp.shared.context",
     "anyio",
     "anyio._backends",
@@ -54,6 +54,7 @@ datas = [
     ("assets/M_Auto_Pilot_logo.png", "assets"),
     ("assets/M_Auto_Pilot.ico", "assets"),
     ("ui/styles.qss", "ui"),
+    ("config/llama_lifecycle.json", "config"),
 ]
 datas += collect_data_files("rapidocr_onnxruntime")
 datas += collect_data_files("mcp")
@@ -114,7 +115,7 @@ exe = EXE(
     a.zipfiles,
     a.datas,
     [],
-    name="Auto Pilot Qwen 3.8 27B IQ3_Superfast",
+    name="M Auto Pilot (Latest)",
     debug=False,
     bootloader_ignore_signals=False,
     strip=False,

@@ -10,7 +10,13 @@ def get_project_root() -> Path:
     if configured:
         return Path(configured).resolve()
     if getattr(sys, "frozen", False):
-        return Path(sys.executable).parent
+        exe_parent = Path(sys.executable).parent
+        if (exe_parent / "agent").is_dir() and (exe_parent / "ui").is_dir():
+            return exe_parent
+        vibe_path = Path(r"D:\Vibe Code\M-Auto-Pilot")
+        if vibe_path.is_dir():
+            return vibe_path
+        return exe_parent
     file_root = Path(__file__).resolve().parents[1]
     if (file_root / "agent").is_dir() and (file_root / "ui").is_dir():
         return file_root
@@ -26,10 +32,17 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 import threading
+from typing import Any
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QAction, QIcon
 from PySide6.QtWidgets import QApplication, QMainWindow, QMenu, QSystemTrayIcon
 
+from llm.server_lifecycle import (
+    cleanup_orphaned_owned_servers,
+    install_exit_handlers,
+    load_lifecycle_config,
+    shutdown_owned_servers,
+)
 from ui.agent_page import AgentPage
 
 
@@ -116,7 +129,69 @@ def load_stylesheet(app: QApplication) -> None:
             continue
 
 
+def bind_window_lifecycle(
+    app: QApplication,
+    window: QMainWindow,
+    agent_page: AgentPage,
+    *,
+    tray: QSystemTrayIcon | None = None,
+    hotkey: GlobalHotkeyListener | None = None,
+) -> tuple[Any, Any]:
+    """Gắn hook dọn tài nguyên và tắt llama-server sở hữu vào sự kiện đóng/thoát GUI."""
+    state = {"quitting": False, "cleaned_up": False}
+
+    def perform_shutdown(reason: str = "gui_exit") -> None:
+        if not state["cleaned_up"]:
+            state["cleaned_up"] = True
+            try:
+                agent_page.shutdown(stop_servers=False)
+            except Exception:
+                pass
+            if hotkey is not None:
+                try:
+                    hotkey.stop()
+                except Exception:
+                    pass
+            if tray is not None:
+                try:
+                    tray.hide()
+                except Exception:
+                    pass
+        try:
+            shutdown_owned_servers(reason=reason)
+        except Exception:
+            pass
+
+    def quit_application() -> None:
+        state["quitting"] = True
+        perform_shutdown("tray_quit")
+        window.close()
+        app.quit()
+
+    def close_event(event: Any) -> None:
+        cfg = load_lifecycle_config()
+        tray_visible = bool(
+            tray is not None
+            and QSystemTrayIcon.isSystemTrayAvailable()
+            and tray.isVisible()
+        )
+        if not state["quitting"] and cfg.minimize_to_tray_on_close and tray_visible:
+            event.ignore()
+            window.hide()
+            return
+        state["quitting"] = True
+        perform_shutdown("window_close")
+        event.accept()
+        app.quit()
+
+    window.closeEvent = close_event
+    app.aboutToQuit.connect(lambda: perform_shutdown("about_to_quit"))
+    return perform_shutdown, quit_application
+
+
 def main() -> int:
+    cleanup_orphaned_owned_servers()
+    install_exit_handlers()
     if hasattr(Qt, "HighDpiScaleFactorRoundingPolicy"):
         QApplication.setHighDpiScaleFactorRoundingPolicy(
             Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
@@ -174,7 +249,6 @@ def main() -> int:
 
     tray_menu.addSeparator()
     exit_action = QAction("Quit Auto Pilot", tray_menu)
-    exit_action.triggered.connect(app.quit)
     tray_menu.addAction(exit_action)
 
     tray.setContextMenu(tray_menu)
@@ -193,15 +267,20 @@ def main() -> int:
     hotkey.hotkey_triggered.connect(toggle_window)
     hotkey.start()
 
-    def close_event(event: Any) -> None:
-        event.ignore()
-        window.hide()
-
-    window.closeEvent = close_event
+    perform_shutdown, quit_application = bind_window_lifecycle(
+        app,
+        window,
+        agent_page,
+        tray=tray,
+        hotkey=hotkey,
+    )
+    exit_action.triggered.connect(quit_application)
 
     window.show()
-    result = app.exec()
-    hotkey.stop()
+    try:
+        result = app.exec()
+    finally:
+        perform_shutdown("main_finally")
     return result
 
 

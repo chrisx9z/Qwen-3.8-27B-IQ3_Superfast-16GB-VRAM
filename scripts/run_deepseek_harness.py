@@ -14,6 +14,11 @@ if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
 from llm.resource_manager import GPUResourceManager
+from llm.server_lifecycle import (
+    cleanup_orphaned_owned_servers,
+    install_exit_handlers,
+    shutdown_owned_servers,
+)
 from llm.server_manager import AGENT_SERVER_PORT, LocalLLMServerManager
 
 from core.console import configure_utf8_stdio
@@ -136,9 +141,14 @@ def main() -> int:
     if not MCP_SERVER.exists():
         raise RuntimeError("Không tìm thấy M Auto Pilot MCP server.")
 
-    _ensure_qwen(args.no_server)
-    home = _prepare_home()
-    return _run_harness(home, args.no_open, args.dump_config)
+    cleanup_orphaned_owned_servers()
+    install_exit_handlers()
+    try:
+        _ensure_qwen(args.no_server)
+        home = _prepare_home()
+        return _run_harness(home, args.no_open, args.dump_config)
+    finally:
+        shutdown_owned_servers(reason="deepseek_harness_exit")
 
 
 if __name__ == "__main__":

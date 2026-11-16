@@ -4,10 +4,18 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 from pathlib import Path
 
 import requests
+
+from llm.server_lifecycle import (
+    ServerLifecycleRegistry,
+    _terminate_pid_tree,
+    get_lifecycle_registry,
+    install_exit_handlers,
+)
 
 try:
     import psutil
@@ -15,7 +23,22 @@ except ImportError:
     psutil = None
 
 
-APP_ROOT = Path(os.environ.get("M_AUTO_PILOT_ROOT", Path(__file__).resolve().parent.parent)).resolve()
+def _resolve_app_root() -> Path:
+    configured = os.environ.get("M_AUTO_PILOT_ROOT", "").strip()
+    if configured:
+        return Path(configured).resolve()
+    if getattr(sys, "frozen", False):
+        exe_parent = Path(sys.executable).parent
+        if (exe_parent / "agent").is_dir() and (exe_parent / "ui").is_dir():
+            return exe_parent.resolve()
+        vibe_path = Path(r"D:\Vibe Code\M-Auto-Pilot")
+        if vibe_path.is_dir():
+            return vibe_path.resolve()
+        return exe_parent.resolve()
+    return Path(__file__).resolve().parent.parent
+
+
+APP_ROOT = _resolve_app_root()
 
 IS_MACOS = sys.platform == "darwin"
 IS_WINDOWS = sys.platform == "win32"
@@ -140,7 +163,7 @@ class LocalLLMServerManager:
         self,
         *,
         server_path: Path = LLAMA_SERVER_PATH,
-        model_path: Path | None = None,
+        model_path: Path | str | None = None,
         context_size: int = 32768,
         startup_timeout: int = 300,
         profile: str | None = None,
@@ -148,6 +171,7 @@ class LocalLLMServerManager:
         host: str = SERVER_HOST,
         port: int = AGENT_SERVER_PORT,
         replace_existing: bool = False,
+        registry: ServerLifecycleRegistry | None = None,
     ) -> None:
         self.server_path = server_path.resolve() if isinstance(server_path, Path) else Path(server_path)
         self.host = host.strip() or SERVER_HOST
@@ -156,6 +180,10 @@ class LocalLLMServerManager:
         self.health_url = f"{self.base_url}/health"
         self.props_url = f"{self.base_url}/props"
         self._process: subprocess.Popen | None = None
+        self._owned_pid: int | None = None
+        self._using_external_server: bool = False
+        self._start_lock = threading.RLock()
+        self._registry = registry or get_lifecycle_registry()
         self.startup_timeout = startup_timeout
         self.context_size = int(os.environ.get("M_AUTO_PILOT_CONTEXT_SIZE", str(context_size or 32768)))
         self.reasoning = reasoning
@@ -163,10 +191,18 @@ class LocalLLMServerManager:
         self.profile = "qwen38_iq3s"
 
         self.model_path = (
-            model_path.resolve()
+            Path(model_path).resolve()
             if model_path
             else QWEN38_MODEL_PATH.resolve()
         )
+
+    @property
+    def owned_pid(self) -> int | None:
+        return self._owned_pid
+
+    @property
+    def using_external_server(self) -> bool:
+        return self._using_external_server
 
     def is_running(self) -> bool:
         try:
@@ -178,56 +214,105 @@ class LocalLLMServerManager:
     is_ready = is_running
 
     def ensure_running(self) -> None:
+        self._registry.cleanup_orphaned_servers()
         if self.is_running():
+            owned_pid = self._registry.get_owned_pid_for_endpoint(self.host, self.port)
+            if owned_pid is not None:
+                self._owned_pid = owned_pid
+                self._using_external_server = False
+                self._registry.touch_activity()
+                self._registry.ensure_idle_monitor_started()
+            else:
+                # Server ngoài (vd: chay_llama_server_32k.bat / AI-Video-Localizer) -> dùng chung, không sở hữu
+                self._owned_pid = None
+                self._using_external_server = True
             return
         self.start()
 
     def start(self) -> None:
-        if not self.model_path.is_file():
-            fallback = _configured_path("M_AUTO_PILOT_MODEL_PATH", QWEN38_IQ3S_MODEL_CANDIDATES)
-            if fallback.is_file():
-                self.model_path = fallback
-            else:
-                first_model = QWEN38_IQ3S_MODEL_CANDIDATES[0].name if QWEN38_IQ3S_MODEL_CANDIDATES else "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf"
-                raise FileNotFoundError(
-                    f"Model file not found: {self.model_path}. "
-                    f"Please download {first_model} and place it into {MODEL_DIR_CANDIDATES[0]} or ~/.auto_pilot/models/"
-                )
-
-        cmd = self._build_command()
-        LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
-        log_file = open(LOG_PATH, "w", encoding="utf-8")
-
-        creation_flags = 0
-        if IS_WINDOWS and hasattr(subprocess, "CREATE_NO_WINDOW"):
-            creation_flags = subprocess.CREATE_NO_WINDOW
-
-        self._process = subprocess.Popen(
-            cmd,
-            stdout=log_file,
-            stderr=subprocess.STDOUT,
-            creationflags=creation_flags,
-        )
-
-        # Wait for server readiness
-        start_time = time.time()
-        while time.time() - start_time < self.startup_timeout:
+        install_exit_handlers()
+        with self._start_lock:
+            self._registry.cleanup_orphaned_servers()
             if self.is_running():
+                owned_pid = self._registry.get_owned_pid_for_endpoint(self.host, self.port)
+                if owned_pid is not None:
+                    self._owned_pid = owned_pid
+                    self._using_external_server = False
+                    self._registry.touch_activity()
+                    self._registry.ensure_idle_monitor_started()
+                else:
+                    self._owned_pid = None
+                    self._using_external_server = True
                 return
-            if self._process.poll() is not None:
-                raise RuntimeError(f"llama-server terminated unexpectedly. Check {LOG_PATH}")
-            time.sleep(0.5)
 
-        raise TimeoutError(f"llama-server timed out after {self.startup_timeout}s.")
+            if not self.model_path.is_file():
+                fallback = _configured_path("M_AUTO_PILOT_MODEL_PATH", QWEN38_IQ3S_MODEL_CANDIDATES)
+                if fallback.is_file():
+                    self.model_path = fallback
+                else:
+                    first_model = QWEN38_IQ3S_MODEL_CANDIDATES[0].name if QWEN38_IQ3S_MODEL_CANDIDATES else "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf"
+                    raise FileNotFoundError(
+                        f"Model file not found: {self.model_path}. "
+                        f"Please download {first_model} and place it into {MODEL_DIR_CANDIDATES[0]} or ~/.auto_pilot/models/"
+                    )
+
+            cmd = self._build_command()
+            LOG_PATH.parent.mkdir(parents=True, exist_ok=True)
+
+            creation_flags = 0
+            if IS_WINDOWS and hasattr(subprocess, "CREATE_NO_WINDOW"):
+                creation_flags = subprocess.CREATE_NO_WINDOW
+
+            log_file = open(LOG_PATH, "w", encoding="utf-8")
+            try:
+                self._process = subprocess.Popen(
+                    cmd,
+                    stdout=log_file,
+                    stderr=subprocess.STDOUT,
+                    creationflags=creation_flags,
+                )
+            finally:
+                try:
+                    log_file.close()
+                except OSError:
+                    pass
+
+            self._owned_pid = int(self._process.pid)
+            self._using_external_server = False
+            self._registry.register_process(
+                self._process,
+                host=self.host,
+                port=self.port,
+                server_path=self.server_path,
+                model_path=self.model_path,
+            )
+
+            # Wait for server readiness
+            start_time = time.time()
+            while time.time() - start_time < self.startup_timeout:
+                if self.is_running():
+                    self._registry.touch_activity()
+                    return
+                if self._process.poll() is not None:
+                    self.stop()
+                    raise RuntimeError(f"llama-server terminated unexpectedly. Check {LOG_PATH}")
+                time.sleep(0.5)
+
+            self.stop()
+            raise TimeoutError(f"llama-server timed out after {self.startup_timeout}s.")
 
     def _probe_help_text(self) -> str:
         if not hasattr(self, "_cached_help_text"):
             try:
+                creation_flags = 0
+                if IS_WINDOWS and hasattr(subprocess, "CREATE_NO_WINDOW"):
+                    creation_flags = subprocess.CREATE_NO_WINDOW
                 res = subprocess.run(
                     [str(self.server_path), "--help"],
                     capture_output=True,
                     text=True,
                     timeout=5,
+                    creationflags=creation_flags,
                 )
                 self._cached_help_text = res.stdout + res.stderr
             except Exception:
@@ -238,6 +323,8 @@ class LocalLLMServerManager:
         help_txt = self._probe_help_text()
 
         cache_type = os.environ.get("M_AUTO_PILOT_CACHE_TYPE", "q8_0").strip()
+        batch_size = os.environ.get("M_AUTO_PILOT_BATCH_SIZE", "4096").strip()
+        ubatch_size = os.environ.get("M_AUTO_PILOT_UBATCH_SIZE", "1024").strip()
         cmd = [
             str(self.server_path),
             "--model", str(self.model_path),
@@ -249,12 +336,30 @@ class LocalLLMServerManager:
             "--cache-type-k", cache_type,
             "--cache-type-v", cache_type,
             "--flash-attn", "on",
-            "-b", "2048",
-            "-ub", "1024",
+            "-b", batch_size,
+            "-ub", ubatch_size,
             "-t", "8",
             "-tb", "16",
             "--cont-batching",
         ]
+
+        # Hardware thread priority & low-latency polling (i9-14900K + RTX 5070 Ti)
+        if "--prio" in help_txt:
+            cmd.extend(["--prio", "2"])
+        if "--poll" in help_txt:
+            cmd.extend(["--poll", "100"])
+
+        # Prefix caching & System RAM KV/recurrent checkpoint pool (64 GB RAM)
+        if "--cache-prompt" in help_txt:
+            cmd.append("--cache-prompt")
+        if "--cache-ram" in help_txt:
+            cache_ram = os.environ.get("M_AUTO_PILOT_CACHE_RAM", "16384").strip()
+            if cache_ram:
+                cmd.extend(["--cache-ram", cache_ram])
+        if "--ctx-checkpoints" in help_txt:
+            cmd.extend(["--ctx-checkpoints", "64"])
+        if "--checkpoint-min-step" in help_txt:
+            cmd.extend(["--checkpoint-min-step", "2048"])
 
         if self.reasoning == "off":
             if "--reasoning" in help_txt:
@@ -272,10 +377,29 @@ class LocalLLMServerManager:
         elif not help_txt:
             cmd.append("--context-shift")
 
+        # Multi-stage lossless speculative N-gram decoding (ngram-mod + ngram-simple + ngram-map-k)
         lookup_ngram = os.environ.get("M_AUTO_PILOT_LOOKUP_NGRAM", "1").strip()
         if lookup_ngram and lookup_ngram != "0":
             if "--spec-type" in help_txt:
-                cmd.extend(["--spec-type", "ngram-mod"])
+                spec_type = os.environ.get(
+                    "M_AUTO_PILOT_SPEC_TYPE",
+                    "ngram-mod,ngram-simple,ngram-map-k",
+                ).strip()
+                cmd.extend(["--spec-type", spec_type])
+                if "--spec-ngram-mod-n-match" in help_txt:
+                    cmd.extend(["--spec-ngram-mod-n-match", "16"])
+                if "--spec-ngram-mod-n-min" in help_txt:
+                    cmd.extend(["--spec-ngram-mod-n-min", "8"])
+                if "--spec-ngram-mod-n-max" in help_txt:
+                    cmd.extend(["--spec-ngram-mod-n-max", "32"])
+                if "--spec-ngram-simple-size-n" in help_txt:
+                    cmd.extend(["--spec-ngram-simple-size-n", "4"])
+                if "--spec-ngram-simple-size-m" in help_txt:
+                    cmd.extend(["--spec-ngram-simple-size-m", "16"])
+                if "--spec-ngram-map-k-size-n" in help_txt:
+                    cmd.extend(["--spec-ngram-map-k-size-n", "4"])
+                if "--spec-ngram-map-k-size-m" in help_txt:
+                    cmd.extend(["--spec-ngram-map-k-size-m", "16"])
             elif "--lookup-ngram-min" in help_txt:
                 cmd.extend(["--lookup-ngram-min", "3"])
 
@@ -298,9 +422,19 @@ class LocalLLMServerManager:
         return cmd
 
     def stop(self) -> None:
-        if self._process and self._process.poll() is None:
-            self._process.terminate()
-            try:
-                self._process.wait(timeout=3)
-            except Exception:
-                self._process.kill()
+        # Không bao giờ tắt server bên ngoài không do chính app này khởi tạo
+        if self._using_external_server and self._owned_pid is None and self._process is None:
+            return
+
+        stopped_via_registry = False
+        if self._owned_pid is not None:
+            stopped_via_registry = self._registry.stop_owned_pid(self._owned_pid)
+
+        if not stopped_via_registry and self._process is not None:
+            if self._registry.is_owned_pid(self._process.pid):
+                self._registry.stop_owned_pid(self._process.pid)
+            elif self._process.poll() is None:
+                _terminate_pid_tree(self._process.pid, popen=self._process, grace_timeout=3.0)
+
+        self._process = None
+        self._owned_pid = None

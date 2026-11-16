@@ -4,6 +4,7 @@ import json
 import os
 import re
 import time
+from contextlib import nullcontext
 from pathlib import Path
 from typing import Any
 import requests
@@ -585,12 +586,22 @@ def test_llm_connection(
     }
 
     try:
-        resp = requests.post(
-            endpoint,
-            headers=headers,
-            json=payload,
-            timeout=timeout,
-        )
+        is_local_ep = ("127.0.0.1" in endpoint or "localhost" in endpoint)
+        scope_ctx = nullcontext()
+        if is_local_ep:
+            try:
+                from llm.server_lifecycle import get_lifecycle_registry
+
+                scope_ctx = get_lifecycle_registry().request_scope()
+            except Exception:
+                scope_ctx = nullcontext()
+        with scope_ctx:
+            resp = requests.post(
+                endpoint,
+                headers=headers,
+                json=payload,
+                timeout=timeout,
+            )
         status_code = resp.status_code
         if status_code == 200:
             res_json = {}

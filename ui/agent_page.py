@@ -52,6 +52,7 @@ from PySide6.QtWidgets import (
 
 from agent.controller import AgentConfig, AgentResult, LocalAgent
 from core.i18n import t, get_current_language, set_language, load_saved_language, SUPPORTED_LANGUAGES
+from llm.server_lifecycle import shutdown_owned_servers
 
 
 _CODE_SNIPPETS: dict[str, str] = {}
@@ -133,7 +134,7 @@ def markdown_to_html(text: str) -> str:
                 f'<div style="background: #1c202b; padding: 4px 10px; border-bottom: 1px solid #2d3345; font-size: 11px; color: #8a92a6;">'
                 f'<b>{escape(lang_label)}</b> &nbsp;|&nbsp; <a href="copy:{code_id}" style="color: #4d7cf8; text-decoration: none; font-weight: bold;">{t("copy_content")}</a>'
                 f'</div>'
-                f'<pre class="code-block" style="margin: 0; padding: 10px 12px; border: none; background: transparent;"><code>{escape(clean_code)}</code></pre>'
+                f'<pre class="code-block" style="margin: 0; padding: 10px 12px; border: none; background: transparent; color: #f0f6fc; font-family: Consolas, \'Courier New\', monospace; font-size: 13px; line-height: 1.5; white-space: pre-wrap;"><code style="color: #f0f6fc; font-family: Consolas, \'Courier New\', monospace;">{escape(clean_code)}</code></pre>'
                 f'</div>'
             )
             continue
@@ -9157,7 +9158,7 @@ class PluginHarnessManagerDialog(QDialog):
 
 def generate_chat_title_from_prompt(prompt: str, max_words: int = 7, max_chars: int = 40) -> str:
     """Tạo tiêu đề súc tích từ vài từ đầu tiên của câu hỏi người dùng thay vì 'New Chat'."""
-    text = (prompt or "").strip()
+    text = re.sub(r"\[(?:Đính kèm|File|Attachment):\s*[^\]]+\]", " ", prompt or "", flags=re.IGNORECASE).strip()
     if text.startswith("/"):
         parts = text.split(maxsplit=1)
         if len(parts) > 1 and parts[0].lower() in ("/chat", "/code", "/auto", "/plan", "/ask"):
@@ -12555,10 +12556,7 @@ class AgentPage(QWidget):
         if self._streaming_browser is None:
             self._start_assistant_stream()
         self._streaming_text += text
-        cursor = self._streaming_browser.textCursor()
-        cursor.movePosition(QTextCursor.MoveOperation.End)
-        self._streaming_browser.setTextCursor(cursor)
-        self._streaming_browser.insertPlainText(text)
+        self._streaming_browser.setHtml(markdown_to_html(self._streaming_text))
         self.scroll_to_bottom_if_near_end()
 
     def _finalize_stream(self) -> str:
@@ -13976,20 +13974,30 @@ class AgentPage(QWidget):
 
     def on_completed(self, text: str, messages: object) -> None:
         final_text = text.strip()
+        streamed = self._streaming_text.strip()
         if not final_text:
-            final_text = self._streaming_text.strip()
-        elif not self._streaming_text.strip():
+            final_text = streamed
+        elif not streamed:
             # Kết quả trả về nguyên cục (không stream) — đưa vào bong bóng.
             self._append_stream_text(final_text)
-        self._finalize_stream()
+        elif streamed in final_text:
+            self._streaming_text = final_text
+        elif final_text not in streamed:
+            if not self._streaming_text.endswith("\n"):
+                self._streaming_text += "\n\n"
+            self._streaming_text += final_text
+            final_text = self._streaming_text.strip()
+        else:
+            final_text = streamed
+        rendered_text = self._finalize_stream().strip() or final_text
         chat = self.active_chat()
         if chat is not None:
             if isinstance(messages, list):
                 chat["agent_messages"] = messages
-            if final_text:
+            if rendered_text:
                 chat.setdefault("history", []).append({
                     "role": "assistant",
-                    "content": final_text,
+                    "content": rendered_text,
                     "ts": self._timestamp(),
                 })
             chat["updated"] = datetime.now().isoformat(timespec="seconds")
@@ -14080,3 +14088,36 @@ class AgentPage(QWidget):
             str(python_executable),
             [str(launcher), "--profile", "iq3s"],
         )
+
+    def shutdown(self, *, stop_servers: bool = True) -> None:
+        """Dừng timers, worker, tiến trình phụ và các llama-server do chính app bật."""
+        if hasattr(self, "res_timer") and self.res_timer is not None:
+            try:
+                self.res_timer.stop()
+            except Exception:
+                pass
+        if self.worker is not None:
+            try:
+                self.worker.abort_event.set()
+            except Exception:
+                pass
+        if (
+            self.harness_process is not None
+            and self.harness_process.state() != QProcess.ProcessState.NotRunning
+        ):
+            try:
+                self.harness_process.terminate()
+                if not self.harness_process.waitForFinished(1500):
+                    self.harness_process.kill()
+                    self.harness_process.waitForFinished(1000)
+            except Exception:
+                pass
+        if stop_servers:
+            try:
+                shutdown_owned_servers(reason="agent_page_shutdown")
+            except Exception:
+                pass
+
+    def closeEvent(self, event: Any) -> None:
+        self.shutdown(stop_servers=True)
+        super().closeEvent(event)

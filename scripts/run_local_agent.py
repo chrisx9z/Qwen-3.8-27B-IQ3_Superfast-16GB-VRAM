@@ -12,6 +12,11 @@ if str(PROJECT_ROOT) not in sys.path:
 
 from agent.controller import AgentConfig, LocalAgent
 from core.console import configure_utf8_stdio
+from llm.server_lifecycle import (
+    cleanup_orphaned_owned_servers,
+    install_exit_handlers,
+    shutdown_owned_servers,
+)
 
 
 def main() -> int:
@@ -112,42 +117,51 @@ def main() -> int:
         elif event == "delta" and payload.get("text"):
             print(payload["text"], end="", flush=True)
 
+    cleanup_orphaned_owned_servers()
+    install_exit_handlers()
     agent = LocalAgent(
         config=config,
         event_callback=on_event,
     )
     messages = None
 
-    if args.prompt:
-        result = agent.run(args.prompt)
-        print(result.text)
-        return 0
-
-    print("Local agent đã sẵn sàng (Qwen3.8-27B IQ3_S). Gõ 'exit' để thoát.")
-
-    while True:
-        try:
-            prompt = input("Bạn> ").strip()
-        except (EOFError, KeyboardInterrupt):
-            print()
+    try:
+        if args.prompt:
+            result = agent.run(args.prompt)
+            print(result.text)
             return 0
 
-        if prompt.lower() in {"exit", "quit", ":q"}:
-            return 0
+        print("Local agent đã sẵn sàng (Qwen3.8-27B IQ3_S). Gõ 'exit' để thoát.")
 
-        if not prompt:
-            continue
+        while True:
+            try:
+                prompt = input("Bạn> ").strip()
+            except (EOFError, KeyboardInterrupt):
+                print()
+                return 0
 
+            if prompt.lower() in {"exit", "quit", ":q"}:
+                return 0
+
+            if not prompt:
+                continue
+
+            try:
+                result = agent.run(
+                    prompt,
+                    messages=messages,
+                    model_profile="qwen38_iq3s",
+                )
+                messages = result.messages
+                print(f"\nAgent> {result.text}")
+            except Exception as error:
+                print(f"Lỗi: {error}")
+    finally:
         try:
-            result = agent.run(
-                prompt,
-                messages=messages,
-                model_profile="qwen38_iq3s",
-            )
-            messages = result.messages
-            print(f"\nAgent> {result.text}")
-        except Exception as error:
-            print(f"Lỗi: {error}")
+            agent.close()
+        except Exception:
+            pass
+        shutdown_owned_servers(reason="cli_exit")
 
 
 if __name__ == "__main__":
