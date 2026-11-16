@@ -1,0 +1,7 @@
+{
+  "idle_shutdown_enabled": true,
+  "idle_timeout_minutes": 15,
+  "idle_check_interval_seconds": 10,
+  "owned_pids_file": "runtime/owned_pids.json",
+  "minimize_to_tray_on_close": false
+}
