@@ -1071,6 +1071,25 @@ b) Cơ chế phản hồi thông minh theo ngôn ngữ đầu vào (Multi-lingua
 c) Tối ưu hóa phông chữ hiển thị toàn cầu:
    - Bổ sung chuỗi font chữ toàn năng (`-apple-system, BlinkMacSystemFont, "Segoe UI", "Microsoft YaHei", "PingFang SC", "Hiragino Sans GB", "Segoe UI Symbol", "Noto Sans", Arial, sans-serif`) trong `ui/styles.qss`, đảm bảo hiển thị hoàn hảo dấu tiếng Việt và chữ Hán giản thể/phồn thể.
 
+94. GIAI ĐOẠN 85 — TỰ TẮT LLAMA-SERVER KHI THOÁT APP & KHI RẢNH 15 PHÚT (2026-11-17)
+---------------------------------------------------------------------------------
+a) Quản lý vòng đời tiến trình sở hữu (`llm/server_lifecycle.py` & `runtime/owned_pids.json`):
+   - Ghi nhận chính xác mọi tiến trình `llama-server` do chính M Auto Pilot khởi chạy kèm `pid`, `create_time`, `owner_app_pid`, `owner_app_create_time`, `server_path`, `model_path`, `cmdline` vào `runtime/owned_pids.json`.
+   - Gán `llama-server` vào Windows Job Object với cờ `JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE` để tiến trình con chết theo app ngay cả khi app bị kill cứng hoặc crash.
+   - Đăng ký dọn dẹp tại `atexit`, signal handlers (`SIGINT`, `SIGTERM`, `SIGBREAK`), và Windows `SetConsoleCtrlHandler` (`CTRL_C_EVENT`, `CTRL_BREAK_EVENT`, `CTRL_CLOSE_EVENT`, `CTRL_LOGOFF_EVENT`, `CTRL_SHUTDOWN_EVENT`).
+   - Dọn PID cũ còn sót sau crash ở lần mở sau (`cleanup_orphaned_owned_servers`) có kiểm tra `create_time` + danh tính process chống PID reuse và bảo vệ server của instance app khác đang sống.
+b) Bảo vệ tuyệt đối server bên ngoài (`llm/server_manager.py`):
+   - Khi mở app nếu cổng 8080 đã có `llama-server` do người khác hoặc AI Video Localizer bật (`chay_llama_server_32k.bat`), app dùng chung và KHÔNG ghi vào `owned_pids.json`, KHÔNG gắn Job Object, KHÔNG tắt khi thoát hoặc khi rảnh.
+c) Tự tắt khi rảnh mặc định 15 phút (`config/llama_lifecycle.json`):
+   - Cấu hình `idle_shutdown_enabled: true`, `idle_timeout_minutes: 15`, `idle_check_interval_seconds: 10`, `minimize_to_tray_on_close: false`.
+   - Theo dõi hoạt động request (`agent/controller.py` `_chat` và `core/llm_settings.py` `test_llm_connection`) qua `request_scope()`, không tắt ngang khi đang xử lý request, tự bật lại ở lượt chạy kế tiếp khi cần.
+d) Tích hợp đóng/thoát toàn bộ điểm vào (`ui/agent_page.py`, `scripts/run_auto_pilot_gui.py`, `scripts/run_local_agent.py`, `scripts/run_deepseek_harness.py`, `agent/process_tools.py`):
+   - Đóng cửa sổ chính (`closeEvent`), `Quit Auto Pilot` ở system tray, `aboutToQuit`, CLI exit và DeepSeek Harness exit đều tắt sạch mọi `llama-server` do app sở hữu.
+e) Kiểm thử & đóng gói EXE (`M Auto Pilot.spec`):
+   - Unit test `tests/test_llama_lifecycle.py` (fake HTTP server, không model thật): 11/11 PASSED.
+   - GUI offscreen test `scripts/test_gui_lifecycle_offscreen.py`: PASS; `scripts/test_ui_chat_model_combo.py`: PASS.
+   - Build lại `dist\M Auto Pilot (Latest).exe` qua `khoa_nang.py` + PyInstaller (196,144,961 bytes), đóng gói kèm `config/llama_lifecycle.json` và `llm.server_lifecycle`.
+
 
 
 
