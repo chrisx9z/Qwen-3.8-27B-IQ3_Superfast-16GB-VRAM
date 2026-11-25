@@ -16,8 +16,8 @@ SETTINGS_FILE = APP_ROOT / "work" / "auto_pilot" / "app_settings.json"
 DEFAULT_PROVIDERS: dict[str, dict[str, Any]] = {
     "local": {
         "id": "local",
-        "name": "🟢 Local GPU (Huihui-Qwen 3.8 27B Uncensored)",
-        "short_name": "Huihui Qwen 27B",
+        "name": "🟢 Local GPU (Qwen 3.8 27B Heretic IQ3_S-mtp)",
+        "short_name": "Qwen3.8 27B Heretic",
         "endpoint": "http://127.0.0.1:8080/v1/chat/completions",
         "model": "huihui-qwen38-abliterated",
         "api_key": "",
@@ -478,7 +478,7 @@ def get_verified_models() -> list[dict[str, Any]]:
             "id": "local",
             "provider": "local",
             "model": str(local_p.get("model") or "huihui-qwen38-abliterated"),
-            "display_name": "⚡ Huihui-Qwen 3.8 27B (Uncensored GPU - Mặc định)",
+            "display_name": "⚡ Qwen 3.8 27B Heretic IQ3_S-mtp (GPU - Mặc định)",
             "endpoint": str(local_p.get("endpoint") or "http://127.0.0.1:8080/v1/chat/completions"),
             "api_key": "",
             "is_default": True,

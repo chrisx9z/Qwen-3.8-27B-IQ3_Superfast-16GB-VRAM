@@ -139,11 +139,9 @@ def _model_available(path: Path) -> bool:
     return path.exists() and not marker.exists()
 
 
+# 25/11/2026 (chủ dự án chốt): CHỈ dùng Qwen3.8-27B Heretic GSQ-RCO IQ3_S-mtp (đầu MTP nhúng sẵn).
 QWEN38_IQ3S_MODEL_CANDIDATES = _model_candidates(
-    "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf",
-    "Qwen3.8-27B-UD-IQ3_S.gguf",
-    "Qwen3.8-27B-IQ3_S.gguf",
-    "Qwen2.5-32B-Instruct-IQ3_S.gguf",
+    "RVN-Qwen3.8-27B-Heretic-GSQ-RCO-IQ3_S-mtp.gguf",
 )
 
 QWEN38_MODEL_PATH = _configured_path("M_AUTO_PILOT_MODEL_PATH", QWEN38_IQ3S_MODEL_CANDIDATES)
@@ -250,7 +248,7 @@ class LocalLLMServerManager:
                 if fallback.is_file():
                     self.model_path = fallback
                 else:
-                    first_model = QWEN38_IQ3S_MODEL_CANDIDATES[0].name if QWEN38_IQ3S_MODEL_CANDIDATES else "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf"
+                    first_model = QWEN38_IQ3S_MODEL_CANDIDATES[0].name if QWEN38_IQ3S_MODEL_CANDIDATES else "RVN-Qwen3.8-27B-Heretic-GSQ-RCO-IQ3_S-mtp.gguf"
                     raise FileNotFoundError(
                         f"Model file not found: {self.model_path}. "
                         f"Please download {first_model} and place it into {MODEL_DIR_CANDIDATES[0]} or ~/.auto_pilot/models/"
@@ -377,9 +375,21 @@ class LocalLLMServerManager:
         elif not help_txt:
             cmd.append("--context-shift")
 
+        # Model *-mtp.gguf: đầu MTP nhúng sẵn -> draft-mtp (thay cho ngram). Tắt: M_AUTO_PILOT_MTP=0
+        use_mtp = (
+            str(self.model_path).lower().endswith("-mtp.gguf")
+            and os.environ.get("M_AUTO_PILOT_MTP", "1").strip() != "0"
+            and "draft-mtp" in help_txt
+        )
+        if use_mtp:
+            cmd.extend([
+                "--spec-type", "draft-mtp",
+                "--spec-draft-n-max", os.environ.get("M_AUTO_PILOT_MTP_DRAFT_MAX", "2"),
+            ])
+
         # Multi-stage lossless speculative N-gram decoding (ngram-mod + ngram-simple + ngram-map-k)
         lookup_ngram = os.environ.get("M_AUTO_PILOT_LOOKUP_NGRAM", "1").strip()
-        if lookup_ngram and lookup_ngram != "0":
+        if lookup_ngram and lookup_ngram != "0" and not use_mtp:
             if "--spec-type" in help_txt:
                 spec_type = os.environ.get(
                     "M_AUTO_PILOT_SPEC_TYPE",

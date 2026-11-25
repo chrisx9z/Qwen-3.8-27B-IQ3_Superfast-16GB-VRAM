@@ -6712,7 +6712,7 @@ class LocalToolRegistry:
             "module_scope": mod,
             "knowledge_graph_nodes": 86,
             "architectural_invariants_memorized": [
-                "Unified LLM Server on Port 8080 (Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf)",
+                "Unified LLM Server on Port 8080 (RVN-Qwen3.8-27B-Heretic-GSQ-RCO-IQ3_S-mtp.gguf)",
                 "Full PySide6 Studio Dialogs & Quick Action Chips ecosystem",
                 "High-performance In-Memory AST, Vector RAG & Zero-allocation memory",
                 "Strict Hoare Logic verification before file mutations",
@@ -8052,7 +8052,7 @@ class LocalToolRegistry:
         cnt = int(arguments.get("token_count") or 128)
         return {
             "target_endpoint": "http://127.0.0.1:8080/v1/chat/completions",
-            "model": "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf",
+            "model": "RVN-Qwen3.8-27B-Heretic-GSQ-RCO-IQ3_S-mtp.gguf",
             "tokens_generated": cnt,
             "average_tps": 38.2,
             "peak_tps": 44.5,
@@ -10083,7 +10083,7 @@ jobs:
         arguments: dict[str, Any],
     ) -> dict[str, Any]:
         return {
-            "current_model": "Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf",
+            "current_model": "RVN-Qwen3.8-27B-Heretic-GSQ-RCO-IQ3_S-mtp.gguf",
             "port": 8080,
             "average_tps": "48.2 tokens/s",
             "peak_tps": "62.5 tokens/s",

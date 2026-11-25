@@ -6338,7 +6338,7 @@ class TokenSpeedBenchmarkDialog(QDialog):
         res_d = res.get("result", {})
         md = f"""### ⚙️ Cấu Hình Tối Ưu Hóa Đã Kích Hoạt:
 - **Cổng LLM Server**: `127.0.0.1:8080` (Dùng chung với AI Video Localizer)
-- **Mô hình**: `Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf` (Uncensored)
+- **Mô hình**: `RVN-Qwen3.8-27B-Heretic-GSQ-RCO-IQ3_S-mtp.gguf` (Uncensored)
 - **FlashAttention-2**: `Bật (on)` — *Tăng 2-3x tốc độ đọc prompt và giảm 50% KV cache VRAM*
 - **Continuous Batching**: `Bật` — *Xử lý song song mượt mà*
 - **Batch Size / Micro-batch**: `2048 / 512`
@@ -6496,7 +6496,7 @@ class SystemHealthDialog(QDialog):
         lines = [
             f"### 🩺 Báo Cáo Sức Khỏe M Auto Pilot (System Health):",
             f"- **LLM Server (Shared Port 8080)**: {'🟢 Hoạt động tốt (Online)' if port_8080_open else '🔴 Chưa kết nối'}",
-            f"- **Mô hình AI**: `Huihui-Qwen3.8-27B-abliterated-UD-IQ3_S.gguf` (GPU / Uncensored)",
+            f"- **Mô hình AI**: `RVN-Qwen3.8-27B-Heretic-GSQ-RCO-IQ3_S-mtp.gguf` (GPU / Uncensored)",
             f"- **Công cụ Agent (Tool Registry)**: **{reg_count} Tools** đã đăng ký đầy đủ.",
             f"- **CPU Usage**: `{cpu_pct}%` | **RAM**: `{ram_used_gb} GB / {ram_total_gb} GB`",
             f"- **Dung lượng ổ đĩa trống**: `{disk_free_gb} GB`",
